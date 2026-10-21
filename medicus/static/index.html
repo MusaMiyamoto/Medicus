@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Medicus</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>Medicus</h1>
+    <p class="tagline">Journalassistent – alt kjører lokalt på denne maskinen</p>
+  </header>
+
+  <div class="warning" role="alert">
+    Prototype. Bruk kun oppdiktede data – ikke ekte pasientopplysninger.
+    Notatet er et utkast og må alltid kontrolleres av helsepersonell.
+  </div>
+
+  <main>
+    <section class="card">
+      <h2>1. Konsultasjon</h2>
+      <div class="row">
+        <button id="record" type="button">● Start opptak</button>
+        <label class="button secondary">
+          Last opp lydfil
+          <input id="upload" type="file" accept="audio/*" hidden>
+        </label>
+        <button id="sample" type="button" class="secondary">Bruk eksempelsamtale</button>
+      </div>
+      <label for="transcript">Transkripsjon (kan redigeres)</label>
+      <textarea id="transcript" rows="10" placeholder="Ta opp, last opp lyd, eller lim inn tekst her …"></textarea>
+      <button id="generate" type="button">Lag journalnotat</button>
+    </section>
+
+    <section class="card">
+      <h2>2. Journalnotat (utkast)</h2>
+      <div id="sections"><p class="muted">Ingen notat ennå.</p></div>
+      <div class="row">
+        <button id="copy" type="button" class="secondary" disabled>Kopier notat</button>
+        <button id="approve" type="button" disabled>Godkjenn</button>
+      </div>
+    </section>
+
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+# Hardened systemd service for running Medicus on a Linux workstation or appliance.
+# Install: copy to /etc/systemd/system/, then `systemctl enable --now medicus`.
+#
+# Models must be downloaded into /var/lib/medicus/models beforehand, because the
+# network lockdown below stops the service from reaching the internet.
+
+[Unit]
+Description=Medicus journalassistent
+After=network.target ollama.service
+Wants=ollama.service
+
+[Service]
+User=medicus
+Group=medicus
+WorkingDirectory=/opt/medicus
+ExecStart=/opt/medicus/.venv/bin/python -m medicus
+Environment=MEDICUS_AUDIT_LOG=/var/lib/medicus/audit.jsonl
+Environment=HF_HOME=/var/lib/medicus/models
+Restart=on-failure
+
+# Only this machine can talk to Medicus, and Medicus can only talk to this
+# machine (Ollama). Patient audio and text cannot leave the device.
+IPAddressDeny=any
+IPAddressAllow=localhost
+
+# Filesystem: read-only system, private /tmp, no access to home folders.
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/medicus
+StateDirectory=medicus
+UMask=0077
+
+# Privileges and kernel surface.
+NoNewPrivileges=true
+CapabilityBoundingSet=
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallFilter=@system-service
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

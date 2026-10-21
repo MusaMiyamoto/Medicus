@@ -1,0 +1,9 @@
+[project]
+name = "medicus"
+version = "0.1.0"
+description = "Local, privacy-first AI documentation assistant for Norwegian healthcare"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

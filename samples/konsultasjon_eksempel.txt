@@ -1,0 +1,18 @@
+Lege: Hei, kom inn og sett deg. Hva kan jeg hjelpe deg med i dag?
+Pasient: Hei. Jeg har hatt vondt i halsen og feber i omtrent fire dager nå. Det ble verre i går.
+Lege: Hvor høy feber har du hatt?
+Pasient: Rundt 38,8 i går kveld. I dag morges var den 38,2.
+Lege: Har du hoste eller tett nese?
+Pasient: Nei, egentlig ikke hoste. Bare veldig vondt å svelge.
+Lege: Tar du noen faste medisiner, og har du noen allergier?
+Pasient: Ingen faste medisiner. Jeg er allergisk mot penicillin, fikk utslett av det som barn.
+Lege: Takk, det er viktig å vite. Da skal jeg se i halsen din og kjenne på halsen.
+Lege: Mandlene er røde og hovne, og det er belegg på begge sider. Lymfeknutene på halsen er forstørret og litt ømme. Temperaturen nå er 38,4.
+Lege: Vi tar en strep A-hurtigtest.
+Lege: Testen er positiv. Det betyr at du har en halsbetennelse som skyldes streptokokker.
+Pasient: Å ja. Trenger jeg antibiotika da?
+Lege: Ja, men siden du er allergisk mot penicillin gir jeg deg klaritromycin i stedet, 250 milligram to ganger daglig i fem dager. Jeg sender resepten elektronisk.
+Lege: Du kan ta paracetamol mot smerter og feber. Drikk godt. Hvis du får problemer med å svelge spytt, pustevansker eller blir mye verre, må du ta kontakt med legevakten med en gang.
+Pasient: Skal jeg være hjemme fra jobb?
+Lege: Ja, jeg skriver sykemelding ut uken. Ta kontakt igjen hvis du ikke er bedre om tre dager.
+Pasient: Tusen takk.
