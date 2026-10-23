@@ -11,47 +11,82 @@ from pathlib import Path
 HERE = Path(__file__).parent
 
 GREEN, DARK, IVORY = "#1a7f4b", "#0d4f2e", "#f6fcf8"
-OUT = 2.8  # green outline around the snake, so it separates from the rod where they cross
+OUT = 1.6  # thin dark outline around the snake, so it separates from the rod where they cross
 
 
 def outline(width: float) -> float:
     """The outline gets thinner with the body, so the tail tip is not mostly outline."""
-    return min(OUT, 1.2 + width / 2)
+    return min(OUT, 0.6 + width / 3)
 
 # The snake's centre line, head to tail, in pieces that get thinner. "behind" marks where the
 # body passes behind the rod: the rod is drawn again on top there. Pieces meet beside the rod,
 # never on it, so no seam shows on the rod.
 SEGMENTS = [
     # (path, width, behind)
-    ("M63 25.5 C58 25.5 55 28.5 54.5 34", 5.2, False),       # neck: the head lies over the top of the rod
-    ("M54.5 34 C54 40 55 43.5 58 46", 5.0, False),           # down the left side
-    ("M58 46 C62 48.5 67 50 71 51.8", 4.8, True),            # behind the rod
-    ("M71 51.8 C74.5 54 74 58.5 70.5 61", 4.6, False),       # round the right side
-    ("M70.5 61 C66 63.5 61 65 58 68", 4.4, False),           # across the front, down to the left
-    ("M58 68 C55.5 70.5 55.6 74 57.5 75.6", 4.1, False),
-    ("M57.5 75.6 C61 78 66 79 69.8 80.6", 3.8, True),        # behind the rod
-    ("M69.8 80.6 C72.6 82.6 72 87 68.5 89", 3.5, False),
-    ("M68.5 89 C65.5 91 62 92.5 59.6 95", 3.1, False),       # across the front
-    ("M59.6 95 C58.2 97.2 58.3 99.3 59.2 100.3", 2.7, False),
-    ("M59.2 100.3 C61.5 102 65 102.6 67.8 103.8", 2.3, True),  # behind the rod
-    ("M67.8 103.8 C70.2 105.4 70.6 108.6 69.8 111.4", 1.9, False),  # tail runs straight down the rod's side
-    ("M69.8 111.4 C69.5 112.6 69 113.6 68.3 114.4", 1.0, False),    # ... and ends in a point
+    ("M63 27 C56 26.5 52 30.5 52 36.5", 5.6, False),          # neck: a long arc from the head down the left
+    ("M52 36.5 C52 41.5 53.5 44.5 57 47", 5.6, False),
+    ("M57 47 C60.5 49.5 66 51 70.5 52.5", 5.4, True),         # behind the rod
+    ("M70.5 52.5 C74.5 54 75 58.5 71.5 61.5", 5.2, False),    # round the right side
+    ("M71.5 61.5 C67 65.5 61 69.5 57.5 73", 5.0, False),      # long, steep crossing in front
+    ("M57.5 73 C54.5 76 55 80 58.5 81.5", 4.6, False),        # round the left side
+    ("M58.5 81.5 C61.5 83 65 84 68.5 85.5", 4.3, True),       # behind the rod
+    ("M68.5 85.5 C71.5 87 71.5 91 68.8 93", 4.0, False),
+    ("M68.8 93 C66 95 62 97 60 99.5", 3.6, False),            # steep crossing in front
+    ("M60 99.5 C58.6 101 58.2 102.4 58.8 103.2", 3.2, False),
+    ("M58.8 103.2 C61.5 104.2 65.5 104.4 67.6 104.6", 2.8, True),  # behind the rod
+    ("M67.6 104.6 C69.8 105.4 70.6 108.2 70 110.8", 2.2, False),    # the tail runs down beside the rod
+    ("M70 110.8 C69.6 112.5 68.4 113.4 67.3 112.9", 1.2, False),    # and hooks back towards it, to a point
 ]
+TIP = 0.6  # width at the very end of the tail
+
+
+def taper(segments, steps=8):
+    """Cut every piece into short bits whose width shrinks smoothly towards the next piece's width,
+    so the body tapers evenly instead of in steps."""
+    out = []
+    for i, (d, width, behind) in enumerate(segments):
+        end_width = segments[i + 1][1] if i + 1 < len(segments) else TIP
+        nums = [float(n) for n in re.findall(r"-?\d+(?:\.\d+)?", d)]
+        p0, p1, p2, p3 = (nums[0], nums[1]), (nums[2], nums[3]), (nums[4], nums[5]), (nums[6], nums[7])
+        for k in range(steps):
+            a, b = k / steps, (k + 1) / steps
+            q = _sub_curve(p0, p1, p2, p3, a, b)
+            w = width + (end_width - width) * (a + b) / 2
+            out.append(("M{:.2f} {:.2f} C{:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f}".format(*q[0], *q[1], *q[2], *q[3]),
+                        w, behind))
+    return out
+
+
+def _sub_curve(p0, p1, p2, p3, a, b):
+    """The part of a cubic Bézier curve between t=a and t=b."""
+    def point(t):
+        s = 1 - t
+        return tuple(s**3 * p0[i] + 3 * s * s * t * p1[i] + 3 * s * t * t * p2[i] + t**3 * p3[i] for i in (0, 1))
+
+    def slope(t):
+        s = 1 - t
+        return tuple(3 * s * s * (p1[i] - p0[i]) + 6 * s * t * (p2[i] - p1[i]) + 3 * t * t * (p3[i] - p2[i]) for i in (0, 1))
+
+    start, end, d0, d1, k = point(a), point(b), slope(a), slope(b), (b - a) / 3
+    return start, (start[0] + d0[0] * k, start[1] + d0[1] * k), (end[0] - d1[0] * k, end[1] - d1[1] * k), end
+
+
+PIECES = taper(SEGMENTS)
 
 # Head drawn pointing right with the neck at x=0: rounded snout, flat jaw, a little wider than the neck.
 HEAD = ("M0 -3.7 C3 -4.9 7.5 -5.3 10.4 -4.4 C13 -3.6 14.2 -1.7 14 0.2 C13.8 2.1 12.2 3.4 9.6 3.8 "
         "C6.4 4.3 3 4.1 0 3.7 Z")
-HEAD_SCALE = 0.72  # the head is drawn at full size above, then scaled to fit the slim body
-HEAD_AT = f"translate(63 25.5) rotate(4) scale({HEAD_SCALE})"
+HEAD_SCALE = 0.8  # the head is drawn at full size above, then scaled to fit the slim body
+HEAD_AT = f"translate(63 27) rotate(6) scale({HEAD_SCALE})"
 ROD = "M59.8 18 C59.8 13.4 68.2 13.4 68.2 18 L66.6 112.5 C66.6 115.4 61.4 115.4 61.4 112.5 Z"  # wider at the top
 
 
 def svg(size=128):
-    def strokes(colour, outlined=False, pad=0.0, segs=SEGMENTS):
+    def strokes(colour, outlined=False, pad=0.0, segs=PIECES):
         return "".join(f'<path d="{d}" stroke="{colour}" stroke-width="{w + (outline(w) if outlined else 0) + pad:.1f}"/>'
                        for d, w, _ in segs)
 
-    behind = [s for s in SEGMENTS if s[2]]
+    behind = [s for s in PIECES if s[2]]
     return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="{size}" height="{size}">
   <title>Medicus – Asklepiosstaven</title>
   <!-- The Rod of Asclepius: one staff, one serpent. Drawn for Medicus; the symbol itself is ancient
@@ -90,7 +125,7 @@ def svg(size=128):
     </g>
     <!-- the rod again, on top where the snake passes behind it, with green edges -->
     <g mask="url(#behind)">
-      <path d="{ROD}" fill="none" stroke="{GREEN}" stroke-width="3"/>
+      <path d="{ROD}" fill="none" stroke="{GREEN}" stroke-width="{2 * OUT}"/>
       <path d="{ROD}" fill="url(#rod)"/>
     </g>
   </g>
@@ -106,11 +141,11 @@ def faint(line: str, opacity: float) -> str:
         return (f'<g fill="none" stroke="{line}" stroke-linecap="round" stroke-linejoin="round">{edge}</g>'
                 f'<g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">{body}</g>')
 
-    front = [s for s in SEGMENTS if not s[2]]
+    front = [s for s in PIECES if not s[2]]
     edge = "".join(f'<path d="{d}" stroke-width="{w + outline(w):.1f}"/>' for d, w, _ in front)
     body = "".join(f'<path d="{d}" stroke-width="{w:.1f}"/>' for d, w, _ in front)
     return (f'<g transform="translate(1180 120) scale(6.6)" opacity="{opacity}">\n'
-            f'    {snake([s for s in SEGMENTS if s[2]])}\n'
+            f'    {snake([s for s in PIECES if s[2]])}\n'
             f'    <path d="{ROD}" fill="#ffffff" stroke="{line}" stroke-width="1.5"/>\n'
             f'    <g fill="none" stroke="{line}" stroke-linecap="round" stroke-linejoin="round">{edge}</g>\n'
             f'    <path transform="{HEAD_AT}" d="{HEAD}" fill="{line}" stroke="{line}" stroke-width="{OUT / HEAD_SCALE:.1f}"/>\n'
