@@ -1,0 +1,17 @@
+#!/bin/sh
+# Runs at login: puts the Medicus shortcuts on the desktop the first time, and marks them as
+# trusted so XFCE opens them without a warning. Users may delete them; they won't come back.
+DONE="$HOME/.config/medicus/skrivebord-klar"
+[ -f "$DONE" ] && exit 0
+DIR=$(xdg-user-dir DESKTOP 2>/dev/null)
+[ -n "$DIR" ] || DIR="$HOME/Skrivebord"
+mkdir -p "$DIR" "$(dirname "$DONE")"
+for app in medicus-pasient medicus-post medicus-nettleser medicus-kalkulator medicus-sikkerhet; do
+  src="/usr/share/applications/$app.desktop"
+  dst="$DIR/$app.desktop"
+  [ -f "$src" ] || continue
+  cp "$src" "$dst"
+  chmod 755 "$dst"
+  gio set -t string "$dst" metadata::xfce-exe-checksum "$(sha256sum "$dst" | cut -d' ' -f1)" 2>/dev/null
+done
+touch "$DONE"

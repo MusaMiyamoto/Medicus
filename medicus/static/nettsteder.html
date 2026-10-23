@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Medicus Nettleser</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img src="/logo.svg" alt="">Medicus Nettleser</div>
+    <nav>
+      <a href="/pasient">Pasientjournal</a>
+      <a href="/post">Post</a>
+      <a href="/sikkerhet">Sikkerhet</a>
+    </nav>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Godkjente nettsteder</h2>
+      <p class="muted">Medicus Nettleser åpner bare godkjente nettsteder for helsepersonell. Sporing blokkeres,
+        og alle forbindelser er krypterte. Trenger du et nettsted som mangler? Spør IT.</p>
+      <div id="sites" class="sites"></div>
+    </section>
+  </main>
+  <script src="/static/common.js"></script>
+  <script>
+    api("/api/nettsteder").then((sites) => {
+      document.getElementById("sites").innerHTML = sites.map((s) => `
+        <a class="site" href="https://www.${esc(s.domene)}/">
+          <b>${esc(s.navn)}</b><span class="muted">${esc(s.beskrivelse)}</span><span class="domain">${esc(s.domene)}</span>
+        </a>`).join("");
+    });
+  </script>
+</body>
+</html>

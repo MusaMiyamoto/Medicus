@@ -1,0 +1,14 @@
+# Nothing in users' home folders (downloads, email attachments, files from anywhere) can be
+# run as a program. Most malware needs exactly that.
+[Unit]
+Description=Hjemmemapper uten programkjøring
+Before=systemd-user-sessions.service
+
+[Mount]
+What=/home
+Where=/home
+Type=none
+Options=bind,nosuid,nodev,noexec
+
+[Install]
+WantedBy=local-fs.target

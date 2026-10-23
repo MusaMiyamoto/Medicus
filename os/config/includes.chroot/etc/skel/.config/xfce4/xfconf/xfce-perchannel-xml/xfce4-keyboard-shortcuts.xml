@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Only safe shortcuts. "override" replaces XFCE's defaults, which include Alt+F2 (run any
+     command) and Ctrl+Alt+T (terminal). Window-manager shortcuts like Alt+Tab are unchanged. -->
+<channel name="xfce4-keyboard-shortcuts" version="1.0">
+  <property name="commands" type="empty">
+    <property name="custom" type="empty">
+      <property name="override" type="bool" value="true"/>
+      <property name="&lt;Super&gt;l" type="string" value="xflock4"/>
+      <property name="&lt;Primary&gt;&lt;Alt&gt;l" type="string" value="xflock4"/>
+      <property name="&lt;Super&gt;e" type="string" value="thunar"/>
+      <property name="Print" type="string" value="xfce4-screenshooter"/>
+      <property name="Super_L" type="string" value="xfce4-popup-whiskermenu"/>
+      <property name="&lt;Primary&gt;Escape" type="string" value="xfce4-popup-whiskermenu"/>
+    </property>
+  </property>
+</channel>

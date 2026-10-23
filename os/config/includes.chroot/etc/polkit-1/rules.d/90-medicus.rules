@@ -1,0 +1,13 @@
+// Medicus: health personnel can use the networks IT has set up, but can't add new ones
+// (for example open café Wi-Fi), change network settings, or share the connection.
+polkit.addRule(function (action, subject) {
+  if (!subject.isInGroup("medicus-personell") && !subject.isInGroup("medicus-nod")) {
+    return polkit.Result.NOT_HANDLED;
+  }
+  if (action.id.indexOf("org.freedesktop.NetworkManager.settings.modify") === 0 ||
+      action.id.indexOf("org.freedesktop.NetworkManager.wifi.share") === 0 ||
+      action.id === "org.freedesktop.NetworkManager.network-control") {
+    return polkit.Result.NO;
+  }
+  return polkit.Result.NOT_HANDLED;
+});

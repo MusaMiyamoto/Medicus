@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Utleveringsforespørsler (simulert)
+Comment=Forespørsler fra myndigheter, vurdert av personvernombud
+Exec=xdg-open http://127.0.0.1:8100/utlevering
+Icon=security-high
+Terminal=false
+Categories=Office;

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Medicus Pasientjournal
+Comment=Kritisk informasjon, besøk, notater og resepter fra alle virksomheter
+Exec=xdg-open http://127.0.0.1:8000/pasient
+Icon=/usr/share/medicus/medicus-logo.svg
+Terminal=false
+Categories=Office;
+Keywords=pasient;journal;kjernejournal;resept;

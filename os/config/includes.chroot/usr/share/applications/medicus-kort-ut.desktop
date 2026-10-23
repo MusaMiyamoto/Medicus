@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Ta ut kort (simulert)
+Comment=Simulerer at helsepersonellkortet tas ut av leseren – økten avsluttes
+Exec=medicus-kort ta-ut
+Icon=media-eject
+Terminal=false
+Categories=System;

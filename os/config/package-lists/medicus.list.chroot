@@ -1,23 +1,39 @@
-# Desktop: XFCE with a Windows-style start menu (Whisker Menu)
+# Desktop: XFCE parts listed one by one, so the "run command" box (xfce4-appfinder) and the
+# terminal are left out. Users start programs from the Start menu only.
 xorg
-xfce4
+libxfce4ui-utils
+thunar
+xfce4-panel
+xfce4-session
+xfce4-settings
+xfconf
+xfdesktop4
+xfwm4
 xfce4-whiskermenu-plugin
-xfce4-terminal
-xfce4-screensaver
-xfce4-power-manager
 xfce4-pulseaudio-plugin
 xfce4-notifyd
+xfce4-screensaver
+xfce4-power-manager
+arc-theme
+papirus-icon-theme
 lightdm
-lightdm-gtk-greeter
+gir1.2-lightdm-1
+gvfs
 network-manager
 network-manager-gnome
-firefox-esr
-firefox-esr-l10n-nb-no
 xdg-utils
 pipewire-audio
 pavucontrol
 fonts-noto-core
 fonts-dejavu
+
+# Standard programs
+firefox-esr
+firefox-esr-l10n-nb-no
+mousepad
+ristretto
+evince
+xfce4-screenshooter
 
 # Norwegian language and keyboard
 locales
@@ -31,15 +47,21 @@ python3-pip
 python3-gi
 gir1.2-gtk-4.0
 
+# Chip-card readers (for real health-personnel cards)
+pcscd
+opensc
+
 # Security
 nftables
+wireguard-tools
 apparmor
 apparmor-utils
 apparmor-profiles
+usbguard
 unattended-upgrades
-sudo
-
-# Installer (with full-disk encryption option)
-calamares
-calamares-settings-debian
+auditd
+clamav
+clamav-daemon
+tinyproxy
+lynis
 cryptsetup

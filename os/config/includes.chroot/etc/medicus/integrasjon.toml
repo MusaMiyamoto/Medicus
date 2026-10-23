@@ -1,0 +1,21 @@
+# Hvor Medicus OS henter og sender helseopplysninger.
+# Se docs/helsenorge-integrasjon.md for hva som trengs for å koble til ekte tjenester.
+#
+#   modus = "simulert"   lokal simulator med syntetiske testpasienter (standard)
+#   modus = "nhn"        Norsk helsenett – krever avtale, HelseID-klient og godkjenning
+
+modus = "simulert"
+
+[simulert]
+url = "http://127.0.0.1:8100"
+
+[nhn]
+# Fylles ut når en avtale er på plass. Adressene må bekreftes med Norsk helsenett.
+miljo = "test"
+helseid_authority = ""
+helseid_client_id = ""
+helseid_private_key = "/etc/medicus/nhn/helseid-klient.jwk"
+kjernejournal_url = ""
+eresept_url = ""
+dokumentdeling_url = ""
+helsenorge_url = ""

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pasientjournal – Medicus</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img src="/logo.svg" alt="">Medicus</div>
+    <nav>
+      <a href="/pasient" aria-current="page">Pasientjournal</a>
+      <a href="/post">Post</a>
+      <a href="/">Journalassistent</a>
+      <a href="/sikkerhet">Sikkerhet</a>
+    </nav>
+    <div class="who" id="who"></div>
+  </header>
+
+  <main>
+    <section class="card" id="search">
+      <h2>Finn pasient</h2>
+      <form id="find" class="row">
+        <input id="fnr" inputmode="numeric" placeholder="Fødselsnummer (11 siffer)" style="flex: 1; min-width: 220px">
+        <button type="submit">Åpne journal</button>
+      </form>
+      <p class="muted">Syntetiske testpasienter (kun i simulering):</p>
+      <div id="patients" class="patients"></div>
+      <p class="muted">Når du åpner en journal, får pasienten beskjed på Helsenorge om hvem som så den.</p>
+    </section>
+
+    <div id="record" hidden>
+      <div class="row" style="justify-content: space-between; align-items: center">
+        <h2 id="name" style="margin: 0"></h2>
+        <button id="close" class="secondary" type="button">Lukk journal</button>
+      </div>
+      <div class="grid">
+        <section class="card critical">
+          <h2>Kritisk informasjon</h2>
+          <div id="critical"></div>
+        </section>
+        <section class="card">
+          <h2>Legemidler og resepter</h2>
+          <div id="prescriptions"></div>
+          <details id="prescribe-box">
+            <summary>Forskriv e-resept</summary>
+            <form id="prescribe">
+              <label for="drug">Legemiddel</label><input id="drug" required>
+              <label for="dose">Dosering</label><input id="dose" required>
+              <label for="reason">Indikasjon</label><input id="reason" required>
+              <p><button type="submit">Send e-resept</button></p>
+            </form>
+          </details>
+        </section>
+      </div>
+      <section class="card">
+        <h2>Besøk og notater fra alle virksomheter</h2>
+        <form id="note">
+          <label for="note-text">Nytt notat (deles med fastlege og andre som behandler pasienten)</label>
+          <textarea id="note-text" rows="3" required></textarea>
+          <button type="submit">Lagre og del notat</button>
+        </form>
+        <div id="encounters"></div>
+      </section>
+    </div>
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+  </main>
+  <script src="/static/common.js"></script>
+  <script src="/static/pasient.js"></script>
+</body>
+</html>

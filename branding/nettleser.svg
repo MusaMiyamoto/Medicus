@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <title>Medicus Nettleser</title>
+  <!-- A globe inside a shield: the safe browser. Drawn for Medicus. -->
+  <defs>
+    <linearGradient id="shield" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#36ad74"/>
+      <stop offset="1" stop-color="#0d4f2e"/>
+    </linearGradient>
+  </defs>
+  <path d="M64 6 L 112 22 V 60 C 112 92, 90 112, 64 122 C 38 112, 16 92, 16 60 V 22 Z" fill="url(#shield)"/>
+  <path d="M64 12 L 106 26 V 60 C 106 88, 87 106, 64 115 C 41 106, 22 88, 22 60 V 26 Z" fill="none" stroke="#ffffff" stroke-opacity="0.3" stroke-width="2"/>
+  <g fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round">
+    <circle cx="64" cy="62" r="28"/>
+    <ellipse cx="64" cy="62" rx="12" ry="28"/>
+    <line x1="36" y1="62" x2="92" y2="62"/>
+    <path d="M40 48 H 88 M40 76 H 88"/>
+  </g>
+</svg>

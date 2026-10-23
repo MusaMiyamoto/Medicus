@@ -5,9 +5,9 @@
 # network lockdown below stops the service from reaching the internet.
 
 [Unit]
-Description=Medicus journalassistent
-After=network.target ollama.service
-Wants=ollama.service
+Description=Medicus journalassistent og pasientjournal
+After=network.target ollama.service medicus-auth.service medicus-helsenett-sim.service
+Wants=ollama.service medicus-auth.service medicus-helsenett-sim.service
 
 [Service]
 User=medicus

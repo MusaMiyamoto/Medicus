@@ -1,0 +1,41 @@
+# Card readers and login sessions. Runs as its own unprivileged user with no network.
+[Unit]
+Description=Medicus innlogging (helsepersonellkort og økter)
+Before=display-manager.service
+
+[Service]
+User=medicus-auth
+Group=medicus-auth
+Environment=PYTHONPATH=/opt/medicus
+ExecStart=/usr/bin/python3 -I -c "import sys; sys.path.insert(0, '/opt/medicus'); from tilgang.authd import main; main()"
+StateDirectory=medicus-auth
+StateDirectoryMode=0700
+RuntimeDirectory=medicus-auth
+RuntimeDirectoryMode=0755
+Restart=always
+UMask=0077
+
+PrivateNetwork=true
+RestrictAddressFamilies=AF_UNIX
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+NoNewPrivileges=true
+CapabilityBoundingSet=
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallFilter=@system-service
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=Medicus innlogging
+Comment=Innlogging med helsepersonellkort eller nødtilgang
+Exec=medicus-greeter
+Type=Application

@@ -3,32 +3,163 @@
 A hardened, Linux-based operating system for Norwegian healthcare workers, with a local,
 privacy-first AI documentation assistant ("journalassistent") and a clinical calculator.
 
-The project has three parts:
+> ⚠️ **Prototype with synthetic data only.** Not approved for real patient data. The simulated
+> health network, cards and patients exist only to show how Medicus works.
 
 | Part | Folder | What it is |
 |---|---|---|
 | **Medicus OS** | [`os/`](os/) | Debian 13 Linux with an XFCE desktop and a Start menu, built as a bootable ISO |
+| **Login** | [`tilgang/`](tilgang/) | Card + PIN login, emergency access, and the session rules |
+| **Health network** | [`helsenett/`](helsenett/) | One interface to the national services, plus a local simulator |
+| **Patient record and journal assistant** | [`medicus/`](medicus/) | The clinician's web app |
 | **Medicus Kalkulator** | [`kalkulator/`](kalkulator/) | Calculator plus converters for volume, weight and gram ↔ milliliter |
-| **Medicus Journalassistent** | [`medicus/`](medicus/) | Turns a recorded consultation into a draft journal note |
+| **Branding** | [`branding/`](branding/) | Logo (the Rod of Asclepius), wallpaper, boot screen |
 
 ## Medicus OS
 
 A live ISO you can boot in a virtual machine (VirtualBox, VMware, Hyper-V) or from a USB stick.
 
-- **Desktop:** XFCE with one bottom panel and a **Start** button. The Start menu's favorites are
-  Medicus Journalassistent, Medicus Kalkulator, Firefox, the file manager and the terminal.
+- **Own look:** Medicus green, the Medicus logo (Rod of Asclepius, drawn for this project), the
+  open-source Arc theme, Papirus icons and Noto fonts. Nothing is taken from Microsoft or Windows.
+- **Desktop:** XFCE with one bottom panel and a **Start** button. The Start menu's favorites are the
+  patient record, the journal assistant, the Kalkulator, and the simulated citizen portal and disclosure workflow.
 - **Norwegian by default:** language `nb_NO`, Norwegian keyboard, Oslo time zone.
-- **Hardened:**
-  - Firewall (nftables) blocks all incoming connections.
-  - Screen locks after 5 minutes without activity.
-  - AppArmor on, kernel hardening settings in `/etc/sysctl.d/90-medicus.conf`.
-    (Debian skips loading AppArmor profiles in the *live* session; they load once the OS is installed.)
-  - Automatic daily security updates.
-  - No remote-login (SSH) server.
-  - The journal assistant runs as its own locked-down service user that can't reach the network.
-- **Installer:** the desktop includes the Calamares installer, which can install to disk with full-disk encryption.
 
-Live session login: user `bruker`, password `live` (the live-build default). Change it after installing.
+### Logging in
+
+There are no passwords. Two ways in:
+
+| | Normal login | Emergency access (*Nødtilgang*) |
+|---|---|---|
+| How | Health-personnel card + PIN | Card tap + reason, no PIN |
+| Sees | Patient record: critical info, visits and notes from every institution, prescriptions | **Only critical information**: allergies, critical conditions, medicines in use, implants, next of kin |
+| Time | Until you log out or take the card out | 30 minutes, then it closes |
+| Desktop | Full Medicus desktop | Full-screen emergency page only, no desktop or files |
+| Logged | Yes, with name and HPR number | Yes, with name, HPR number and reason; always reviewed afterwards |
+| Patient told | Yes, on Helsenorge | Yes, marked as emergency access |
+
+- **Log in once:** every Medicus app knows who you are from the card login. No separate logins.
+- **Card out = logged out.** A root-level service (`medicus-oktvakt`) ends the desktop session immediately.
+- **Three wrong PINs block the card**, like a real chip card.
+
+In this prototype the card reader is **simulated**: use *Simulert kortleser* at the bottom of the
+login screen. Demo cards (PIN `1234` for all of them):
+
+| Card | Role |
+|---|---|
+| Ingrid Berg | Doctor (*lege*), GP office: can write prescriptions |
+| Jonas Lie | Nurse (*sykepleier*), out-of-hours clinic |
+| Amir Haddad | Paramedic (*ambulansearbeider*) |
+
+### Health network, Helsenorge and authorities
+
+- **Helsenorge-ready:** see [docs/helsenorge-integrasjon.md](docs/helsenorge-integrasjon.md). All
+  national services go through one interface. Today it uses a local simulator; switching to Norsk
+  helsenett is one setting, once there's an agreement.
+- **Patients see every access:** the simulated citizen portal (*Innbyggerportal*) shows who opened
+  the record and why, prescriptions, visits and notes from every institution, and disclosures to authorities.
+- **Requests from authorities (e.g. police)** go through a request workflow, never direct access:
+  a legal basis, purpose and the minimum data needed. A privacy officer approves or refuses, only
+  the approved data is released, it's logged, and the patient is told unless a legal basis allows
+  delaying the notice. The listed legal bases are examples and must be checked by a lawyer.
+
+### Medicus Post: messages, image sharing and phishing protection
+
+One app for communication between institutions, used instead of ordinary email:
+
+- **Messages inside the health network** are always **verified** (green ✓). The sender is the
+  person who logged in with their card, shown with role, institution and HPR number. You choose
+  recipients from the address register, so there are no typed email addresses to get wrong.
+- **Image sharing:** attach X-ray, CT and MR images (DICOM), photos or PDFs, up to 50 MB each.
+  They're shown right in the message, with a viewer that has brightness, contrast and invert.
+  Files are checked by their content, not their name, so only real images and PDFs get through.
+  If the message is linked to a patient, the patient sees on Helsenorge that images were shared, and with whom.
+- **External email gets a plain-language safety check:**
+  - **Ekstern** (yellow): from outside, nothing suspicious found.
+  - **Mistenkelig** (red): a list of the exact warning signs, for example "the address looks like
+    *helsenorge.no* but isn't", "the link shows one address but goes to another", "pressure plus a
+    request for BankID or password", "dangerous attachment like *faktura.pdf.exe*", "replies go to a
+    different address".
+  - Email from outside never shows clickable links or opens attachments. Links are shown as text
+    with where they *really* go.
+  - One click reports a suspicious email to IT security.
+
+The image sharing uses DICOM, the standard every radiology system uses, so a radiology or lab
+provider can be connected later through the same interface (with an agreement).
+
+### Desktop and programs
+
+Medicus OS is a desktop and laptop operating system for ordinary 64-bit PCs (Intel/AMD).
+
+- **Desktop:** Home folder and Trash icons, shortcuts to the Medicus apps, and the **Start** button bottom left.
+- **Standard programs:** file manager, text editor (Mousepad), image viewer (Ristretto), PDF reader
+  (Evince, which runs in an AppArmor sandbox) and a screenshot tool.
+- **Wallpapers:** four Norwegian nature scenes drawn for Medicus, so we own them fully with no
+  licensing risk: *Nordlys* (default), *Fjord*, *Skog* and *Fjell*, plus the Medicus wallpaper.
+  Choose under Settings → Desktop.
+
+### Medicus Nettleser
+
+Firefox ESR, locked down (the same idea as Brave: a proven engine with stricter defaults):
+
+- Opens only **approved health websites** (Helsenorge, Felleskatalogen, Legemiddelhåndboka,
+  Helsedirektoratet, FHI and others, listed in [`medicus/nettsteder.py`](medicus/nettsteder.py)).
+  A web filter (tinyproxy) enforces the same list, so the browser can't get around it.
+- Tracker, fingerprinting and cryptomining blocking on, HTTPS only, no extensions, no saved
+  passwords, history cleared on exit.
+
+### Cyber defense
+
+- **Virus scanning (ClamAV):** every attachment in Medicus Post is scanned before it's accepted.
+  Infected files are stopped. The virus database is updated automatically.
+- **Security log (auditd):** records changes to logins, Medicus settings, the firewall, USB and VPN
+  rules, kernel modules, and anything run as administrator.
+- **Sikkerhetssenter:** a page that shows *live* whether the firewall, USB lock, virus scanner,
+  session guard, security log, updates, kernel lockdown, AppArmor and VPN are working, in plain Norwegian.
+- **Lynis** is installed for IT to run full security audits.
+
+### Protection against malware
+
+No system can be guaranteed against all malware. Medicus OS stacks several layers so most of it
+has nothing to work with:
+
+- Windows programs (most of what malware-scanning services like VirusTotal see) can't run on Linux at all.
+- **Nothing can be run as a program from home folders, downloads or temporary folders**
+  (mounted `noexec`), which is how most downloaded malware starts.
+- Users have **no terminal and no "run command" box**. Programs start from the Start menu only.
+- Attachments are virus-scanned, USB memory sticks are blocked, and the browser only reaches approved sites.
+- The PDF reader runs in an AppArmor sandbox, and every service runs with minimal rights.
+
+### Network: VPN, Wi-Fi and attacks
+
+- **Always-on VPN to the health network (WireGuard) with a kill switch:** when it's on, the
+  machine can't send anything except through the tunnel. Fill in
+  `/etc/wireguard/helsenett.conf` from the template, then `systemctl enable --now medicus-vpn`.
+  The real endpoint and keys come from Norsk helsenett or the IT department.
+- **Wi-Fi:** random hardware address while scanning, private IPv6, no network discovery (mDNS/LLMNR).
+  Health personnel can't add new networks (like open café Wi-Fi). IT sets them up.
+- **Attack traffic:** malformed packets are dropped and ping is rate-limited. A single PC can't
+  stop a large DDoS attack; that has to be handled by the network operator or Norsk helsenett.
+  What Medicus does is have nothing open to attack and stay cheap to flood.
+
+### Hardening
+
+- **Login:** card only, no passwords, no automatic login, no admin (`sudo`) access, text consoles switched off.
+- **Network:** firewall blocks everything incoming. Users and apps can only reach this machine. Only
+  the system itself can go online, for security updates.
+- **Browser:** only Medicus pages can be opened. Extensions, developer tools, password saving and
+  telemetry are blocked, and history is cleared on exit.
+- **USB:** only keyboards, mice, headsets, hubs and card readers. Memory sticks, cameras and
+  network adapters are blocked, including devices that combine them.
+- **Kernel:** hardening boot settings (memory zeroing, lockdown, no vsyscall) and `/etc/sysctl.d/90-medicus.conf`.
+- **Services:** each Medicus service runs as its own locked-down user with only the access it needs.
+  The login service has no network at all.
+- **Less to attack:** Bluetooth, network discovery (Avahi), Ctrl+Alt+Del reboot and core dumps are switched off.
+- **Other:** screen locks after 5 minutes (unlock with card + PIN), automatic daily security updates.
+- AppArmor is on. (Debian skips loading AppArmor profiles in the *live* session; they load once the OS is installed.)
+
+No system can be made 100% secure. Before any real use, Medicus needs an external penetration test,
+a Normen and GDPR assessment, and a medical-device classification (EU MDR).
 
 ### Building the ISO
 
@@ -159,7 +290,16 @@ pytest
 - [x] Tamper-evident audit log
 - [x] Hardened systemd service
 - [ ] Better Norwegian speech: NB-Whisper from the National Library (Nasjonalbiblioteket), converted for faster-whisper
-- [ ] Login with HelseID
+- [x] Card + PIN login and emergency access (simulated card reader)
+- [x] Helsenorge-ready integration layer with a simulator
+- [x] Request workflow for authorities
+- [x] Medicus Post: verified messages, DICOM image sharing, phishing warnings
+- [x] VPN with kill switch, Wi-Fi hardening, firewall rate limits
+- [ ] Connect a radiology/lab provider's image archive (needs an agreement)
+- [x] Medicus Nettleser, virus scanning, security log, Sikkerhetssenter, no-exec home folders
+- [ ] Installation to disk: a separate, protected installer mode for IT (with full-disk encryption)
+- [ ] Real chip cards (PKCS#11) and login with HelseID
+- [ ] Security scanning of each build (Lynis, OpenSCAP)
 - [ ] Pick different note templates (GP, emergency room, home care, psychiatry)
 - [ ] Send notes to patient record systems via FHIR instead of copy and paste
 - [x] Hardened Linux OS image (Debian + XFCE) with a Start menu

@@ -1,0 +1,23 @@
+#%PAM-1.0
+# Medicus: graphical login only with a health-personnel card (+ PIN) or emergency access.
+# Passwords are never accepted. Anyone not in a Medicus group is refused.
+
+auth      requisite                   pam_nologin.so
+auth      [success=1 default=ignore]  pam_succeed_if.so quiet user ingroup medicus-personell
+auth      requisite                   pam_succeed_if.so quiet user ingroup medicus-nod
+auth      [success=done ignore=ignore default=die]  pam_exec.so quiet expose_authtok stdout /usr/local/lib/medicus/pam-medicus
+# The second "credentials" step (pam_setcred) has nothing to do for card logins.
+auth      required                    pam_permit.so
+
+@include common-account
+
+session  [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so close
+session   required  pam_env.so readenv=1
+session   required  pam_env.so readenv=1 envfile=/etc/default/locale
+session   required  pam_limits.so
+session   required  pam_loginuid.so
+@include common-session
+session  [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so open
+
+# Passwords can't be changed: there are none.
+password  requisite pam_deny.so

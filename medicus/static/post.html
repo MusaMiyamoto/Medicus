@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Post – Medicus</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img src="/logo.svg" alt="">Medicus</div>
+    <nav>
+      <a href="/pasient">Pasientjournal</a>
+      <a href="/post" aria-current="page">Post</a>
+      <a href="/">Journalassistent</a>
+      <a href="/sikkerhet">Sikkerhet</a>
+    </nav>
+    <div class="who" id="who"></div>
+  </header>
+
+  <main class="wide">
+    <div class="legend">
+      <span class="badge verifisert">✓ Verifisert</span> fra helsepersonell i helsenettet
+      <span class="badge ekstern">Ekstern</span> fra utenfor – vær forsiktig
+      <span class="badge mistenkelig">⚠ Mistenkelig</span> trolig svindel – ikke klikk, ikke svar
+    </div>
+    <div class="mail">
+      <aside class="card">
+        <div class="row">
+          <button type="button" id="compose">Ny melding</button>
+        </div>
+        <nav class="tabs">
+          <button type="button" data-box="innboks" aria-pressed="true">Innboks</button>
+          <button type="button" data-box="sendt">Sendt</button>
+        </nav>
+        <ul id="list" class="message-list"></ul>
+      </aside>
+
+      <section class="card" id="reader">
+        <p class="muted">Velg en melding.</p>
+      </section>
+
+      <section class="card" id="writer" hidden>
+        <h2>Ny melding i helsenettet</h2>
+        <p class="muted">Sendes kryptert til mottakere i adresseregisteret. Mottakeren ser at meldingen er fra deg.</p>
+        <form id="send">
+          <label for="til">Til</label>
+          <select id="til" multiple required size="4"></select>
+          <label for="emne">Emne</label>
+          <input id="emne" required maxlength="300">
+          <label for="fnr">Gjelder pasient (valgfritt – pasienten får beskjed på Helsenorge)</label>
+          <select id="fnr"><option value="">Ingen pasient</option></select>
+          <label for="tekst">Melding</label>
+          <textarea id="tekst" rows="6" required></textarea>
+          <label for="filer">Vedlegg: røntgen, CT, MR (DICOM), bilder eller PDF – maks 50 MB per fil</label>
+          <input id="filer" type="file" multiple accept=".dcm,.png,.jpg,.jpeg,.pdf,application/dicom,image/*,application/pdf">
+          <div class="row" style="margin-top: 12px">
+            <button type="submit">Send</button>
+            <button type="button" class="secondary" id="cancel">Avbryt</button>
+          </div>
+        </form>
+      </section>
+    </div>
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+  </main>
+
+  <div id="viewer" class="viewer" hidden>
+    <div class="viewer-bar">
+      <span id="viewer-title"></span>
+      <label>Lysstyrke <input type="range" id="brightness" min="40" max="200" value="100"></label>
+      <label>Kontrast <input type="range" id="contrast" min="40" max="300" value="100"></label>
+      <button type="button" class="secondary" id="invert">Inverter</button>
+      <button type="button" id="viewer-close">Lukk</button>
+    </div>
+    <img id="viewer-img" alt="">
+  </div>
+
+  <script src="/static/common.js"></script>
+  <script src="/static/post.js"></script>
+</body>
+</html>

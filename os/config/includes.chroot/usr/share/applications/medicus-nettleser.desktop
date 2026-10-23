@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Medicus Nettleser
+Comment=Sikker nettleser for godkjente helsenettsteder (basert på Firefox ESR)
+Exec=firefox-esr --new-window http://127.0.0.1:8000/nettsteder
+Icon=/usr/share/medicus/nettleser.svg
+Terminal=false
+Categories=Network;WebBrowser;
+Keywords=nett;internett;nettleser;helsenorge;felleskatalogen;
+StartupWMClass=firefox-esr

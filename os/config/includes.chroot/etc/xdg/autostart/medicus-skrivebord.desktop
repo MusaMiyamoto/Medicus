@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Medicus skrivebord
+Exec=medicus-skrivebord
+OnlyShowIn=XFCE;
+NoDisplay=true
+X-XFCE-Autostart-Override=true

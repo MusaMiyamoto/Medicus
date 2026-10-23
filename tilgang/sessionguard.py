@@ -1,0 +1,72 @@
+"""medicus-oktvakt: makes the desktop follow the card login, enforced by the system.
+
+Runs as root, outside the user's session, so a user can't stop it. Every second:
+  - a desktop session for a Medicus user without a matching login (card removed,
+    emergency time is up, or logged out elsewhere) is terminated at once;
+  - a login with no desktop session left (the user logged out) is ended after a grace period.
+"""
+
+import grp
+import json
+import subprocess
+import sys
+import time
+
+from . import EMERGENCY_USER
+from .client import AuthError, call
+
+GROUPS = ("medicus-personell", "medicus-nod")
+GRACE_SECONDS = 15
+
+
+def medicus_users() -> set[str]:
+    users = set()
+    for name in GROUPS:
+        try:
+            users.update(grp.getgrnam(name).gr_mem)
+        except KeyError:
+            pass
+    return users | {EMERGENCY_USER}
+
+
+def desktop_sessions() -> list[dict]:
+    out = subprocess.run(["loginctl", "list-sessions", "--output=json"], capture_output=True, text=True, check=False)
+    try:
+        return json.loads(out.stdout or "[]")
+    except json.JSONDecodeError:
+        return []
+
+
+def decide(login: dict | None, sessions: list[dict], users: set[str]) -> tuple[list[str], bool]:
+    """Return (session ids to terminate, whether the login has a desktop)."""
+    allowed_user = login["linux_bruker"] if login else None
+    terminate = [s["session"] for s in sessions if s.get("user") in users and s.get("user") != allowed_user]
+    has_desktop = any(s.get("user") == allowed_user for s in sessions) if login else False
+    return terminate, has_desktop
+
+
+def main() -> int:
+    alone_since = None
+    while True:
+        time.sleep(1)
+        try:
+            login = call("status")["okt"]
+        except AuthError:
+            continue
+        terminate, has_desktop = decide(login, desktop_sessions(), medicus_users())
+        for session_id in terminate:
+            subprocess.run(["loginctl", "terminate-session", session_id], check=False)
+        if login and not has_desktop:
+            alone_since = alone_since or time.monotonic()
+            if time.monotonic() - alone_since > GRACE_SECONDS:
+                try:
+                    call("end")
+                except AuthError:
+                    pass
+                alone_since = None
+        else:
+            alone_since = None
+
+
+if __name__ == "__main__":
+    sys.exit(main())

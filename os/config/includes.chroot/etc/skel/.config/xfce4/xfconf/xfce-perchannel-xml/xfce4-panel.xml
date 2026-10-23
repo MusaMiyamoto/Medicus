@@ -9,8 +9,15 @@
       <property name="position" type="string" value="p=10;x=0;y=0"/>
       <property name="length" type="uint" value="100"/>
       <property name="position-locked" type="bool" value="true"/>
-      <property name="size" type="uint" value="40"/>
-      <property name="icon-size" type="uint" value="24"/>
+      <property name="size" type="uint" value="44"/>
+      <property name="icon-size" type="uint" value="28"/>
+      <property name="background-style" type="uint" value="1"/>
+      <property name="background-rgba" type="array">
+        <value type="double" value="0.04"/>
+        <value type="double" value="0.2"/>
+        <value type="double" value="0.12"/>
+        <value type="double" value="0.95"/>
+      </property>
       <property name="plugin-ids" type="array">
         <value type="int" value="1"/>
         <value type="int" value="2"/>
@@ -27,13 +34,18 @@
       <property name="button-title" type="string" value="Start"/>
       <property name="show-button-title" type="bool" value="true"/>
       <property name="show-button-icon" type="bool" value="true"/>
-      <property name="button-icon" type="string" value="start-here"/>
+      <property name="button-icon" type="string" value="/usr/share/medicus/medicus-logo.svg"/>
       <property name="favorites" type="array">
+        <value type="string" value="medicus-pasient.desktop"/>
+        <value type="string" value="medicus-post.desktop"/>
+        <value type="string" value="medicus-nettleser.desktop"/>
         <value type="string" value="medicus-journal.desktop"/>
         <value type="string" value="medicus-kalkulator.desktop"/>
-        <value type="string" value="firefox-esr.desktop"/>
+        <value type="string" value="medicus-sikkerhet.desktop"/>
+        <value type="string" value="medicus-innbygger.desktop"/>
+        <value type="string" value="medicus-utlevering.desktop"/>
         <value type="string" value="thunar.desktop"/>
-        <value type="string" value="xfce4-terminal.desktop"/>
+        <value type="string" value="medicus-kort-ut.desktop"/>
       </property>
     </property>
     <property name="plugin-2" type="string" value="tasklist">

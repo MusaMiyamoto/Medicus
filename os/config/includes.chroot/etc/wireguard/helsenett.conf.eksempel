@@ -1,0 +1,18 @@
+# Template for the VPN tunnel to the health network. Copy to /etc/wireguard/helsenett.conf
+# (mode 600, owned by root), fill in the values you get from Norsk helsenett or your IT department,
+# then run: systemctl enable --now medicus-vpn
+#
+# Every value below is a placeholder.
+
+[Interface]
+# This PC's private key: generate with `wg genkey`, and give the public key (`wg pubkey`) to IT.
+PrivateKey = <denne-maskinens-private-nøkkel>
+Address = <adresse-tildelt-av-it>/32
+DNS = <dns-server-i-helsenettet>
+
+[Peer]
+PublicKey = <vpn-tjenerens-offentlige-nøkkel>
+Endpoint = <vpn-tjener>:51820
+# Only the health network's addresses go through the tunnel. Everything else is blocked by the kill switch.
+AllowedIPs = <helsenettets-adresseområder>
+PersistentKeepalive = 25

@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=Medicus nødtilgang
+Comment=Kun kritisk informasjon, tidsbegrenset
+Exec=medicus-nod-session
+Type=Application

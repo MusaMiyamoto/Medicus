@@ -1,0 +1,16 @@
+# Always-on VPN to the health network with kill switch. Disabled until
+# /etc/wireguard/helsenett.conf exists: systemctl enable --now medicus-vpn
+[Unit]
+Description=Medicus VPN til helsenettet (med kill switch)
+After=network-online.target nftables.service
+Wants=network-online.target
+ConditionPathExists=/etc/wireguard/helsenett.conf
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/medicus-vpn på
+ExecStop=/usr/local/sbin/medicus-vpn av
+
+[Install]
+WantedBy=multi-user.target

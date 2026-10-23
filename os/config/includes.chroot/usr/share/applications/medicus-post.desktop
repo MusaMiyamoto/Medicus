@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Medicus Post
+Comment=Sikre meldinger og bildedeling (røntgen, CT, MR) i helsenettet, med varsel om svindel-e-post
+Exec=xdg-open http://127.0.0.1:8000/post
+Icon=mail-message-new
+Terminal=false
+Categories=Office;Network;Email;
+Keywords=post;e-post;melding;røntgen;mr;ct;bilde;dicom;

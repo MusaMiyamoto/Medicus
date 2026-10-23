@@ -2,13 +2,88 @@
 # Runs inside the image while it is being built.
 set -e
 
-# Service account for the journal assistant: no login shell, no home folder.
-adduser --system --group --home /var/lib/medicus --no-create-home medicus
+# --- Service accounts: no login shell, no home folder --------------------------
+for account in medicus medicus-auth medicus-sim; do
+  adduser --system --group --home "/var/lib/$account" --no-create-home "$account"
+done
+groupadd -f medicus-personell
+groupadd -f medicus-nod
 
+# --- Python environment for the web services -----------------------------------
 python3 -m venv /opt/medicus/.venv
 /opt/medicus/.venv/bin/pip install --no-cache-dir -r /opt/medicus/requirements.txt
+python3 -m compileall -q /opt/medicus/medicus /opt/medicus/helsenett /opt/medicus/tilgang /opt/medicus/kalkulator
 
+# Synthetic X-ray and MR images in every user's "Bilder" folder, for trying image sharing.
+mkdir -p /etc/skel/Bilder
+PYTHONPATH=/opt/medicus /opt/medicus/.venv/bin/python - <<'EOF'
+from helsenett.bilder import synthetic_dicom
+from helsenett.sim import seed
+
+for name, fnr, mod, desc, part, filename in [
+    ("Sofie Hansen", seed.SOFIE, "DX", "Røntgen håndledd", "WRIST", "syntetisk-rontgen.dcm"),
+    ("Kari Nordmann", seed.KARI, "MR", "MR caput", "HEAD", "syntetisk-mr.dcm"),
+]:
+    open(f"/etc/skel/Bilder/{filename}", "wb").write(synthetic_dicom(name, fnr, mod, desc, part))
+EOF
+
+# --- Simulated health-personnel cards ------------------------------------------
+# Hash the demo PINs, delete the plain-text file, and create one account per card.
+PYTHONPATH=/opt/medicus python3 - <<'EOF'
+import json, subprocess
+from tilgang.cards import build_cards_file
+
+build_cards_file("/etc/medicus/simkort-demo.json", "/etc/medicus/simkort.json")
+for card in json.load(open("/etc/medicus/simkort.json", encoding="utf-8")):
+    subprocess.run(["adduser", "--disabled-password", "--comment", card["navn"], card["username"]], check=True)
+    subprocess.run(["usermod", "-aG", "medicus-personell,audio,video", card["username"]], check=True)
+EOF
+rm /etc/medicus/simkort-demo.json
+chown medicus-auth:medicus-auth /etc/medicus/simkort.json
+chmod 600 /etc/medicus/simkort.json
+
+# The shared emergency account. Who used it is recorded by the card, not the account.
+adduser --disabled-password --comment "Nødtilgang" nodtilgang
+usermod -aG medicus-nod nodtilgang
+
+# --- Medicus Nettleser: the web filter and the browser allowlist come from one list --
+PYTHONPATH=/opt/medicus python3 - <<'EOF'
+import json
+from medicus import nettsteder
+
+open("/etc/tinyproxy/filter", "w").write(nettsteder.proxy_filter())
+path = "/usr/lib/firefox-esr/distribution/policies.json"
+policies = json.load(open(path))
+policies["policies"]["WebsiteFilter"]["Exceptions"] += nettsteder.firefox_exceptions()
+json.dump(policies, open(path, "w"), indent=2)
+EOF
+
+# --- Virus database: included in the image so scanning works from the first boot ----
+freshclam --quiet || echo "freshclam failed: the virus database will download at first boot"
+
+# --- Services -------------------------------------------------------------------
 install -m 644 /opt/medicus/deploy/medicus.service /etc/systemd/system/medicus.service
-systemctl enable medicus.service
-systemctl enable nftables.service
-systemctl enable apparmor.service
+systemctl enable medicus.service medicus-auth.service medicus-oktvakt.service medicus-helsenett-sim.service
+systemctl enable nftables.service apparmor.service usbguard.service auditd.service \
+  clamav-daemon.service clamav-freshclam.service tinyproxy.service
+systemctl enable home.mount var-tmp.mount
+
+# --- Hardening: switch off what a clinical workstation doesn't need -------------
+systemctl mask avahi-daemon.service avahi-daemon.socket bluetooth.service \
+  ctrl-alt-del.target getty@.service autovt@.service serial-getty@.service \
+  debug-shell.service 2>/dev/null || true
+chmod 700 /root
+chmod 600 /etc/usbguard/rules.conf
+chmod 700 /etc/wireguard
+sed -i 's/^ImplicitPolicyTarget=.*/ImplicitPolicyTarget=block/; s/^PresentDevicePolicy=.*/PresentDevicePolicy=apply-policy/' \
+  /etc/usbguard/usbguard-daemon.conf
+
+# --- Look: Medicus wallpapers --------------------------------------------------------
+# XFCE's default wallpaper (xfce-x.svg) becomes "Nordlys", safely across updates. All Medicus
+# wallpapers go in the same folder, so they show up in Settings → Desktop.
+dpkg-divert --quiet --add --rename --divert /usr/share/backgrounds/xfce/xfce-x.svg.debian \
+  /usr/share/backgrounds/xfce/xfce-x.svg
+cp /usr/share/medicus/wallpapers/nordlys.svg /usr/share/backgrounds/xfce/xfce-x.svg
+for w in /usr/share/medicus/wallpapers/*.svg /usr/share/medicus/wallpaper.svg; do
+  cp "$w" "/usr/share/backgrounds/xfce/medicus-$(basename "$w")"
+done

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nødtilgang – Medicus</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="emergency">
+  <header class="topbar">
+    <div class="brand"><img src="/logo.svg" alt="">NØDTILGANG</div>
+    <div>Kun kritisk informasjon · logges og kontrolleres</div>
+    <div class="who" id="who"></div>
+    <div class="countdown" id="countdown" title="Tid igjen"></div>
+    <button id="end" type="button" class="secondary" style="color:#fff;border-color:#fff">Avslutt</button>
+  </header>
+
+  <main>
+    <p class="muted" id="reason"></p>
+    <section class="card" id="search">
+      <h2>Finn pasient</h2>
+      <form id="find" class="row">
+        <input id="fnr" inputmode="numeric" placeholder="Fødselsnummer (11 siffer)" style="flex: 1; min-width: 220px">
+        <button type="submit">Vis kritisk informasjon</button>
+      </form>
+      <p class="muted">Syntetiske testpasienter (kun i simulering):</p>
+      <div id="patients" class="patients"></div>
+    </section>
+
+    <section class="card critical" id="result" hidden>
+      <div class="row" style="justify-content: space-between; align-items: center">
+        <h2 id="name" style="margin: 0"></h2>
+        <button id="back" class="secondary" type="button">Ny pasient</button>
+      </div>
+      <div class="grid">
+        <div><h2>Allergier</h2><div id="allergies"></div></div>
+        <div><h2>Kritiske tilstander</h2><div id="conditions"></div></div>
+        <div><h2>Legemidler i bruk</h2><div id="meds"></div></div>
+        <div><h2>Implantater og pårørende</h2><div id="other"></div></div>
+      </div>
+    </section>
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+  </main>
+  <script src="/static/common.js"></script>
+  <script src="/static/nod.js"></script>
+</body>
+</html>

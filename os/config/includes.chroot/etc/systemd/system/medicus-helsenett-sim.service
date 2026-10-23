@@ -1,0 +1,40 @@
+# Local simulator of the health network (synthetic data). Replaced by Norsk helsenett
+# when an agreement exists: set modus = "nhn" in /etc/medicus/integrasjon.toml.
+[Unit]
+Description=Medicus helsenett-simulator (syntetiske testdata)
+
+[Service]
+User=medicus-sim
+Group=medicus-sim
+WorkingDirectory=/opt/medicus
+Environment=MEDICUS_SIM_STATE=/var/lib/medicus-sim/state.json
+ExecStart=/opt/medicus/.venv/bin/python -m helsenett.sim
+StateDirectory=medicus-sim
+StateDirectoryMode=0700
+Restart=on-failure
+UMask=0077
+
+IPAddressDeny=any
+IPAddressAllow=localhost
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+NoNewPrivileges=true
+CapabilityBoundingSet=
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+SystemCallFilter=@system-service
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,86 @@
+"""Sikkerhetssenter: live status of the protections on this machine, in plain Norwegian.
+
+Every check reads the real state (running services, kernel settings, virus database age);
+nothing is assumed from the configuration.
+"""
+
+import subprocess
+import time
+from pathlib import Path
+
+OK, WARN, FAIL, INFO = "ok", "advarsel", "feil", "info"
+
+
+def unit_active(unit: str) -> bool:
+    try:
+        out = subprocess.run(["systemctl", "is-active", unit], capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return out.stdout.strip() == "active"
+
+
+def read(path: str) -> str:
+    try:
+        return Path(path).read_text().strip()
+    except OSError:
+        return ""
+
+
+def newest_mtime(paths: list[str]) -> float | None:
+    times = [Path(p).stat().st_mtime for p in paths if Path(p).exists()]
+    return max(times) if times else None
+
+
+def service(name, unit, ok_text, fail_text, active=unit_active):
+    good = active(unit)
+    return {"navn": name, "status": OK if good else FAIL, "forklaring": ok_text if good else fail_text}
+
+
+def checks(active=unit_active, read=read, now=time.time) -> list[dict]:
+    result = [
+        service("Brannmur", "nftables.service",
+                "Ingen kan koble seg til maskinen utenfra. Apper når bare Medicus og helsenettet.",
+                "Brannmuren kjører ikke. Kontakt IT.", active),
+        service("USB-lås", "usbguard.service",
+                "Bare tastatur, mus, hodesett og kortleser er tillatt. Minnepinner er blokkert.",
+                "USB-låsen kjører ikke. Kontakt IT.", active),
+        service("Øktvakt", "medicus-oktvakt.service",
+                "Du logges ut i det kortet tas ut.", "Øktvakten kjører ikke. Kontakt IT.", active),
+        service("Sikkerhetslogg", "auditd.service",
+                "Viktige endringer på maskinen blir logget.", "Sikkerhetsloggen kjører ikke.", active),
+        service("Sikkerhetsoppdateringer", "unattended-upgrades.service",
+                "Sikkerhetsoppdateringer installeres automatisk.", "Automatiske oppdateringer er av.", active),
+        service("Kjøring av programmer fra hjemmemappen", "home.mount",
+                "Programmer kan ikke startes fra hjemmemappe, nedlastinger eller midlertidige mapper.",
+                "Hjemmemappen er ikke låst for programkjøring.", active),
+    ]
+
+    scanner = active("clamav-daemon.service")
+    db_time = newest_mtime([f"/var/lib/clamav/{n}" for n in ("daily.cld", "daily.cvd", "main.cvd", "main.cld")])
+    age_days = (now() - db_time) / 86400 if db_time else None
+    if not scanner:
+        result.append({"navn": "Virusbeskyttelse", "status": FAIL,
+                       "forklaring": "Virusskanneren kjører ikke. Vedlegg blir merket «ikke virusskannet»."})
+    elif age_days is None or age_days > 7:
+        result.append({"navn": "Virusbeskyttelse", "status": WARN,
+                       "forklaring": "Virusskanneren kjører, men virusdatabasen er gammel eller mangler."})
+    else:
+        result.append({"navn": "Virusbeskyttelse", "status": OK,
+                       "forklaring": f"Vedlegg skannes for virus. Databasen er {age_days:.0f} døgn gammel."})
+
+    lockdown = read("/sys/kernel/security/lockdown")
+    result.append({"navn": "Kjernebeskyttelse", "status": OK if "[integrity]" in lockdown or "[confidentiality]" in lockdown else WARN,
+                   "forklaring": "Selv administrator kan ikke endre den kjørende kjernen."
+                   if "[" in lockdown and "[none]" not in lockdown else "Kjernelåsen (lockdown) er ikke på."})
+
+    apparmor = read("/sys/module/apparmor/parameters/enabled") == "Y"
+    result.append({"navn": "AppArmor", "status": OK if apparmor else FAIL,
+                   "forklaring": "Programmer som PDF-leseren kjører i en avgrenset sandkasse."
+                   " (I live-versjonen lastes profilene først når systemet er installert.)"
+                   if apparmor else "AppArmor er ikke slått på."})
+
+    vpn = active("medicus-vpn.service")
+    result.append({"navn": "VPN til helsenettet", "status": OK if vpn else INFO,
+                   "forklaring": "All trafikk går kryptert til helsenettet. Annen trafikk er blokkert."
+                   if vpn else "Ikke satt opp ennå. Krever avtale med Norsk helsenett eller IT-avdelingen."})
+    return result

@@ -1,0 +1,366 @@
+"""The Medicus login screen (a LightDM greeter, GTK 4).
+
+    medicus-greeter            real login screen, started by LightDM
+    medicus-greeter --demo     same screen with fake back-ends, for development and screenshots
+"""
+
+import sys
+from datetime import datetime
+from pathlib import Path
+
+import gi
+
+gi.require_version("Gtk", "4.0")
+from gi.repository import Gdk, GLib, Gtk  # noqa: E402
+
+from . import EMERGENCY_MINUTES, EMERGENCY_USER  # noqa: E402
+
+LOGO = next(p for p in (Path("/usr/share/medicus/medicus-logo.svg"),
+                         Path(__file__).parent.parent / "branding" / "medicus-logo.svg") if p.exists())
+REASONS = ["Bevisstløs pasient", "Hjertestans", "Alvorlig allergisk reaksjon", "Alvorlig skade", "Annet"]
+
+CSS = """
+window.medicus { background: linear-gradient(160deg, #0b3b24 0%, #12603a 55%, #1f8f55 100%); color: #ffffff; }
+.brand { font-size: 30px; font-weight: 700; }
+.clock { font-size: 44px; font-weight: 300; }
+.date { font-size: 16px; opacity: 0.85; }
+.panel { background: #ffffff; color: #1c2430; border-radius: 16px; padding: 28px; }
+.panel .title { font-size: 22px; font-weight: 700; }
+.panel .muted { color: #5b6573; }
+.panel entry { min-height: 42px; font-size: 18px; }
+.panel button { min-height: 42px; font-weight: 600; }
+button.primary { background: #1a7f4b; color: #ffffff; border: none; }
+button.emergency { background: transparent; color: #b3261e; border: 2px solid #b3261e; }
+button.emergency-go { background: #b3261e; color: #ffffff; border: none; }
+.emergency-box { background: #fdecea; border-radius: 10px; padding: 14px; color: #7a1a14; }
+.error { color: #b3261e; font-weight: 600; }
+.sim { background: rgba(0, 0, 0, 0.25); border-radius: 10px; padding: 8px 12px; }
+.sim label { color: #ffffff; }
+.footer button { background: rgba(255, 255, 255, 0.12); color: #ffffff; border: none; }
+"""
+
+
+class LightDMBackend:
+    def __init__(self):
+        gi.require_version("LightDM", "1")
+        from gi.repository import LightDM
+
+        self.LightDM = LightDM
+        self.greeter = LightDM.Greeter()
+        self.greeter.connect("show-prompt", self._prompt)
+        self.greeter.connect("show-message", self._message)
+        self.greeter.connect("authentication-complete", self._complete)
+        self.greeter.connect_to_daemon_sync()
+        self.secret = None
+        self.session = None
+        self.message = ""
+        self.done = None
+
+    def login(self, user, secret, session, done):
+        if self.greeter.get_in_authentication():
+            self.greeter.cancel_authentication()
+        self.secret, self.session, self.message, self.done = secret, session, "", done
+        self.greeter.authenticate(user)
+
+    def _prompt(self, _greeter, _text, _kind):
+        self.greeter.respond(self.secret)
+        self.secret = None
+
+    def _message(self, _greeter, text, _kind):
+        self.message = text.strip()
+
+    def _complete(self, _greeter):
+        if self.greeter.get_is_authenticated():
+            try:
+                self.greeter.start_session_sync(self.session)
+                return
+            except GLib.Error:
+                self.done(False, "Kunne ikke starte økten.")
+                return
+        self.done(False, self.message or "Innloggingen ble avvist.")
+
+    def shutdown(self):
+        self.LightDM.shutdown()
+
+    def restart(self):
+        self.LightDM.restart()
+
+
+class AuthdBackend:
+    def __init__(self):
+        from . import client
+
+        self.client = client
+
+    def status(self):
+        return self.client.call("status")
+
+    def cards(self):
+        return self.client.call("cards")["kort"]
+
+    def insert(self, card_id):
+        self.client.call("insert", card_id=card_id)
+
+    def remove(self):
+        self.client.call("remove")
+
+
+class DemoBackend:
+    """In-memory stand-ins for screenshots and development without LightDM."""
+
+    CARDS = [
+        {"card_id": "lege", "navn": "Ingrid Berg", "rolle": "Lege", "virksomhet": "Medicus legesenter (simulert)",
+         "hpr": "999000101", "username": "ingrid-berg", "sperret": False},
+        {"card_id": "amb", "navn": "Amir Haddad", "rolle": "Ambulansearbeider", "virksomhet": "Ambulansetjenesten (simulert)",
+         "hpr": "999000303", "username": "amir-haddad", "sperret": False},
+    ]
+
+    def __init__(self):
+        self.card = None
+
+    def status(self):
+        return {"kort": self.card, "okt": None, "simulert": True}
+
+    def cards(self):
+        return self.CARDS
+
+    def insert(self, card_id):
+        self.card = next(c for c in self.CARDS if c["card_id"] == card_id)
+
+    def remove(self):
+        self.card = None
+
+    def login(self, user, secret, session, done):
+        ok = secret == "1234" or user == EMERGENCY_USER
+        GLib.timeout_add(400, lambda: done(ok, "" if ok else "Feil PIN. 2 forsøk igjen.") and False)
+
+    def shutdown(self):
+        print("shutdown")
+
+    def restart(self):
+        print("restart")
+
+
+class LoginWindow(Gtk.ApplicationWindow):
+    def __init__(self, app, auth, lightdm):
+        super().__init__(application=app, title="Medicus")
+        self.auth, self.lightdm = auth, lightdm
+        self.card_id = "init"  # differs from every real state, so the first refresh fills in the text
+        self.busy = False
+        self.add_css_class("medicus")
+
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        for side in ("top", "bottom", "start", "end"):
+            getattr(root, f"set_margin_{side}")(32)
+        self.set_child(root)
+
+        top = Gtk.Box(spacing=14)
+        logo = Gtk.Image.new_from_file(str(LOGO))
+        logo.set_pixel_size(56)
+        brand = Gtk.Label(label="Medicus")
+        brand.add_css_class("brand")
+        top.append(logo)
+        top.append(brand)
+        spacer = Gtk.Box(hexpand=True)
+        top.append(spacer)
+        clock_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.clock = Gtk.Label(xalign=1)
+        self.clock.add_css_class("clock")
+        self.date = Gtk.Label(xalign=1)
+        self.date.add_css_class("date")
+        clock_box.append(self.clock)
+        clock_box.append(self.date)
+        top.append(clock_box)
+        root.append(top)
+
+        center = Gtk.Box(vexpand=True, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
+        root.append(center)
+        panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        panel.add_css_class("panel")
+        panel.set_size_request(440, -1)
+        center.append(panel)
+
+        self.title = Gtk.Label(xalign=0, ellipsize=3)
+        self.title.add_css_class("title")
+        self.subtitle = Gtk.Label(xalign=0, ellipsize=3)
+        self.subtitle.add_css_class("muted")
+        panel.append(self.title)
+        panel.append(self.subtitle)
+
+        self.pin = Gtk.PasswordEntry(placeholder_text="PIN-kode", show_peek_icon=False)
+        self.pin.connect("activate", lambda *_: self.login())
+        self.login_button = Gtk.Button(label="Logg inn")
+        self.login_button.add_css_class("primary")
+        self.login_button.connect("clicked", lambda *_: self.login())
+        panel.append(self.pin)
+        panel.append(self.login_button)
+
+        self.message = Gtk.Label(xalign=0, wrap=True, max_width_chars=40, width_chars=40)
+        self.message.add_css_class("error")
+        panel.append(self.message)
+
+        panel.append(Gtk.Separator())
+        self.emergency_button = Gtk.Button(label="Nødtilgang")
+        self.emergency_button.add_css_class("emergency")
+        self.emergency_button.connect("clicked", lambda *_: self.show_emergency(True))
+        panel.append(self.emergency_button)
+
+        self.emergency = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, visible=False)
+        self.emergency.add_css_class("emergency-box")
+        # Fixed line breaks: wrapping labels can stretch the panel when the screen is short.
+        info = Gtk.Label(xalign=0, label=(
+            f"Kun kritisk informasjon i {EMERGENCY_MINUTES} minutter.\n"
+            "Tilgangen logges med ditt navn, kontrolleres\n"
+            "i etterkant, og pasienten blir varslet."))
+        self.reason = Gtk.DropDown.new_from_strings(REASONS)
+        self.reason_detail = Gtk.Entry(placeholder_text="Utdyp kort (valgfritt)")
+        go = Gtk.Button(label="Start nødtilgang")
+        go.add_css_class("emergency-go")
+        go.connect("clicked", lambda *_: self.start_emergency())
+        cancel = Gtk.Button(label="Avbryt")
+        cancel.connect("clicked", lambda *_: self.show_emergency(False))
+        buttons = Gtk.Box(spacing=8, homogeneous=True)
+        buttons.append(cancel)
+        buttons.append(go)
+        for widget in (info, self.reason, self.reason_detail, buttons):
+            self.emergency.append(widget)
+        panel.append(self.emergency)
+
+        bottom = Gtk.Box(spacing=10)
+        bottom.add_css_class("footer")
+        self.sim = Gtk.Box(spacing=8)
+        self.sim.add_css_class("sim")
+        self.sim.append(Gtk.Label(label="Simulert kortleser:"))
+        self.sim_cards = self.auth.cards() if self.auth.status().get("simulert") else []
+        self.sim_choice = Gtk.DropDown.new_from_strings([f"{c['navn']} – {c['rolle']}" for c in self.sim_cards] or ["–"])
+        insert = Gtk.Button(label="Sett inn kort")
+        insert.connect("clicked", lambda *_: self.sim_insert())
+        remove = Gtk.Button(label="Ta ut kort")
+        remove.connect("clicked", lambda *_: self.sim_remove())
+        for widget in (self.sim_choice, insert, remove):
+            self.sim.append(widget)
+        self.sim.set_visible(bool(self.sim_cards))
+        bottom.append(self.sim)
+        bottom.append(Gtk.Box(hexpand=True))
+        for label, action in (("Start på nytt", self.lightdm.restart), ("Slå av", self.lightdm.shutdown)):
+            button = Gtk.Button(label=label)
+            button.connect("clicked", lambda _b, a=action: a())
+            bottom.append(button)
+        root.append(bottom)
+
+        self.refresh()
+        self.tick()
+        GLib.timeout_add(1000, self.refresh)
+        GLib.timeout_add(1000, self.tick)
+
+    def tick(self):
+        now = datetime.now()
+        self.clock.set_text(now.strftime("%H:%M"))
+        days = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag", "søndag"]
+        months = ["januar", "februar", "mars", "april", "mai", "juni", "juli", "august",
+                  "september", "oktober", "november", "desember"]
+        self.date.set_text(f"{days[now.weekday()]} {now.day}. {months[now.month - 1]}")
+        return True
+
+    def refresh(self):
+        try:
+            card = self.auth.status()["kort"]
+        except Exception:
+            card = None
+            self.subtitle.set_text("Får ikke kontakt med innloggingstjenesten.")
+        card_id = card["card_id"] if card else None
+        if card_id != self.card_id:
+            self.card_id = card_id
+            self.card = card
+            self.pin.set_text("")
+            self.message.set_text("")
+            self.show_emergency(False)
+            if card:
+                self.title.set_text(f"Hei, {card['navn']}")
+                self.subtitle.set_text(f"{card['rolle']} · {card['virksomhet']}")
+                self.pin.grab_focus()
+            else:
+                self.title.set_text("Sett inn helsepersonellkortet")
+                self.subtitle.set_text("Kortleseren står ved siden av skjermen.")
+        for widget in (self.pin, self.login_button, self.emergency_button):
+            widget.set_sensitive(card is not None and not self.busy)
+        return True
+
+    def show_emergency(self, visible):
+        self.emergency.set_visible(visible)
+        for widget in (self.emergency_button, self.pin, self.login_button):
+            widget.set_visible(not visible)
+
+    def set_busy(self, busy):
+        self.busy = busy
+        self.refresh()
+
+    def finished(self, ok, message):
+        self.set_busy(False)
+        if not ok:
+            self.message.set_text(message)
+            self.pin.set_text("")
+        return False
+
+    def login(self):
+        if not self.card or self.busy:
+            return
+        self.message.set_text("")
+        self.set_busy(True)
+        self.lightdm.login(self.card["username"], self.pin.get_text(), "xfce", self.finished)
+
+    def start_emergency(self):
+        if not self.card or self.busy:
+            return
+        reason = REASONS[self.reason.get_selected()]
+        detail = self.reason_detail.get_text().strip()
+        if detail:
+            reason = f"{reason}: {detail}"
+        self.set_busy(True)
+        self.lightdm.login(EMERGENCY_USER, reason, "medicus-nod", self.finished)
+
+    def sim_insert(self):
+        if self.sim_cards:
+            self.auth.insert(self.sim_cards[self.sim_choice.get_selected()]["card_id"])
+            self.refresh()
+
+    def sim_remove(self):
+        self.auth.remove()
+        self.refresh()
+
+
+class GreeterApp(Gtk.Application):
+    def __init__(self, demo):
+        super().__init__(application_id="no.medicus.Greeter")
+        self.demo = demo
+
+    def do_startup(self):
+        Gtk.Application.do_startup(self)
+        provider = Gtk.CssProvider()
+        provider.load_from_string(CSS)
+        Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider,
+                                                  Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+    def do_activate(self):
+        if self.demo:
+            demo = DemoBackend()
+            auth, lightdm = demo, demo
+        else:
+            auth, lightdm = AuthdBackend(), LightDMBackend()
+        self.window = LoginWindow(self, auth, lightdm)
+        monitor = Gdk.Display.get_default().get_monitors().get_item(0)
+        geometry = monitor.get_geometry()
+        self.window.set_default_size(geometry.width, geometry.height)
+        if not self.demo:
+            self.window.fullscreen()
+        self.window.present()
+
+
+def main(argv=None):
+    argv = sys.argv if argv is None else argv
+    demo = "--demo" in argv
+    return GreeterApp(demo).run([argv[0]])
+
+
+if __name__ == "__main__":
+    sys.exit(main())

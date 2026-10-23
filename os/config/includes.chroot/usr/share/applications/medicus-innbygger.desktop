@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Innbyggerportal (simulert)
+Comment=Slik ser pasienten varsler, resepter og besøk på Helsenorge – simulert
+Exec=xdg-open http://127.0.0.1:8100/helsenorge
+Icon=avatar-default
+Terminal=false
+Categories=Office;

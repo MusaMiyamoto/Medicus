@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <title>Medicus bakgrunn</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#06281a"/>
+      <stop offset="0.55" stop-color="#12603a"/>
+      <stop offset="1" stop-color="#24a062"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.72" cy="0.42" r="0.5">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <rect width="1920" height="1080" fill="url(#glow)"/>
+  <!-- large, faint Rod of Asclepius -->
+  <g transform="translate(1180 120) scale(6.6)" opacity="0.13">
+    <rect x="59.5" y="17" width="9" height="96" rx="4.5" fill="#ffffff"/>
+    <circle cx="64" cy="17" r="6.5" fill="#ffffff"/>
+    <path d="M54 106 C40 101 42 87 64 83 C86 79 88 66 64 62 C42 58 41 45 62 41 C78 38 84 33 81 26"
+          fill="none" stroke="#12603a" stroke-width="14" stroke-linecap="round"/>
+    <path d="M54 106 C40 101 42 87 64 83 C86 79 88 66 64 62 C42 58 41 45 62 41 C78 38 84 33 81 26"
+          fill="none" stroke="#ffffff" stroke-width="7.5" stroke-linecap="round"/>
+    <ellipse cx="80" cy="23" rx="7.5" ry="5.5" transform="rotate(-35 80 23)" fill="#ffffff"/>
+  </g>
+  <text x="96" y="960" font-family="Noto Sans, sans-serif" font-size="64" font-weight="700" fill="#ffffff" fill-opacity="0.85">Medicus</text>
+  <text x="98" y="1004" font-family="Noto Sans, sans-serif" font-size="26" fill="#ffffff" fill-opacity="0.6">Trygg arbeidsstasjon for helsepersonell</text>
+</svg>
