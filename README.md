@@ -293,6 +293,16 @@ python3 -m kalkulator
 A clinician records a consultation. Medicus transcribes it and drafts a structured
 journal note in Norwegian. The clinician reviews, edits and approves it.
 
+**Source check (kildesjekk):** under each field of the draft, every sentence is shown with where it
+comes from in the conversation. Click a sentence to highlight those lines.
+- **Statuses:** *✓ Sagt* (said), *◐ Delvis* (partly said), *✗ Ikke funnet* (not found), *– Ikke nevnt*
+  (not mentioned). Each has a symbol and a word as well as a colour.
+- **Numbers are always checked:** any number in the draft (doses, values, days) that wasn't said in the
+  conversation is flagged red. "Fire dager" counts as 4.
+- **No language model:** the check is plain word matching ([`medicus/kilder.py`](medicus/kilder.py)), so it
+  can't invent sources.
+- **Re-checked as you edit.** Approving a note with red sentences asks for confirmation first.
+
 **Pick the patient first.** A search field at the top drops down the doctor's own patients
 (search by name, birth date or fødselsnummer). With a patient chosen, the approved note is saved
 straight into their record: through the health network, or into **DIPS Arena** over FHIR R4.

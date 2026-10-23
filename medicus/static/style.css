@@ -194,6 +194,7 @@ button, .button {
   font-weight: 600;
   margin: 0;
   padding: 10px 16px;
+  min-height: 44px;  /* big enough to hit with gloves on a touch screen */
   border-radius: 8px;
   border: 1px solid var(--accent);
   background: var(--accent);
@@ -207,6 +208,30 @@ button:focus-visible, .button:focus-within { outline: 3px solid var(--accent); o
 
 .status { min-height: 1.5em; color: var(--muted); }
 .status.error { color: var(--danger); }
+
+/* Source check: each sentence of the draft, with where it comes from. Every status has a symbol and
+   a word as well as a colour, so it reads the same without colour vision. */
+.source-list { list-style: none; padding: 0; margin: -6px 0 14px; display: grid; gap: 4px; }
+.source-chip {
+  display: inline-block; text-align: left; font-weight: 500; min-height: 0;
+  padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--text); white-space: normal;
+}
+button.source-chip { width: 100%; cursor: pointer; min-height: 36px; }
+.source-chip.støttet { background: var(--ok-bg); color: var(--ok-text); border-color: transparent; }
+.source-chip.svak { background: var(--warn-bg); color: var(--warn-text); border-color: transparent; }
+.source-chip.ukjent { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); font-weight: 700; }
+.source-chip.mangler { color: var(--muted); border-style: dashed; }
+.source-chip.active { outline: 3px solid var(--accent); outline-offset: 1px; }
+.source-legend { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.source-lines {
+  max-height: 260px; overflow: auto; margin: 0; padding: 8px 8px 8px 36px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+}
+.source-lines li { padding: 2px 4px; border-radius: 4px; }
+.source-lines li.hit { background: var(--ok-bg); color: var(--ok-text); font-weight: 600; }
+.source-summary { font-weight: 600; }
+.source-summary.warning { margin: 8px 0; }
 
 /* "Om Medicus": list of open-source components */
 .licenses { width: 100%; border-collapse: collapse; margin: 12px 0; }

@@ -90,6 +90,23 @@ def test_journal_assistant_requires_login(env):
     app, _sim, login = env
     login(None)
     assert app.post("/api/note", json={"transcript": "hei"}).status_code == 401
+    assert app.post("/api/kildesjekk", json={"transcript": "hei", "seksjoner": {}}).status_code == 401
+
+
+def test_draft_comes_with_its_source_check(env, monkeypatch):
+    app, _sim, login = env
+    login(DOCTOR)
+    draft = {"kontaktarsak": "Vondt i halsen.", "anamnese": "Ikke nevnt.", "funn": "Lungene normale.",
+             "vurdering": "Ikke nevnt.", "plan": "Ikke nevnt."}
+    monkeypatch.setattr(medicus_app.notes, "generate_note", lambda transcript: draft)
+    data = app.post("/api/note", json={"transcript": "Pasient: Jeg har vondt i halsen."}).json()
+    assert data["kilder"]["uten_kilde"] == 1
+    assert data["kilder"]["seksjoner"]["kontaktarsak"][0]["status"] == "støttet"
+    edited = {**draft, "funn": "Ikke nevnt."}
+    again = app.post("/api/kildesjekk", json={"transcript": "Pasient: Jeg har vondt i halsen.", "seksjoner": edited})
+    assert again.json()["uten_kilde"] == 0
+    too_long = app.post("/api/kildesjekk", json={"transcript": "x", "seksjoner": {"funn": "x" * 60_000}})
+    assert too_long.status_code == 413
 
 
 def test_it_mode_never_sees_patient_data(env):

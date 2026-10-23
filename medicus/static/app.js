@@ -226,7 +226,7 @@ $("sample").addEventListener("click", async () => {
   setStatus("Eksempelsamtale lastet inn (oppdiktet).");
 });
 
-function renderNote(sections) {
+function renderNote(sections, sources) {
   sectionsEl.innerHTML = "";
   for (const section of sections) {
     const label = document.createElement("label");
@@ -235,13 +235,97 @@ function renderNote(sections) {
     const area = document.createElement("textarea");
     area.id = `note-${section.key}`;
     area.dataset.label = section.label;
+    area.dataset.key = section.key;
     area.rows = 3;
     area.value = section.text;
-    sectionsEl.append(label, area);
+    area.addEventListener("input", recheckSoon);
+    const list = document.createElement("ul");
+    list.id = `sources-${section.key}`;
+    list.className = "source-list";
+    sectionsEl.append(label, area, list);
   }
+  showSources(sources);
   $("copy").disabled = false;
   $("approve").disabled = false;
 }
+
+// --- Source check: where in the conversation each sentence comes from (word matching, no model) ---
+let sourceCheck = null;
+let recheckTimer = null;
+const STATUS_TEXT = { "støttet": "✓ Sagt", "svak": "◐ Delvis", "ukjent": "✗ Ikke funnet", "mangler": "– Ikke nevnt" };
+
+function showSources(result) {
+  sourceCheck = result;
+  if (!result) return;
+  const lines = $("source-lines");
+  lines.innerHTML = "";
+  for (const line of result.linjer) {
+    const item = document.createElement("li");
+    item.textContent = line;
+    lines.append(item);
+  }
+  for (const [key, items] of Object.entries(result.seksjoner)) {
+    const list = $(`sources-${key}`);
+    if (!list) continue;
+    list.innerHTML = "";
+    for (const item of items) {
+      const entry = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      const missingNumbers = item.tall_uten_kilde.length > 0;
+      const status = missingNumbers ? "ukjent" : item.status;
+      button.className = `source-chip ${status}`;
+      const chip = STATUS_TEXT[status];
+      button.textContent = `${chip}  ${item.tekst}`;
+      if (missingNumbers) {
+        button.textContent += `  (tall ikke sagt: ${item.tall_uten_kilde.join(", ").replaceAll(".", ",")})`;
+      }
+      button.setAttribute("aria-label", `${chip}: ${item.tekst}`);
+      button.addEventListener("click", () => highlight(item.linjer, button));
+      entry.append(button);
+      list.append(entry);
+    }
+  }
+  $("source-panel").hidden = false;
+  const summary = $("source-summary");
+  summary.hidden = false;
+  summary.classList.toggle("warning", result.uten_kilde > 0);
+  summary.textContent = result.uten_kilde > 0
+    ? `⚠ ${result.uten_kilde} setning(er) har ikke kilde i samtalen. Sjekk dem før du godkjenner.`
+    : "✓ Alle setninger med innhold finnes i samtalen. Les likevel gjennom før du godkjenner.";
+}
+
+function highlight(lineNumbers, button) {
+  document.querySelectorAll(".source-chip.active").forEach((b) => b.classList.remove("active"));
+  button.classList.add("active");
+  const items = [...$("source-lines").children];
+  items.forEach((li, i) => li.classList.toggle("hit", lineNumbers.includes(i)));
+  const first = items[lineNumbers[0]];
+  if (first) first.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  else setStatus("Denne setningen finnes ikke i samtalen. Sjekk den, eller slett den.", true);
+}
+
+function currentSections() {
+  return Object.fromEntries([...sectionsEl.querySelectorAll("textarea")].map((a) => [a.dataset.key, a.value]));
+}
+
+// After an edit, check again (it is cheap, and nothing is stored).
+function recheckSoon() {
+  clearTimeout(recheckTimer);
+  recheckTimer = setTimeout(async () => {
+    if (!sectionsEl.querySelector("textarea")) return;
+    try {
+      showSources(await api("/api/kildesjekk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript: transcript.value, seksjoner: currentSections() }),
+      }));
+    } catch (e) {
+      setStatus(e.message, true);
+    }
+  }, 600);
+}
+transcript.addEventListener("input", recheckSoon);
 
 function noteText() {
   return [...sectionsEl.querySelectorAll("textarea")]
@@ -263,7 +347,7 @@ $("generate").addEventListener("click", async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ transcript: transcript.value }),
     });
-    renderNote(data.sections);
+    renderNote(data.sections, data.kilder);
     setStatus("Utkast klart. Kontroller alt før du godkjenner.");
   } catch (e) {
     setStatus(e.message, true);
@@ -285,6 +369,11 @@ $("copy").addEventListener("click", async () => {
 });
 
 $("approve").addEventListener("click", async () => {
+  const unsourced = sourceCheck ? sourceCheck.uten_kilde : 0;
+  if (unsourced > 0 && !confirm(`${unsourced} setning(er) har ikke kilde i samtalen (rødt under feltene).\n\n` +
+      "Har du sjekket dem, og vil du godkjenne notatet likevel?")) {
+    return;
+  }
   try {
     const data = await api("/api/approve", {
       method: "POST",

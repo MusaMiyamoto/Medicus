@@ -30,7 +30,7 @@ import utstyr
 from tilgang.client import AuthError
 from tilgang.client import call as auth_call
 
-from . import nettsteder, notes, sikkerhet
+from . import kilder, nettsteder, notes, sikkerhet
 from .audit import AuditLog
 from .config import settings
 
@@ -414,11 +414,28 @@ def create_note(body: TranscriptIn, session: dict = Depends(normal_session)):
     except notes.NoteError as e:
         audit.record(session["hpr"], "note_failed", {"error": str(e)})
         raise HTTPException(502, str(e)) from e
-    audit.record(session["hpr"], "note_generated", {"model": settings.llm_model, "chars": len(body.transcript)})
+    checked = kilder.check_note(body.transcript, note)
+    audit.record(session["hpr"], "note_generated", {"model": settings.llm_model, "chars": len(body.transcript),
+                                                    "sentences_without_source": checked["uten_kilde"]})
     return {
         "sections": [{"key": k, "label": label, "text": note[k]} for k, label in notes.SECTIONS],
         "text": notes.format_note(note),
+        "kilder": checked,
     }
+
+
+class SourceCheckIn(BaseModel):
+    transcript: str = Field(max_length=100_000)
+    seksjoner: dict[str, str]
+
+
+@app.post("/api/kildesjekk")
+def check_sources(body: SourceCheckIn, _session: dict = Depends(normal_session)):
+    """The clinician edited the draft: check its sentences against the conversation again.
+    Nothing is stored; it is plain word matching, no language model."""
+    if sum(len(text) for text in body.seksjoner.values()) > 50_000:
+        raise HTTPException(413, "Notatet er for langt.")
+    return kilder.check_note(body.transcript, body.seksjoner)
 
 
 @app.get("/api/journal/pasienter")

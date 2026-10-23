@@ -62,6 +62,20 @@
     <section class="card">
       <h2>2. Journalnotat (utkast)</h2>
       <div id="sections"><p class="muted">Ingen notat ennå.</p></div>
+      <div id="source-panel" hidden>
+        <h3>Kildesjekk</h3>
+        <p class="muted small">Under hvert felt står setningene i notatet. Trykk på en setning for å se hvor i
+          samtalen den kommer fra. Sjekken er vanlig ordsammenligning, ikke språkmodellen.</p>
+        <ul class="source-legend small">
+          <li><span class="source-chip støttet">✓ Sagt</span> står i samtalen</li>
+          <li><span class="source-chip svak">◐ Delvis</span> bare delvis – les den mot samtalen</li>
+          <li><span class="source-chip ukjent">✗ Ikke funnet</span> ikke i samtalen, eller et tall som ikke ble sagt</li>
+          <li><span class="source-chip mangler">– Ikke nevnt</span> fyll inn eller la stå</li>
+        </ul>
+        <h4>Samtalen</h4>
+        <ol id="source-lines" class="source-lines"></ol>
+      </div>
+      <p id="source-summary" class="source-summary" hidden></p>
       <div class="row">
         <button id="copy" type="button" class="secondary" disabled>Kopier notat</button>
         <button id="approve" type="button" disabled>Godkjenn</button>
