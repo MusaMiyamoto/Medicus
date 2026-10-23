@@ -25,7 +25,8 @@ let loaderTimer = null;
 const loader = document.createElement("div");
 loader.className = "loader";
 loader.setAttribute("role", "status");
-loader.innerHTML = `${ekgSvg()}<span>Laster …</span>`;
+loader.setAttribute("aria-label", "Laster");  // no visible text: the animation says it all
+loader.innerHTML = ekgSvg();
 loader.hidden = true;
 document.addEventListener("DOMContentLoaded", () => document.body.append(loader));
 
@@ -59,7 +60,7 @@ async function showWho() {
   const box = document.getElementById("who");
   try {
     const me = await api("/api/meg");
-    box.innerHTML = `<b>${esc(me.navn)}</b><br>${esc(me.rolle)} · ${esc(me.virksomhet)}`;
+    box.innerHTML = `<b>${esc(me.navn)}</b><br>${esc(me.stilling || me.rolle)} · ${esc(me.virksomhet)}`;
     return me;
   } catch (e) {
     box.textContent = e.message;

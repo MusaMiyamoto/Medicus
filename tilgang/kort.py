@@ -21,7 +21,7 @@ def main(argv: list[str]) -> int:
             print(f"Økt: {session['navn']}, {session['modus']}" if session else "Ingen aktiv økt.")
         elif command == "liste":
             for c in call("cards")["kort"]:
-                print(f"{c['card_id']:<8} {c['navn']:<16} {c['rolle']:<16} {c['virksomhet']}{'  SPERRET' if c['sperret'] else ''}")
+                print(f"{c['card_id']:<8} {c['navn']:<16} {c['rolle']:<16}{'  SPERRET' if c['sperret'] else ''}")
         elif command == "sett-inn" and len(argv) == 2:
             call("insert", card_id=argv[1])
             print("Kort satt inn.")

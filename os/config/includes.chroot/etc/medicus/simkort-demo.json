@@ -1,8 +1,9 @@
 [
- {"card_id": "lege", "navn": "Ingrid Berg", "rolle": "Lege", "virksomhet": "Medicus legesenter (simulert)",
-  "hpr": "999000101", "username": "ingrid-berg", "demo_pin": "1234"},
- {"card_id": "spl", "navn": "Jonas Lie", "rolle": "Sykepleier", "virksomhet": "Testby legevakt (simulert)",
-  "hpr": "999000202", "username": "jonas-lie", "demo_pin": "1234"},
- {"card_id": "amb", "navn": "Amir Haddad", "rolle": "Ambulansearbeider", "virksomhet": "Ambulansetjenesten (simulert)",
-  "hpr": "999000303", "username": "amir-haddad", "demo_pin": "1234"}
+ {"card_id": "lege", "navn": "Ingrid Berg", "rolle": "Lege", "hpr": "999000101", "username": "ingrid-berg", "demo_pin": "1234",
+  "stillinger": {"ous-ulleval": "Overlege, kardiologi", "ous-aker": "Overlege, indremedisin",
+                 "stolav": "Gjesteoverlege, kardiologi", "medicus-legesenter": "Fastlege"}},
+ {"card_id": "spl", "navn": "Jonas Lie", "rolle": "Sykepleier", "hpr": "999000202", "username": "jonas-lie", "demo_pin": "1234",
+  "stillinger": {"ous-ulleval": "Intensivsykepleier", "ous-aker": "Sykepleier, akuttmottak"}},
+ {"card_id": "amb", "navn": "Amir Haddad", "rolle": "Ambulansearbeider", "hpr": "999000303", "username": "amir-haddad", "demo_pin": "1234",
+  "stillinger": {}}
 ]

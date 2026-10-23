@@ -4,16 +4,21 @@ import pytest
 
 from medicus.audit import AuditLog
 from tilgang import EMERGENCY_USER
+from tilgang.arbeidssted import Arbeidssted, load
 from tilgang.authd import Authority
 from tilgang.cards import SimulatedReader, build_cards_file
 
 ROOT, MEDICUS_SERVICE, STRANGER = 0, 990, 4242
 
+ULLEVAL = Arbeidssted("ous-ulleval", "Oslo universitetssykehus, Ullevål")
+STOLAV = Arbeidssted("stolav", "St. Olavs hospital, Trondheim")
+AKER = Arbeidssted("ous-aker", "Oslo universitetssykehus, Aker")
+
 DEMO = [
-    {"card_id": "lege", "navn": "Ingrid Berg", "rolle": "Lege", "virksomhet": "Legesenter",
-     "hpr": "999000101", "username": "ingrid-berg", "demo_pin": "1234"},
-    {"card_id": "spl", "navn": "Jonas Lie", "rolle": "Sykepleier", "virksomhet": "Legevakt",
-     "hpr": "999000202", "username": "jonas-lie", "demo_pin": "2345"},
+    {"card_id": "lege", "navn": "Ingrid Berg", "rolle": "Lege", "hpr": "999000101", "username": "ingrid-berg",
+     "demo_pin": "1234", "stillinger": {"ous-ulleval": "Overlege, kardiologi", "stolav": "Gjesteoverlege"}},
+    {"card_id": "spl", "navn": "Jonas Lie", "rolle": "Sykepleier", "hpr": "999000202", "username": "jonas-lie",
+     "demo_pin": "2345"},
 ]
 
 
@@ -33,7 +38,8 @@ def setup(tmp_path):
     build_cards_file(demo, cards)
     clock = Clock()
     audit = AuditLog(tmp_path / "audit.jsonl")
-    authority = Authority(SimulatedReader(cards, tmp_path / "tries.json"), audit, {MEDICUS_SERVICE}, clock=clock)
+    authority = Authority(SimulatedReader(cards, tmp_path / "tries.json"), audit, {MEDICUS_SERVICE}, clock=clock,
+                          site=ULLEVAL, sim_sites=[ULLEVAL, STOLAV, AKER])
     return authority, clock, audit, cards
 
 
@@ -49,7 +55,9 @@ def test_hashed_card_file_has_no_plain_pins(setup):
 
 def test_status_without_card(setup):
     authority, *_ = setup
-    assert ask(authority, cmd="status") == {"ok": True, "kort": None, "okt": None, "simulert": True}
+    reply = ask(authority, cmd="status")
+    assert (reply["kort"], reply["okt"], reply["simulert"]) == (None, None, True)
+    assert reply["arbeidssted"] == ULLEVAL.public()
 
 
 def test_normal_login_with_card_and_pin(setup):
@@ -165,6 +173,60 @@ def test_guard_reads_loginctl_json_and_refuses_to_guess():
     # systemd ignores some flags and prints a table instead: that must not count as "no sessions".
     table = lambda cmd, **_kw: SimpleNamespace(stdout="SESSION UID USER\n 3 1001 ingrid-berg\n")  # noqa: E731
     assert desktop_sessions(table) is None
+
+
+def login(authority, card_id="lege", username="ingrid-berg", pin="1234"):
+    ask(authority, cmd="insert", card_id=card_id)
+    assert ask(authority, ROOT, cmd="login", username=username, pin=pin)["ok"]
+    return ask(authority, cmd="status")["okt"]
+
+
+def test_workplace_comes_from_the_pc_and_position_from_that_workplace(setup):
+    authority, *_ = setup
+    session = login(authority)
+    assert session["virksomhet"] == "Oslo universitetssykehus, Ullevål"
+    assert session["stilling"] == "Overlege, kardiologi"
+
+
+def test_same_card_at_another_hospital_shows_that_hospital(setup):
+    authority, *_ = setup
+    assert ask(authority, cmd="set_site", site_id="stolav")["ok"]
+    session = login(authority)
+    assert session["virksomhet"] == "St. Olavs hospital, Trondheim"
+    assert session["stilling"] == "Gjesteoverlege"
+
+
+def test_no_position_at_a_workplace_falls_back_to_authorization(setup):
+    authority, *_ = setup
+    ask(authority, cmd="set_site", site_id="ous-aker")
+    assert login(authority)["stilling"] == "Lege"
+
+
+def test_card_status_shows_position_before_login(setup):
+    authority, *_ = setup
+    ask(authority, cmd="insert", card_id="lege")
+    reply = ask(authority, cmd="status")
+    assert reply["kort"]["stilling"] == "Overlege, kardiologi"
+    assert reply["arbeidssted"]["navn"] == "Oslo universitetssykehus, Ullevål"
+
+
+def test_workplace_cannot_change_during_a_session(setup):
+    authority, *_ = setup
+    login(authority)
+    assert not ask(authority, cmd="set_site", site_id="stolav")["ok"]
+
+
+def test_workplace_switching_is_demo_only(setup):
+    authority, *_ = setup
+    authority.simulated = False
+    assert not ask(authority, cmd="set_site", site_id="stolav")["ok"]
+
+
+def test_workplace_config_file(tmp_path):
+    path = tmp_path / "arbeidssted.toml"
+    path.write_text('id = "stolav"\nnavn = "St. Olavs hospital, Trondheim"\n', encoding="utf-8")
+    assert load(path) == STOLAV
+    assert load(tmp_path / "missing.toml").id == "ukjent"
 
 
 def test_unknown_command(setup):

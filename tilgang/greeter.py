@@ -25,6 +25,7 @@ MONTHS = ["januar", "februar", "mars", "april", "mai", "juni", "juli", "august",
 CSS = """
 window.medicus { background: linear-gradient(160deg, #06281a 0%, #0f5333 50%, #1f8f55 100%); color: #ffffff; }
 .tagline { font-size: 10px; letter-spacing: 3px; color: rgba(255, 255, 255, 0.62); }
+.site { font-size: 15px; font-weight: 600; color: #ffffff; margin-top: 6px; }
 .glass { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.14);
          border-radius: 16px; padding: 8px 16px; }
 .clock { font-size: 30px; font-weight: 300; }
@@ -124,22 +125,31 @@ class AuthdBackend:
     def remove(self):
         self.client.call("remove")
 
+    def set_site(self, site_id):
+        self.client.call("set_site", site_id=site_id)
+
 
 class DemoBackend:
     """In-memory stand-ins for screenshots and development without LightDM."""
 
+    SITES = [{"id": "ous-ulleval", "navn": "Oslo universitetssykehus, Ullevål"},
+             {"id": "stolav", "navn": "St. Olavs hospital, Trondheim"}]
     CARDS = [
-        {"card_id": "lege", "navn": "Ingrid Berg", "rolle": "Lege", "virksomhet": "Medicus legesenter (simulert)",
-         "hpr": "999000101", "username": "ingrid-berg", "sperret": False},
-        {"card_id": "amb", "navn": "Amir Haddad", "rolle": "Ambulansearbeider", "virksomhet": "Ambulansetjenesten (simulert)",
-         "hpr": "999000303", "username": "amir-haddad", "sperret": False},
+        {"card_id": "lege", "navn": "Ingrid Berg", "rolle": "Lege", "hpr": "999000101", "username": "ingrid-berg",
+         "stillinger": {"ous-ulleval": "Overlege, kardiologi", "stolav": "Gjesteoverlege, kardiologi"}, "sperret": False},
+        {"card_id": "amb", "navn": "Amir Haddad", "rolle": "Ambulansearbeider", "hpr": "999000303",
+         "username": "amir-haddad", "stillinger": {}, "sperret": False},
     ]
 
     def __init__(self):
         self.card = None
+        self.site = self.SITES[0]
 
     def status(self):
-        return {"kort": self.card, "okt": None, "simulert": True}
+        card = None
+        if self.card:
+            card = {**self.card, "stilling": self.card["stillinger"].get(self.site["id"]) or self.card["rolle"]}
+        return {"kort": card, "okt": None, "simulert": True, "arbeidssted": self.site, "arbeidssteder": self.SITES}
 
     def cards(self):
         return self.CARDS
@@ -149,6 +159,9 @@ class DemoBackend:
 
     def remove(self):
         self.card = None
+
+    def set_site(self, site_id):
+        self.site = next(s for s in self.SITES if s["id"] == site_id)
 
     def login(self, user, secret, session, done):
         ok = secret == "1234" or user == EMERGENCY_USER
@@ -183,8 +196,12 @@ class LoginWindow(Gtk.ApplicationWindow):
         wordmark.set_halign(Gtk.Align.START)
         tagline = Gtk.Label(label="TRYGG ARBEIDSSTASJON FOR HELSEPERSONELL", xalign=0)
         tagline.add_css_class("tagline")
+        # This PC's workplace, e.g. "Oslo universitetssykehus, Ullevål".
+        self.site_label = Gtk.Label(xalign=0)
+        self.site_label.add_css_class("site")
         brand.append(wordmark)
         brand.append(tagline)
+        brand.append(self.site_label)
         top.append(brand)
         top.append(Gtk.Box(hexpand=True))
         clock_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.START)
@@ -237,11 +254,10 @@ class LoginWindow(Gtk.ApplicationWindow):
         panel.append(self.message)
 
         # While the PIN is checked and the desktop starts: the Medicus heartbeat animation.
-        self.loading = Gtk.Box(spacing=12, halign=Gtk.Align.CENTER, visible=False)
-        self.loading.append(Ekg(color=(26 / 255, 127 / 255, 75 / 255)))
-        self.loading_text = Gtk.Label(label="Logger inn …")
-        self.loading_text.add_css_class("muted")
-        self.loading.append(self.loading_text)
+        # No text: the animation alone says "working". Screen readers still get a label.
+        self.loading = Ekg(width=160, height=40, color=(26 / 255, 127 / 255, 75 / 255))
+        self.loading.set_halign(Gtk.Align.CENTER)
+        self.loading.set_visible(False)
         panel.append(self.loading)
 
         panel.append(Gtk.Separator())
@@ -280,7 +296,7 @@ class LoginWindow(Gtk.ApplicationWindow):
         sim_text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
         sim_title = Gtk.Label(label="DEMO", xalign=0)
         sim_title.add_css_class("sim-title")
-        sim_label = Gtk.Label(label="Simulert kortleser", xalign=0)
+        sim_label = Gtk.Label(label="Simulering", xalign=0)
         sim_label.add_css_class("sim-text")
         sim_text.append(sim_title)
         sim_text.append(sim_label)
@@ -300,6 +316,16 @@ class LoginWindow(Gtk.ApplicationWindow):
         toggle_content.append(self.toggle_label)
         self.card_toggle.set_child(toggle_content)
         self.card_toggle.connect("clicked", lambda *_: self.sim_toggle())
+        # Demo only: pretend this PC stands at another hospital, to see the workplace change.
+        status = self.auth.status()
+        self.sim_sites = status.get("arbeidssteder") or []
+        self.site_choice = Gtk.DropDown.new_from_strings([s["navn"] for s in self.sim_sites] or ["–"])
+        self.site_choice.set_valign(Gtk.Align.CENTER)
+        current = next((i for i, s in enumerate(self.sim_sites) if s["id"] == status["arbeidssted"]["id"]), 0)
+        self.site_choice.set_selected(current)
+        self.site_choice.connect("notify::selected", lambda *_: self.sim_site())
+        self.site_choice.set_visible(bool(self.sim_sites))
+        self.sim.append(self.site_choice)
         self.sim.append(self.sim_choice)
         self.sim.append(self.card_toggle)
         self.sim.set_visible(bool(self.sim_cards))
@@ -328,13 +354,15 @@ class LoginWindow(Gtk.ApplicationWindow):
 
     def refresh(self):
         try:
-            card = self.auth.status()["kort"]
+            status = self.auth.status()
+            card, site = status["kort"], status["arbeidssted"]
         except Exception:
-            card = None
+            card, site = None, {"id": "", "navn": ""}
             self.subtitle.set_text("Får ikke kontakt med innloggingstjenesten.")
-        card_id = card["card_id"] if card else None
-        if card_id != self.card_id:
-            self.card_id = card_id
+        self.site_label.set_text(site["navn"])
+        state = (card["card_id"] if card else None, site["id"])
+        if state != self.card_id:
+            self.card_id = state
             self.card = card
             self.pin.set_text("")
             self.message.set_text("")
@@ -345,7 +373,7 @@ class LoginWindow(Gtk.ApplicationWindow):
             self.sim_choice.set_sensitive(card is None)
             if card:
                 self.title.set_text(f"Hei, {card['navn']}")
-                self.subtitle.set_text(f"{card['rolle']} · {card['virksomhet']}")
+                self.subtitle.set_text(f"{card['stilling']} · {site['navn']}")
                 self.pin.grab_focus()
             else:
                 self.title.set_text("Sett inn helsepersonellkortet")
@@ -359,9 +387,9 @@ class LoginWindow(Gtk.ApplicationWindow):
         for widget in (self.emergency_button, self.pin, self.login_button):
             widget.set_visible(not visible)
 
-    def set_busy(self, busy, text="Logger inn …"):
+    def set_busy(self, busy, text="Logger inn"):
         self.busy = busy
-        self.loading_text.set_text(text)
+        self.loading.update_property([Gtk.AccessibleProperty.LABEL], [text])
         self.loading.set_visible(busy)
         self.message.set_visible(not busy)
         self.refresh()
@@ -387,8 +415,17 @@ class LoginWindow(Gtk.ApplicationWindow):
         detail = self.reason_detail.get_text().strip()
         if detail:
             reason = f"{reason}: {detail}"
-        self.set_busy(True, "Starter nødtilgang …")
+        self.set_busy(True, "Starter nødtilgang")
         self.lightdm.login(EMERGENCY_USER, reason, "medicus-nod", self.finished)
+
+    def sim_site(self):
+        if not self.sim_sites:
+            return
+        try:
+            self.auth.set_site(self.sim_sites[self.site_choice.get_selected()]["id"])
+        except Exception as e:
+            self.message.set_text(str(e))
+        self.refresh()
 
     def sim_toggle(self):
         if self.card:

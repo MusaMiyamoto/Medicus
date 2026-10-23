@@ -126,7 +126,7 @@ def me():
     session = current_session()
     if session is None:
         raise HTTPException(401, "Du er ikke logget inn.")
-    keep = ("navn", "rolle", "virksomhet", "hpr", "modus", "begrunnelse", "sekunder_igjen")
+    keep = ("navn", "rolle", "stilling", "virksomhet", "hpr", "modus", "begrunnelse", "sekunder_igjen")
     return {k: session[k] for k in keep if k in session}
 
 

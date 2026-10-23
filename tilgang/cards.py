@@ -9,7 +9,7 @@ import hashlib
 import hmac
 import json
 import secrets
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 MAX_TRIES = 3
@@ -18,12 +18,14 @@ PBKDF2_ROUNDS = 200_000
 
 @dataclass(frozen=True)
 class Card:
+    """Who the person is. Where they work comes from the workstation (tilgang/arbeidssted.py)."""
+
     card_id: str
     navn: str
-    rolle: str
-    virksomhet: str
+    rolle: str          # authorization from the health personnel register, e.g. "Lege"
     hpr: str
     username: str
+    stillinger: dict = field(default_factory=dict)  # position per workplace id
 
     def public(self) -> dict:
         return asdict(self)
@@ -58,7 +60,7 @@ class SimulatedReader:
         return [self._card(c).public() | {"sperret": self.is_blocked(cid)} for cid, c in self.cards.items()]
 
     def _card(self, raw: dict) -> Card:
-        return Card(**{k: raw[k] for k in Card.__dataclass_fields__})
+        return Card(**{k: raw[k] for k in Card.__dataclass_fields__ if k in raw})
 
     def insert(self, card_id: str):
         if card_id not in self.cards:

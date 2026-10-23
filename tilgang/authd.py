@@ -23,6 +23,8 @@ from datetime import datetime, timedelta
 from medicus.audit import AuditLog
 
 from . import EMERGENCY_MINUTES, EMERGENCY_USER
+from .arbeidssted import UNKNOWN, Arbeidssted, load_sim_sites, position
+from .arbeidssted import load as load_site
 from .cards import CardError, SimulatedReader
 
 MAX_REQUEST = 8192
@@ -32,12 +34,15 @@ class Authority:
     """All decisions, without any socket code, so it can be tested directly."""
 
     def __init__(self, reader: SimulatedReader, audit: AuditLog, trusted_service_uids: set[int],
-                 simulated: bool = True, clock=time.time):
+                 simulated: bool = True, clock=time.time, site: Arbeidssted = UNKNOWN,
+                 sim_sites: list[Arbeidssted] = ()):
         self.reader = reader
         self.audit = audit
         self.trusted = trusted_service_uids
         self.simulated = simulated
         self.clock = clock
+        self.site = site
+        self.sim_sites = list(sim_sites)
         self.session: dict | None = None
         self.lock = threading.Lock()
 
@@ -77,11 +82,27 @@ class Authority:
             public = {k: v for k, v in session.items() if k != "uid"}
             if session.get("utloper"):
                 public["sekunder_igjen"] = max(0, int(session["utloper"] - self.clock()))
-        return {"kort": card.public() if card else None, "okt": public, "simulert": self.simulated}
+        reply = {"kort": card.public() if card else None, "okt": public, "simulert": self.simulated,
+                 "arbeidssted": self.site.public()}
+        if card:
+            reply["kort"]["stilling"] = position(card.stillinger, card.rolle, self.site)
+        if self.simulated:
+            reply["arbeidssteder"] = [s.public() for s in self.sim_sites]
+        return reply
 
     def cmd_cards(self, _req, _uid):
         self._require_sim()
         return {"kort": self.reader.list_cards()}
+
+    def cmd_set_site(self, req, _uid):
+        """Demo only: pretend this PC stands somewhere else. Not while someone is logged in."""
+        self._require_sim()
+        if self._session():
+            raise PermissionError("Logg ut før du bytter arbeidssted.")
+        site = next((s for s in self.sim_sites if s.id == req.get("site_id")), None)
+        if site is None:
+            raise CardError("Ukjent arbeidssted.")
+        self.site = site
 
     def cmd_insert(self, req, _uid):
         self._require_sim()
@@ -131,7 +152,11 @@ class Authority:
 
     def _new_session(self, card, mode, reason) -> dict:
         start = self.clock()
-        session = {**card.public(), "modus": mode, "startet": datetime.fromtimestamp(start).isoformat(timespec="seconds")}
+        person = {k: v for k, v in card.public().items() if k != "stillinger"}
+        session = {**person, "modus": mode, "startet": datetime.fromtimestamp(start).isoformat(timespec="seconds"),
+                   # Where the person is working right now: this PC's workplace.
+                   "virksomhet": self.site.navn, "arbeidssted_id": self.site.id,
+                   "stilling": position(card.stillinger, card.rolle, self.site)}
         session["linux_bruker"] = EMERGENCY_USER if mode == "nød" else card.username
         if mode == "nød":
             session["begrunnelse"] = reason
@@ -202,6 +227,8 @@ def main():
         AuditLog(state / "audit.jsonl"),
         trusted_service_uids=trusted,
         simulated=True,
+        site=load_site(),
+        sim_sites=load_sim_sites(),
     )
     serve(authority, os.getenv("MEDICUS_AUTH_SOCKET", SOCKET))
 

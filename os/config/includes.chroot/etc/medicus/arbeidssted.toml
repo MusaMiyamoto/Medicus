@@ -1,0 +1,4 @@
+# Where this workstation stands. Set by IT for each PC.
+# The login screen and every Medicus app show this as the workplace of whoever logs in here.
+id = "ous-ulleval"
+navn = "Oslo universitetssykehus, Ullevål"
