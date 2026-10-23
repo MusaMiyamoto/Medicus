@@ -12,6 +12,111 @@ function setStatus(message, isError = false) {
   statusEl.classList.toggle("error", isError);
 }
 
+// --- Patient picker: type to search the doctor's own patients, or a fødselsnummer for anyone else ---
+const search = $("patient-search");
+const list = $("patient-list");
+let myPatients = [];
+let shown = [];      // the patients in the open list
+let active = -1;     // the highlighted one (arrow keys)
+let patient = null;  // the chosen patient: the approved note is saved in their record
+
+const birth = (iso) => iso.split("-").reverse().join(".");
+const masked = (fnr) => `${fnr.slice(0, 6)} *****`;
+
+function matches(p, query) {
+  const q = query.trim().toLowerCase();
+  const digits = q.replace(/\D/g, "");
+  return !q || p.navn.toLowerCase().includes(q) || birth(p.fodt).includes(q)
+    || (digits.length >= 4 && (p.fnr.startsWith(digits) || birth(p.fodt).replace(/\D/g, "").includes(digits)));
+}
+
+function openList(on) {
+  list.hidden = !on;
+  search.setAttribute("aria-expanded", String(on));
+  if (!on) search.removeAttribute("aria-activedescendant");
+}
+
+function highlight(index) {
+  active = index;
+  [...list.children].forEach((li, i) => li.setAttribute("aria-selected", String(i === index)));
+  const li = list.children[index];
+  if (li && li.id) {
+    search.setAttribute("aria-activedescendant", li.id);
+    li.scrollIntoView({ block: "nearest" });
+  }
+}
+
+async function renderList() {
+  const query = search.value;
+  shown = myPatients.filter((p) => matches(p, query));
+  const typed = query.replace(/\s/g, "");
+  if (/^\d{11}$/.test(typed) && !shown.some((p) => p.fnr === typed)) {
+    // Not on the doctor's list: look the number up (logged).
+    try {
+      shown = [{ ...(await api(`/api/journal/pasient/${typed}`)), annen: true }];
+    } catch (e) {
+      list.innerHTML = `<li class="empty">${esc(e.message)}</li>`;
+      openList(true);
+      return;
+    }
+  }
+  list.innerHTML = shown.length
+    ? shown.map((p, i) => `<li role="option" id="pasient-${i}" data-i="${i}">
+        <span>${esc(p.navn)}${p.annen ? ' <span class="tag">ikke på din liste</span>' : ""}</span>
+        <span class="meta">${esc(birth(p.fodt))} · ${esc(masked(p.fnr))}</span></li>`).join("")
+    : `<li class="empty">Ingen treff. Skriv hele fødselsnummeret for å finne andre pasienter.</li>`;
+  openList(true);
+  highlight(shown.length ? 0 : -1);
+}
+
+function choose(p) {
+  patient = p;
+  $("chosen-name").textContent = p.navn;
+  $("chosen-details").textContent = `født ${birth(p.fodt)} · ${masked(p.fnr)}`;
+  $("patient-chosen").hidden = false;
+  search.parentElement.hidden = true;
+  openList(false);
+  $("approve").textContent = "Godkjenn og lagre i journalen";
+}
+
+$("patient-clear").addEventListener("click", () => {
+  patient = null;
+  $("patient-chosen").hidden = true;
+  search.parentElement.hidden = false;
+  search.value = "";
+  $("approve").textContent = "Godkjenn";
+  search.focus();
+});
+
+search.addEventListener("input", renderList);
+search.addEventListener("focus", renderList);
+search.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    if (list.hidden) return renderList();
+    if (shown.length) highlight((active + (e.key === "ArrowDown" ? 1 : shown.length - 1)) % shown.length);
+  } else if (e.key === "Enter" && !list.hidden && shown[active]) {
+    e.preventDefault();
+    choose(shown[active]);
+  } else if (e.key === "Escape") {
+    openList(false);
+  }
+});
+list.addEventListener("mousedown", (e) => {
+  const li = e.target.closest("li[data-i]");
+  if (li) {
+    e.preventDefault();  // keep focus in the search field
+    choose(shown[Number(li.dataset.i)]);
+  }
+});
+search.addEventListener("blur", () => openList(false));
+
+api("/api/journal/pasienter").then((data) => {
+  myPatients = data.pasienter;
+  $("patient-source").textContent =
+    `${myPatients.length} pasienter på listen din, fra ${data.system}. Notatet lagres i pasientens journal når du godkjenner.`;
+}).catch((e) => { $("patient-source").textContent = e.message; });
+
 async function sendAudio(blob, filename) {
   setStatus("Transkriberer … dette kan ta noen minutter på en vanlig PC.");
   const form = new FormData();
@@ -181,12 +286,14 @@ $("copy").addEventListener("click", async () => {
 
 $("approve").addEventListener("click", async () => {
   try {
-    await api("/api/approve", {
+    const data = await api("/api/approve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ note: noteWithConsent() }),
+      body: JSON.stringify({ note: noteWithConsent(), fnr: patient ? patient.fnr : "" }),
     });
-    setStatus("Notatet er godkjent og loggført.");
+    setStatus(data.lagret_i
+      ? `Notatet er godkjent og lagret i journalen til ${patient.navn} (${data.lagret_i}).`
+      : "Notatet er godkjent og loggført. Velg pasient øverst for å lagre det i journalen.");
   } catch (e) {
     setStatus(e.message, true);
   }

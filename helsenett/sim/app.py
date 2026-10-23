@@ -10,7 +10,7 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from .. import fnr as fnrlib
 from .. import hjemler
 from . import seed
+from .fhir import make_fhir_router
 from .post import make_router
 
 STATIC = Path(__file__).parent / "static"
@@ -120,6 +121,7 @@ def create_app(state_path: Path) -> FastAPI:
     app = FastAPI(title="Helsenett-simulator", docs_url=None, redoc_url=None)
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     app.include_router(make_router(store, state_path.parent / f"{state_path.stem}-vedlegg"))
+    app.include_router(make_fhir_router(store, now))
 
     @app.get("/")
     def root():
@@ -136,6 +138,13 @@ def create_app(state_path: Path) -> FastAPI:
     @app.get("/api/pasienter")
     def list_patients():
         return [summary(p) for p in store.data["pasienter"].values()]
+
+    @app.get("/api/mine-pasienter")
+    def my_patients(x_medicus_hpr: str = Header("")):
+        """Patients with this doctor as fastlege, or that this person has seen."""
+        return [summary(p) for p in store.data["pasienter"].values()
+                if p["fastlege"]["hpr"] == x_medicus_hpr
+                or any(k["aktor"].get("hpr") == x_medicus_hpr for k in p["kontakter"])]
 
     @app.get("/api/pasient/{fnr}")
     def get_patient(fnr: str):

@@ -200,6 +200,10 @@ has nothing to work with:
   and nothing is kept after closing.
 - **USB:** only keyboards, mice, headsets, hubs and card readers. Memory sticks, cameras and
   network adapters are blocked, including devices that combine them.
+- **Medical USB devices** (dictation microphones, spirometers, ECG, dermatoscopes) are approved by
+  IT, one unit (serial number) or one model at a time, with `medicus-utstyr` in IT mode. An approved
+  device may only use the functions it had when it was approved, and **nothing approved can ever be
+  a memory stick, network or wireless adapter**.
 - **Kernel:** hardening boot settings (memory zeroing, lockdown, no vsyscall) and `/etc/sysctl.d/90-medicus.conf`.
 - **Services:** each Medicus service runs as its own locked-down user with only the access it needs.
   The login service has no network at all.
@@ -262,8 +266,16 @@ python3 -m kalkulator
 ## Medicus Journalassistent
 
 A clinician records a consultation. Medicus transcribes it and drafts a structured
-journal note in Norwegian. The clinician reviews, edits and approves it, then pastes
-it into the patient record system (DIPS, Epic, a GP system, etc.).
+journal note in Norwegian. The clinician reviews, edits and approves it.
+
+**Pick the patient first.** A search field at the top drops down the doctor's own patients
+(search by name, birth date or fødselsnummer). With a patient chosen, the approved note is saved
+straight into their record: through the health network, or into **DIPS Arena** over FHIR R4.
+Without one, the note can still be copied into any other system.
+
+**Moving from Epic:** under *Overføring*, a patient's Epic export (FHIR R4) is shown for checking and
+then imported into their record. Allergies and medicines come in marked "must be checked". See
+[docs/journalsystemer.md](docs/journalsystemer.md) for DIPS and Epic.
 
 **Everything runs on the local machine.** No audio or text is sent to any cloud service.
 

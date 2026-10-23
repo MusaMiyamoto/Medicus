@@ -150,6 +150,22 @@ class Authority:
         else:
             self.audit.record(card.hpr, "unlock", {"user": card.username})
 
+    def cmd_unlock(self, req, uid):
+        """Unlock the locked screen. The lock screen runs as the user, not root, so the user may
+        ask, but only for their own running session and only with their own card and PIN."""
+        session = self._session()
+        if session is None or session["modus"] not in ("normal", "it"):
+            raise PermissionError("Ingen økt å låse opp. Logg inn på nytt.")
+        if not (uid == 0 or _uid_of(session["linux_bruker"]) == uid):
+            raise PermissionError("Ikke tillatt.")
+        card = self.reader.inserted()
+        if card is None or card.username != session["username"] or req.get("username") != card.username:
+            raise CardError("Sett inn kortet ditt.")
+        if not self.reader.verify_pin(str(req.get("pin", ""))):
+            self.audit.record(card.hpr, "unlock_failed", {"user": card.username})
+            raise CardError(f"Feil PIN. {self.reader.tries_left()} forsøk igjen.")
+        self.audit.record(card.hpr, "unlock", {"user": card.username})
+
     def cmd_verify(self, req, uid):
         """An IT person confirms an admin action (sudo) with the card PIN. Logged every time."""
         self._require_root(uid)

@@ -76,6 +76,13 @@ chmod 600 /etc/usbguard/rules.conf
 chmod 700 /etc/wireguard
 sed -i 's/^ImplicitPolicyTarget=.*/ImplicitPolicyTarget=block/; s/^PresentDevicePolicy=.*/PresentDevicePolicy=apply-policy/' \
   /etc/usbguard/usbguard-daemon.conf
+# Medical USB devices approved by IT (medicus-utstyr) get their rules in rules.d.
+mkdir -p /etc/usbguard/rules.d
+chmod 700 /etc/usbguard/rules.d
+sed -i '/^#\?RuleFolder=/d' /etc/usbguard/usbguard-daemon.conf
+echo "RuleFolder=/etc/usbguard/rules.d/" >> /etc/usbguard/usbguard-daemon.conf
+[ -f /etc/medicus/medisinsk-utstyr.json ] || echo "[]" > /etc/medicus/medisinsk-utstyr.json
+chmod 644 /etc/medicus/medisinsk-utstyr.json
 
 # Desktop shortcuts link to these files, so they must be executable (see medicus-skrivebord).
 chmod 755 /usr/share/applications/medicus-*.desktop /usr/share/medicus-it/applications/*.desktop
@@ -136,3 +143,20 @@ cp /usr/share/medicus/wallpapers/nordlys.svg /usr/share/backgrounds/xfce/xfce-x.
 for w in /usr/share/medicus/wallpapers/*.svg /usr/share/medicus/wallpaper.svg; do
   cp "$w" "/usr/share/backgrounds/xfce/medicus-$(basename "$w")"
 done
+# Debian's own theme (desktop-base) is what the lock screen and other programs fall back to. Give
+# it a Medicus theme with the same layout and make that the active one, so Debian's art never shows.
+theme=/usr/share/desktop-base/medicus-theme
+mkdir -p "$theme/wallpaper/contents/images" "$theme/lockscreen/contents/images" "$theme/login"
+for part in wallpaper lockscreen; do
+  files=""
+  for size in 1280x800 1280x1024 1920x1080 1920x1200 2520x1080 1080x2160; do
+    cp /usr/share/medicus/wallpapers/nordlys.svg "$theme/$part/contents/images/$size.svg"
+    files="$files<size width=\"${size%x*}\" height=\"${size#*x}\">$theme/$part/contents/images/$size.svg</size>"
+  done
+  printf '<background><static><duration>8640000.0</duration><file>%s</file></static></background>\n' \
+    "$files" > "$theme/$part/gnome-background.xml"
+done
+cp /usr/share/medicus/wallpapers/nordlys.svg "$theme/login/background.svg"
+cp /usr/share/medicus/wallpapers/nordlys.svg "$theme/login/background-nologo.svg"
+update-alternatives --install /usr/share/desktop-base/active-theme desktop-theme "$theme" 100
+update-alternatives --set desktop-theme "$theme"

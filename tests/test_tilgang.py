@@ -335,3 +335,20 @@ def test_admin_actions_need_the_it_card_and_pin(setup):
     assert not ask(authority, ROOT, cmd="verify", username="eirik-strand", pin="0000")["ok"]
     assert ask(authority, ROOT, cmd="verify", username="eirik-strand", pin="4401")["ok"]
     assert "admin_confirmed" in audit.path.read_text()
+
+
+def test_screen_unlock_only_for_own_session(setup, monkeypatch):
+    import tilgang.authd
+    authority, _clock, audit, _ = setup
+    INGRID = 1001
+    monkeypatch.setattr(tilgang.authd, "_uid_of", lambda name: INGRID if name == "ingrid-berg" else None)
+    ask(authority, cmd="insert", card_id="lege")
+    assert not ask(authority, INGRID, cmd="unlock", username="ingrid-berg", pin="1234")["ok"]  # nobody logged in
+    ask(authority, ROOT, cmd="login", username="ingrid-berg", pin="1234")
+    assert not ask(authority, STRANGER, cmd="unlock", username="ingrid-berg", pin="1234")["ok"]
+    assert not ask(authority, INGRID, cmd="unlock", username="ingrid-berg", pin="0000")["ok"]
+    assert ask(authority, INGRID, cmd="unlock", username="ingrid-berg", pin="1234")["ok"]
+    assert "unlock_failed" in audit.path.read_text()
+    ask(authority, cmd="remove")  # card out ends the session: nothing left to unlock
+    ask(authority, cmd="insert", card_id="lege")
+    assert not ask(authority, INGRID, cmd="unlock", username="ingrid-berg", pin="1234")["ok"]

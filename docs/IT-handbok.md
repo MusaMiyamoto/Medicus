@@ -51,6 +51,8 @@ The rules behind this:
 | `tilgang/nodrapport.py` | Emergency access reports and their deadline | Python |
 | `medicus/` | The web app: patient record, Post, journal assistant, Sikkerhetssenter | Python + FastAPI, plain HTML/CSS/JS |
 | `helsenett/` | One interface to the national health services, plus a simulator | Python + FastAPI |
+| `epj/` | Journal systems: saving notes, the doctor's patient list, DIPS (FHIR), transfer from Epic | Python |
+| `utstyr/` | Medical USB devices approved by IT (`medicus-utstyr`) | Python, USBGuard |
 | `nettleser/` | **Medicus Nettleser**, the browser (only approved sites) | Python + GTK 4 + WebKitGTK 6 |
 | `tekst/`, `kalkulator/` | The Text editor and the calculator | Python + GTK 4 |
 | `branding/` | Logo, wallpapers, boot screen; `make_assets.py` builds the images | SVG, Python + Pillow |
@@ -76,6 +78,8 @@ The rules behind this:
 | `/etc/pam.d/lightdm`, `/etc/pam.d/sudo`, `/etc/pam.d/xfce4-screensaver` | Who may log in, and how |
 | `/etc/sudoers.d/medicus-it` | Admin rights for IT staff |
 | `/etc/nftables.conf`, `/etc/usbguard/`, `/etc/tinyproxy/filter` | Firewall, USB lock, web filter |
+| `/etc/medicus/medisinsk-utstyr.json` | Approved medical USB devices |
+| `/etc/medicus/integrasjon.toml` | Health network, journal system (DIPS) and Epic settings |
 
 ### Services (systemd)
 
@@ -94,7 +98,7 @@ The rules behind this:
 1. Put the IT card in the reader. The login screen says **IT-modus** and has no emergency button.
 2. Type the PIN. The desktop starts with an **amber taskbar**, so you can see at once that this is IT mode.
 3. The Start menu and desktop have the IT tools: Sikkerhetssenter, Terminal, Oppgavebehandling,
-   Nettverk, Alle innstillinger and this handbook.
+   Nettverk, Alle innstillinger, Medisinsk utstyr (USB) and this handbook.
 
 **Admin commands:** in the terminal, put `sudo` in front. It asks for the **PIN of your IT card**,
 every time, and the command is logged in the security log (`admin_confirmed`). Without the IT card
@@ -162,11 +166,39 @@ Medicus Nettleser and the web filter use the same list: `medicus/nettsteder.py`.
 with a comment saying why, run the tests, rebuild. Only Norwegian health, public and Norwegian-owned
 news sites belong there.
 
-### A USB device doesn't work
+### A medical USB device doesn't work
 
-The USB lock only allows keyboard, mouse, headset and card reader. To allow one more kind:
-`sudo usbguard list-devices`, then add a rule to `os/config/includes.chroot/etc/usbguard/rules.conf`
-and rebuild. Never allow storage devices (memory sticks).
+The USB lock only allows keyboards, mice, headsets, hubs and card readers. Anything else is blocked
+until IT approves it: dictation microphones (SpeechMike), spirometers, ECG dongles, dermatoscopes and so on.
+
+1. Plug the device in. The Sikkerhetssenter lists it under **Medisinsk USB-utstyr** as blocked.
+2. Open **Medisinsk utstyr (USB)** from the IT menu (or `medicus-utstyr meny` in the terminal).
+3. Type the port shown for the device, give it a name ("Spirometer, legekontor 2"), and confirm
+   with the IT card PIN.
+
+| Approve | Command | When |
+|---|---|---|
+| This unit | `sudo medicus-utstyr godkjenn 1-2 --navn "..."` | The default. Only this serial number. |
+| The whole model | `... --hele-modellen` | Many identical devices, or a device without a serial number |
+| Everything from a maker | `sudo medicus-utstyr leverandor 0911 --navn "..."` | Rarely. Only for makers of medical devices. |
+| Remove | `sudo medicus-utstyr fjern 3` | The device is gone or replaced |
+
+**The safety rules** (in `utstyr/__init__.py`, and tested):
+
+- An approved unit or model may only use the interfaces it had when it was approved (USBGuard
+  `match-all`). If it later shows up with something extra, it is blocked again.
+- Storage (memory sticks), network/modem and wireless can **never** be approved, also not with a
+  maker rule. A device that has any of them is refused.
+- Only approve equipment your organisation has bought, and that the clinic says it needs.
+
+Where it is: the list is `/etc/medicus/medisinsk-utstyr.json`, the rules are generated into
+`/etc/usbguard/rules.d/50-medisinsk-utstyr.conf` (don't edit that file by hand), and every change is
+logged in `/var/lib/medicus-utstyr/audit.jsonl` with who did it.
+
+### DIPS, Epic and the patient list
+
+Set up in `/etc/medicus/integrasjon.toml`. See [journalsystemer.md](journalsystemer.md). If doctors see
+"Medicus er ikke koblet til DIPS ennå", the DIPS address or the token is missing.
 
 ---
 

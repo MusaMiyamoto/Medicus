@@ -1,0 +1,4 @@
+#!/bin/sh
+# Approve medical USB devices (IT mode). See utstyr/__init__.py. -I: the environment can't make
+# this load other code, which matters because it runs as root through sudo.
+exec /usr/bin/python3 -I -c "import sys; sys.path.insert(0, '/opt/medicus'); from utstyr.__main__ import main; sys.exit(main())" "$@"

@@ -14,6 +14,7 @@
       <a href="/pasient">Pasientjournal</a>
       <a href="/post">Post</a>
       <a href="/" aria-current="page">Journalassistent</a>
+      <a href="/overforing">Overføring</a>
     </nav>
     <div class="who" id="who"></div>
   </header>
@@ -24,6 +25,21 @@
   </div>
 
   <main>
+    <section class="card">
+      <h2>Pasient</h2>
+      <div class="picker">
+        <input id="patient-search" type="search" role="combobox" autocomplete="off" spellcheck="false"
+               aria-expanded="false" aria-controls="patient-list" aria-autocomplete="list"
+               placeholder="Søk blant dine pasienter: navn, fødselsdato eller fødselsnummer">
+        <ul id="patient-list" class="picker-list" role="listbox" hidden></ul>
+      </div>
+      <div id="patient-chosen" class="patient-chosen" hidden>
+        <div><strong id="chosen-name"></strong> <span id="chosen-details" class="muted"></span></div>
+        <button id="patient-clear" type="button" class="secondary">Bytt pasient</button>
+      </div>
+      <p id="patient-source" class="muted small"></p>
+    </section>
+
     <section class="card">
       <h2>1. Konsultasjon</h2>
       <div class="row">

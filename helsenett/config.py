@@ -5,7 +5,8 @@ import tomllib
 from pathlib import Path
 
 DEFAULT_PATH = Path("/etc/medicus/integrasjon.toml")
-DEFAULTS = {"modus": "simulert", "simulert": {"url": "http://127.0.0.1:8100"}, "nhn": {}}
+DEFAULTS = {"modus": "simulert", "simulert": {"url": "http://127.0.0.1:8100"}, "nhn": {},
+            "journal": {"system": "helsenett"}, "dips": {}, "epic": {}}
 
 
 def load(path: Path | None = None) -> dict:

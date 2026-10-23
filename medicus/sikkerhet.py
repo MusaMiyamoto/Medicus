@@ -8,6 +8,8 @@ import subprocess
 import time
 from pathlib import Path
 
+import utstyr
+
 OK, WARN, FAIL, INFO = "ok", "advarsel", "feil", "info"
 
 
@@ -84,6 +86,17 @@ def checks(active=unit_active, read=read, now=time.time) -> list[dict]:
                    "forklaring": "All trafikk går kryptert til helsenettet. Annen trafikk er blokkert."
                    if vpn else "Ikke satt opp ennå. Krever avtale med Norsk helsenett eller IT-avdelingen."})
     return result
+
+
+def medical_devices(devices: list, entries: list[dict]) -> dict:
+    """Approved medical USB devices, and anything plugged in that the USB lock is blocking."""
+    blocked = [d for d in devices if utstyr.status(d, entries) == "blokkert"]
+    text = f"{len(entries)} godkjent(e). Endres med «Medisinsk utstyr (USB)» i IT-menyen."
+    if not blocked:
+        return {"navn": "Medisinsk USB-utstyr", "status": OK, "forklaring": text}
+    names = ", ".join(f"{d.name or 'ukjent enhet'} ({d.vendor}:{d.product}, port {d.port})" for d in blocked[:5])
+    return {"navn": "Medisinsk USB-utstyr", "status": INFO,
+            "forklaring": f"Blokkert nå: {names}. Godkjenn bare utstyr virksomheten har kjøpt inn. {text}"}
 
 
 def emergency_reports(late: list[dict] | None) -> dict:

@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import medicus.app as medicus_app
+from epj import HelsenettJournal
 from helsenett.client import SimulatedClient
 from helsenett.sim import seed
 from helsenett.sim.app import create_app
@@ -18,6 +19,7 @@ IT = {"navn": "Eirik Strand", "rolle": "IT", "hpr": "IT-4401", "virksomhet": "Os
 def env(tmp_path, monkeypatch):
     sim = TestClient(create_app(tmp_path / "sim.json"))
     monkeypatch.setattr(medicus_app, "helsenett", lambda: SimulatedClient("http://sim", http=sim))
+    monkeypatch.setattr(medicus_app, "journal", lambda: HelsenettJournal(SimulatedClient("http://sim", http=sim)))
     monkeypatch.setattr(medicus_app, "audit", medicus_app.AuditLog(tmp_path / "audit.jsonl"))
 
     def login(session):
@@ -99,8 +101,8 @@ def test_security_center_is_only_for_it_mode(env, monkeypatch):
     login(DOCTOR)
     assert app.get("/api/sikkerhet").status_code == 403
     login(IT)
-    checks = app.get("/api/sikkerhet").json()
-    assert checks[-1]["navn"] == "Nødtilgangsrapporter" and checks[-1]["status"] == "ok"
+    checks = {c["navn"]: c for c in app.get("/api/sikkerhet").json()}
+    assert checks["Nødtilgangsrapporter"]["status"] == "ok" and "Medisinsk USB-utstyr" in checks
 
 
 def test_emergency_report_is_passed_to_the_login_service(env, monkeypatch):

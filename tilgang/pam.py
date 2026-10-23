@@ -22,6 +22,9 @@ def main() -> int:
         elif os.getenv("PAM_SERVICE") == "sudo":
             # IT mode: admin actions are confirmed with the IT card's PIN, never a password.
             call("verify", username=user, pin=secret)
+        elif os.getenv("PAM_SERVICE") == "xfce4-screensaver":
+            # The lock screen runs as the user themself, so it asks for "unlock", not "login".
+            call("unlock", username=user, pin=secret)
         else:
             call("login", username=user, pin=secret)
     except AuthError as e:

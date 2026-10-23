@@ -19,3 +19,20 @@ kjernejournal_url = ""
 eresept_url = ""
 dokumentdeling_url = ""
 helsenorge_url = ""
+
+[journal]
+# Hvor godkjente journalnotater lagres, og hvor «Mine pasienter» kommer fra.
+# Se docs/journalsystemer.md.
+#   system = "helsenett"   notatet deles via helsenettet (standard; simulatoren i demo)
+#   system = "dips"        DIPS Arena via FHIR R4 – krever avtale med helseforetaket og DIPS
+system = "helsenett"
+
+[dips]
+# Til test uten ekte DIPS: fhir_url = "http://127.0.0.1:8100/fhir" og en hvilken som helst token_fil.
+fhir_url = ""
+token_fil = "/etc/medicus/dips/token"
+
+[epic]
+# For å hente journal direkte fra Epic (FHIR R4). Overføring fra en eksportfil virker uten dette.
+fhir_url = ""
+token_fil = "/etc/medicus/epic/token"

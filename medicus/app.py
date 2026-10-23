@@ -9,9 +9,11 @@ Anyone who has opened emergency access writes the report at /rapport.
 
 import json
 import os
+import secrets
 import shutil
 import tempfile
 import time
+from datetime import date
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
@@ -19,8 +21,12 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from epj import epic, get_journal
+from epj import token as epj_token
+from helsenett import config as integration
 from helsenett import fnr as fnrlib
 from helsenett.client import HelsenettError, get_client
+import utstyr
 from tilgang.client import AuthError
 from tilgang.client import call as auth_call
 
@@ -91,6 +97,11 @@ def helsenett():
     return get_client()
 
 
+def journal():
+    """Where approved notes go and the doctor's patient list comes from (helsenett or DIPS)."""
+    return get_journal()
+
+
 def checked_fnr(fnr: str) -> str:
     if not fnrlib.is_valid(fnr):
         raise HTTPException(422, "Ugyldig fødselsnummer.")
@@ -102,7 +113,8 @@ class TranscriptIn(BaseModel):
 
 
 class ApprovalIn(BaseModel):
-    note: str
+    note: str = Field(min_length=1, max_length=20000)
+    fnr: str = ""  # the chosen patient: then the note is saved in their record
 
 
 class ConsentIn(BaseModel):
@@ -292,7 +304,8 @@ def security_status(_session: dict = Depends(it_session)):
         late = auth_call("overdue")["rapporter"]
     except AuthError:
         late = None
-    return sikkerhet.checks() + [sikkerhet.emergency_reports(late)]
+    devices = sikkerhet.medical_devices(utstyr.connected(), utstyr.load())
+    return sikkerhet.checks() + [sikkerhet.emergency_reports(late), devices]
 
 
 # --- Emergency access ------------------------------------------------------
@@ -406,10 +419,117 @@ def create_note(body: TranscriptIn, session: dict = Depends(normal_session)):
     }
 
 
+@app.get("/api/journal/pasienter")
+def my_patients(session: dict = Depends(normal_session)):
+    """The doctor's own patients, for the patient picker. Searching happens in the browser."""
+    j = journal()
+    return {"system": j.name, "pasienter": j.my_patients(actor(session))}
+
+
+@app.get("/api/journal/pasient/{fnr}")
+def look_up_patient(fnr: str, session: dict = Depends(normal_session)):
+    """A patient who is not on the doctor's list, typed in by fødselsnummer."""
+    patient = journal().find_patient(checked_fnr(fnr))
+    audit.record(session["hpr"], "patient_looked_up", {"patient": fnrlib.mask(fnr)})
+    return patient
+
+
 @app.post("/api/approve")
 def approve(body: ApprovalIn, session: dict = Depends(normal_session)):
-    audit.record(session["hpr"], "note_approved", {"chars": len(body.note), "samtykke_opptak": has_consent(session)})
-    return {"ok": True}
+    saved = None
+    if body.fnr:
+        j = journal()
+        j.save_note(checked_fnr(body.fnr), actor(session), "Journalnotat", body.note)
+        saved = j.name
+    audit.record(session["hpr"], "note_approved", {"chars": len(body.note), "samtykke_opptak": has_consent(session),
+                                                    "patient": fnrlib.mask(body.fnr) if saved else None,
+                                                    "saved_in": saved})
+    return {"ok": True, "lagret_i": saved}
+
+
+# --- Moving a record from Epic (normal login) --------------------------------
+# Two steps: the export is read and shown (forhåndsvisning), then the clinician confirms the
+# patient and imports it. The preview waits on the server for TRANSFER_SECONDS.
+
+TRANSFER_SECONDS = 30 * 60
+MAX_EXPORT_BYTES = 20 * 1024 * 1024
+transfers: dict[str, dict] = {}  # preview id -> {"hpr", "at", "data"}
+
+
+class FetchIn(BaseModel):
+    fnr: str
+
+
+class ImportIn(BaseModel):
+    id: str
+    fnr: str
+
+
+@app.get("/overforing")
+def transfer_page():
+    return FileResponse(STATIC / "overforing.html")
+
+
+def transfer_preview(session: dict, transfer: dict) -> dict:
+    for key in [k for k, v in transfers.items() if time.time() - v["at"] > TRANSFER_SECONDS]:
+        del transfers[key]
+    preview_id = secrets.token_urlsafe(12)
+    transfers[preview_id] = {"hpr": session["hpr"], "at": time.time(), "data": transfer}
+    j = journal()
+    try:
+        here = j.find_patient(transfer["pasient"]["fnr"])
+    except HelsenettError:
+        here = None
+    audit.record(session["hpr"], "transfer_previewed",
+                 {"patient": fnrlib.mask(transfer["pasient"]["fnr"]), "source": transfer["kilde"]})
+    return {**transfer, "id": preview_id, "her": here, "journalsystem": j.name}
+
+
+@app.post("/api/overforing/epic/fil")
+def transfer_from_file(fil: UploadFile, session: dict = Depends(normal_session)):
+    raw = fil.file.read(MAX_EXPORT_BYTES + 1)
+    if len(raw) > MAX_EXPORT_BYTES:
+        raise HTTPException(413, "Filen er for stor (over 20 MB).")
+    try:
+        transfer = epic.read_bundle(json.loads(raw))
+    except ValueError as e:
+        raise HTTPException(422, "Filen er ikke en gyldig FHIR-eksport (JSON).") from e
+    except epic.TransferError as e:
+        raise HTTPException(422, str(e)) from e
+    return transfer_preview(session, transfer)
+
+
+@app.post("/api/overforing/epic/hent")
+def transfer_from_server(body: FetchIn, session: dict = Depends(normal_session)):
+    settings = integration.load().get("epic", {})
+    source = epic.EpicSource(settings.get("fhir_url") or "http://epic.invalid",
+                             epj_token.from_file(settings.get("token_fil", ""), "Epic"))
+    try:
+        transfer = epic.read_bundle(source.bundle_for(checked_fnr(body.fnr)))
+    except epic.TransferError as e:
+        raise HTTPException(422, str(e)) from e
+    return transfer_preview(session, transfer)
+
+
+@app.post("/api/overforing/importer")
+def transfer_import(body: ImportIn, session: dict = Depends(normal_session)):
+    item = transfers.get(body.id)
+    if item is None or item["hpr"] != session["hpr"] or time.time() - item["at"] > TRANSFER_SECONDS:
+        raise HTTPException(404, "Forhåndsvisningen er utløpt. Last inn eksporten på nytt.")
+    transfer = item["data"]
+    fnr = transfer["pasient"]["fnr"]
+    if body.fnr != fnr:
+        raise HTTPException(422, "Pasienten du bekreftet stemmer ikke med eksporten.")
+    j, who = journal(), actor(session)
+    notes = epic.journal_notes(transfer, who, date.today().isoformat())
+    for title, text in notes:
+        j.save_note(fnr, who, title, text)
+    del transfers[body.id]
+    # The patient sees on Helsenorge that their record was moved, and by whom.
+    helsenett().log_access(fnr, who, "normal", f"Overføring av journal fra {transfer['kilde']}", "Journal")
+    audit.record(session["hpr"], "record_transferred",
+                 {"patient": fnrlib.mask(fnr), "source": transfer["kilde"], "notes": len(notes), "saved_in": j.name})
+    return {"ok": True, "notater": len(notes), "lagret_i": j.name}
 
 
 @app.get("/api/audit/verify")
