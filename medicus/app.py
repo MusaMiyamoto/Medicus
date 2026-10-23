@@ -2,13 +2,16 @@
 
 Who you are comes from the card login (medicus-authd), so there is no separate login here:
     normal session   journal assistant + patient record
-    emergency        only /nod: critical information, read-only
+    emergency        only /nod: life-critical information, read-only
+    it               only the Sikkerhetssenter; never patient data
+Anyone who has opened emergency access writes the report at /rapport.
 """
 
 import json
 import os
 import shutil
 import tempfile
+import time
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
@@ -59,8 +62,17 @@ def normal_session() -> dict:
     session = current_session()
     if session is None:
         raise HTTPException(401, "Du er ikke logget inn.")
+    if session["modus"] == "it":
+        raise HTTPException(403, "IT-modus har ikke tilgang til pasientdata.")
     if session["modus"] != "normal":
         raise HTTPException(403, "Ikke tilgjengelig ved nødtilgang.")
+    return session
+
+
+def it_session() -> dict:
+    session = current_session()
+    if session is None or session["modus"] != "it":
+        raise HTTPException(403, "Bare for IT-personell i IT-modus.")
     return session
 
 
@@ -91,6 +103,10 @@ class TranscriptIn(BaseModel):
 
 class ApprovalIn(BaseModel):
     note: str
+
+
+class ConsentIn(BaseModel):
+    svar: str = Field(pattern="^(ja|nei)$")
 
 
 class NoteIn(BaseModel):
@@ -136,6 +152,11 @@ def emergency_page():
     return FileResponse(STATIC / "nod.html")
 
 
+@app.get("/rapport")
+def report_page():
+    return FileResponse(STATIC / "rapport.html")
+
+
 @app.get("/om")
 def about_page():
     return FileResponse(STATIC / "om.html")
@@ -146,7 +167,7 @@ def me():
     session = current_session()
     if session is None:
         raise HTTPException(401, "Du er ikke logget inn.")
-    keep = ("navn", "rolle", "stilling", "virksomhet", "hpr", "modus", "begrunnelse", "sekunder_igjen")
+    keep = ("navn", "rolle", "stilling", "virksomhet", "hpr", "modus", "situasjon", "sekunder_igjen", "rapporter")
     return {k: session[k] for k in keep if k in session}
 
 
@@ -157,6 +178,8 @@ def synthetic_patients(session: dict = Depends(current_session)):
     """Simulation only: the synthetic test patients, so demos don't need to type numbers."""
     if session is None:
         raise HTTPException(401, "Du er ikke logget inn.")
+    if session["modus"] == "it":
+        raise HTTPException(403, "IT-modus har ikke tilgang til pasientdata.")
     return helsenett().list_patients()
 
 
@@ -264,8 +287,12 @@ def security_page():
 
 
 @app.get("/api/sikkerhet")
-def security_status(_session: dict = Depends(normal_session)):
-    return sikkerhet.checks()
+def security_status(_session: dict = Depends(it_session)):
+    try:
+        late = auth_call("overdue")["rapporter"]
+    except AuthError:
+        late = None
+    return sikkerhet.checks() + [sikkerhet.emergency_reports(late)]
 
 
 # --- Emergency access ------------------------------------------------------
@@ -275,9 +302,26 @@ def emergency_patient(fnr: str, session: dict = Depends(emergency_session)):
     fnr = checked_fnr(fnr)
     client = helsenett()
     info = client.critical_info(fnr)
-    client.log_access(fnr, actor(session), "nød", session.get("begrunnelse", "Nødtilgang"), "Kritisk informasjon")
+    client.log_access(fnr, actor(session), "nød", f"Nødtilgang: {session.get('situasjon', 'ikke oppgitt')}",
+                      "Kritisk informasjon")
     audit.record(session["hpr"], "emergency_patient_opened", {"patient": fnrlib.mask(fnr)})
     return info
+
+
+class ReportIn(BaseModel):
+    id: str = Field(min_length=1, max_length=40)
+    tekst: str = Field(min_length=1, max_length=5000)
+
+
+@app.post("/api/nodrapport")
+def write_emergency_report(body: ReportIn, session: dict = Depends(current_session)):
+    """The person who opened emergency access explains why. Works in a normal or emergency session."""
+    if session is None:
+        raise HTTPException(401, "Du er ikke logget inn.")
+    try:
+        return auth_call("report", id=body.id, tekst=body.tekst)["rapport"]
+    except AuthError as e:
+        raise HTTPException(422, str(e)) from e
 
 
 @app.post("/api/nod/avslutt")
@@ -296,9 +340,41 @@ def sample(_session: dict = Depends(normal_session)):
     return {"transcript": SAMPLE.read_text(encoding="utf-8")}
 
 
+# Recording a consultation needs the patient's yes. The doctor confirms it on screen before the
+# recording starts; the answer is logged. A "yes" lasts for one consultation (CONSENT_SECONDS).
+CONSENT_SECONDS = 2 * 3600
+consents: dict[str, float] = {}  # HPR number -> when the patient said yes
+
+
+def has_consent(session: dict) -> bool:
+    given = consents.get(session["hpr"])
+    return given is not None and time.time() - given < CONSENT_SECONDS
+
+
+@app.post("/api/samtykke")
+def recording_consent(body: ConsentIn, session: dict = Depends(normal_session)):
+    if body.svar == "ja":
+        consents[session["hpr"]] = time.time()
+    else:
+        consents.pop(session["hpr"], None)
+    audit.record(session["hpr"], "recording_consent", {"svar": body.svar})
+    return {"ok": True}
+
+
+@app.delete("/api/samtykke")
+def withdraw_consent(session: dict = Depends(normal_session)):
+    """The patient changed their mind: the recording is thrown away in the browser, never sent."""
+    consents.pop(session["hpr"], None)
+    audit.record(session["hpr"], "recording_consent_withdrawn", {})
+    return {"ok": True}
+
+
 @app.post("/api/transcribe")
 def transcribe_audio(audio: UploadFile, session: dict = Depends(normal_session)):
     from .transcribe import transcribe
+
+    if not has_consent(session):
+        raise HTTPException(403, "Pasienten må samtykke før samtalen tas opp eller lastes opp.")
 
     suffix = Path(audio.filename or "").suffix or ".webm"
     fd, path = tempfile.mkstemp(suffix=suffix)
@@ -332,7 +408,7 @@ def create_note(body: TranscriptIn, session: dict = Depends(normal_session)):
 
 @app.post("/api/approve")
 def approve(body: ApprovalIn, session: dict = Depends(normal_session)):
-    audit.record(session["hpr"], "note_approved", {"chars": len(body.note)})
+    audit.record(session["hpr"], "note_approved", {"chars": len(body.note), "samtykke_opptak": has_consent(session)})
     return {"ok": True}
 
 

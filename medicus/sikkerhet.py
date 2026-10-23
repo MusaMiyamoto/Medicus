@@ -84,3 +84,14 @@ def checks(active=unit_active, read=read, now=time.time) -> list[dict]:
                    "forklaring": "All trafikk går kryptert til helsenettet. Annen trafikk er blokkert."
                    if vpn else "Ikke satt opp ennå. Krever avtale med Norsk helsenett eller IT-avdelingen."})
     return result
+
+
+def emergency_reports(late: list[dict] | None) -> dict:
+    """Emergency access must be explained before the shift ends. Late reports go to the security officer."""
+    if late is None:
+        return {"navn": "Nødtilgangsrapporter", "status": WARN, "forklaring": "Får ikke kontakt med innloggingstjenesten."}
+    if not late:
+        return {"navn": "Nødtilgangsrapporter", "status": OK, "forklaring": "Alle nødtilganger er forklart innen fristen."}
+    who = ", ".join(f"{r['navn']} ({r['startet'].replace('T', ' ')})" for r in late[:5])
+    return {"navn": "Nødtilgangsrapporter", "status": FAIL,
+            "forklaring": f"{len(late)} rapport(er) mangler etter fristen: {who}. Gi beskjed til personvernombudet."}

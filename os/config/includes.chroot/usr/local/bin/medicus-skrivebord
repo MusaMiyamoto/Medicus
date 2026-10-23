@@ -10,8 +10,14 @@ DONE="$HOME/.config/medicus/skrivebord-klar"
 DIR=$(xdg-user-dir DESKTOP 2>/dev/null)
 [ -n "$DIR" ] || DIR="$HOME/Skrivebord"
 mkdir -p "$DIR" "$(dirname "$DONE")"
-for app in medicus-pasient medicus-post medicus-nettleser medicus-kalkulator medicus-sikkerhet; do
+APPS="medicus-pasient medicus-post medicus-nettleser medicus-kalkulator"
+# IT mode: the IT tools instead of the patient apps (IT staff never see patient data).
+if id -nG | tr " " "\n" | grep -qx medicus-it; then
+  APPS="medicus-sikkerhet medicus-it-terminal medicus-it-handbok medicus-nettleser"
+fi
+for app in $APPS; do
   src="/usr/share/applications/$app.desktop"
+  [ -f "$src" ] || src="/usr/share/medicus-it/applications/$app.desktop"
   dst="$DIR/$app.desktop"
   [ -f "$src" ] || continue
   ln -sfn "$src" "$dst"

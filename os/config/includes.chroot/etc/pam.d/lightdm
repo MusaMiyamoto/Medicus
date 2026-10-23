@@ -1,9 +1,12 @@
 #%PAM-1.0
 # Medicus: graphical login only with a health-personnel card (+ PIN) or emergency access.
 # Passwords are never accepted. Anyone not in a Medicus group is refused.
+# The two "success=N" lines skip ahead for health personnel and IT staff; everyone else
+# must be the emergency account.
 
 auth      requisite                   pam_nologin.so
-auth      [success=1 default=ignore]  pam_succeed_if.so quiet user ingroup medicus-personell
+auth      [success=2 default=ignore]  pam_succeed_if.so quiet user ingroup medicus-personell
+auth      [success=1 default=ignore]  pam_succeed_if.so quiet user ingroup medicus-it
 auth      requisite                   pam_succeed_if.so quiet user ingroup medicus-nod
 auth      [success=done ignore=ignore default=die]  pam_exec.so quiet expose_authtok stdout /usr/local/lib/medicus/pam-medicus
 # The second "credentials" step (pam_setcred) has nothing to do for card logins.

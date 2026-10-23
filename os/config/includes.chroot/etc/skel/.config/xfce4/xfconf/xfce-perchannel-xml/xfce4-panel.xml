@@ -52,7 +52,6 @@
         <value type="string" value="medicus-nettleser.desktop"/>
         <value type="string" value="medicus-journal.desktop"/>
         <value type="string" value="medicus-kalkulator.desktop"/>
-        <value type="string" value="medicus-sikkerhet.desktop"/>
         <value type="string" value="medicus-innbygger.desktop"/>
         <value type="string" value="medicus-utlevering.desktop"/>
         <value type="string" value="thunar.desktop"/>

@@ -33,16 +33,18 @@ public body**, never for private PCs or phones.
 
 ### Logging in
 
-There are no passwords. Two ways in:
+There are no passwords. Three ways in, all with a card:
 
-| | Normal login | Emergency access (*Nødtilgang*) |
-|---|---|---|
-| How | Health-personnel card + PIN | Card tap + reason, no PIN |
-| Sees | Patient record: critical info, visits and notes from every institution, prescriptions | **Only critical information**: allergies, critical conditions, medicines in use, implants, next of kin |
-| Time | Until you log out or take the card out | 30 minutes, then it closes |
-| Desktop | Full Medicus desktop | Full-screen emergency page only, no desktop or files |
-| Logged | Yes, with name and HPR number | Yes, with name, HPR number and reason; always reviewed afterwards |
-| Patient told | Yes, on Helsenorge | Yes, marked as emergency access |
+| | Normal login | Emergency access (*Nødtilgang*) | IT mode (*IT-modus*) |
+|---|---|---|---|
+| Who | Health personnel | Health personnel | IT staff (cards with role `IT`) |
+| How | Card + PIN | Card + one tap on the situation (cardiac arrest, unconscious, …), no PIN | Card + PIN |
+| Sees | Patient record: critical info, visits and notes from every institution, prescriptions | **Only life-critical information**: allergies, critical conditions, medicines in use, implants, next of kin | **No patient data.** Sikkerhetssenter, terminal, all settings, task manager, network, IT handbook |
+| Time | Until you log out or take the card out | 30 minutes, then it closes | Until you log out or take the card out |
+| Desktop | Full Medicus desktop | Full-screen emergency page only | Medicus desktop with an amber taskbar and the IT tools |
+| Afterwards | | The person **writes a report before the shift ends** (12 h). Late reports turn the Sikkerhetssenter red | Admin commands (`sudo`) ask for the IT card PIN every time |
+| Logged | Yes, with name and HPR number | Yes, with name, HPR number, situation and report | Yes, every admin command |
+| Patient told | Yes, on Helsenorge | Yes, marked as emergency access | (no access) |
 
 - **Log in once:** every Medicus app knows who you are from the card login. No separate logins.
 - **Card out = logged out.** A root-level service (`medicus-oktvakt`) ends the desktop session immediately.
@@ -56,6 +58,7 @@ login screen. Demo cards (PIN `1234` for all of them):
 | Ingrid Berg | Doctor (*lege*): can write prescriptions |
 | Jonas Lie | Nurse (*sykepleier*) |
 | Amir Haddad | Paramedic (*ambulansearbeider*) |
+| Eirik Strand | IT staff: logs in to IT mode |
 
 **The workplace comes from the PC, not the card.** Each machine has its workplace in
 `/etc/medicus/arbeidssted.toml` (for example Oslo universitetssykehus, Ullevål). The same card
@@ -157,8 +160,11 @@ Medicus toolbar and the heartbeat loader. No other brand is visible anywhere.
   Infected files are stopped. The virus database is updated automatically.
 - **Security log (auditd):** records changes to logins, Medicus settings, the firewall, USB and VPN
   rules, kernel modules, and anything run as administrator.
-- **Sikkerhetssenter:** a page that shows *live* whether the firewall, USB lock, virus scanner,
-  session guard, security log, updates, kernel lockdown, AppArmor and VPN are working, in plain Norwegian.
+- **Sikkerhetssenter (IT mode only):** a page that shows *live* whether the firewall, USB lock, virus scanner,
+  session guard, security log, updates, kernel lockdown, AppArmor and VPN are working, and whether any
+  emergency access reports are late, in plain Norwegian.
+- **IT tools are locked, not just hidden:** the terminal, settings, task manager, network editor and
+  `sudo` belong to the `medicus-it` group. See [docs/IT-handbok.md](docs/IT-handbok.md), the handbook for IT staff.
 - **Lynis** is installed for IT to run full security audits.
 
 ### Protection against malware
@@ -260,6 +266,11 @@ journal note in Norwegian. The clinician reviews, edits and approves it, then pa
 it into the patient record system (DIPS, Epic, a GP system, etc.).
 
 **Everything runs on the local machine.** No audio or text is sent to any cloud service.
+
+**The patient decides.** Before a recording starts, Medicus shows the clinician what to tell the
+patient and asks for their answer. Without a "yes" the server refuses to transcribe, and the answer
+is logged. If the patient changes their mind, one button throws the recording away unsent. The audio
+is deleted as soon as it has been transcribed, and the approved note says that the patient agreed.
 
 > ⚠️ **Prototype.** Use only made-up data, never real patient information.
 > Medicus is not a certified medical device, and every note must be checked by a clinician.

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Alle innstillinger
+Comment=Alle innstillingene for skrivebordet, også de som er skjult for helsepersonell
+Exec=xfce4-settings-manager
+Icon=preferences-system
+Terminal=false
+Categories=System;Settings;

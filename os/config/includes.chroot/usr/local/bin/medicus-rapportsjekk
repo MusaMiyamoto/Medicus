@@ -1,0 +1,4 @@
+#!/bin/sh
+# Runs at every login. If you used emergency access and have not written the report yet,
+# the report page opens straight away.
+exec /usr/bin/python3 -I -c "import sys; sys.path.insert(0, '/opt/medicus'); from tilgang.nodrapport import open_if_missing; sys.exit(open_if_missing())"

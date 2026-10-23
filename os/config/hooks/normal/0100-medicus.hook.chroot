@@ -8,6 +8,7 @@ for account in medicus medicus-auth medicus-sim; do
 done
 groupadd -f medicus-personell
 groupadd -f medicus-nod
+groupadd -f medicus-it   # IT staff: IT mode, admin rights with the IT card
 
 # --- Python environment for the web services -----------------------------------
 python3 -m venv /opt/medicus/.venv
@@ -29,6 +30,7 @@ EOF
 
 # --- Simulated health-personnel cards ------------------------------------------
 # Hash the demo PINs, delete the plain-text file, and create one account per card.
+# IT cards go in medicus-it (IT mode), everyone else in medicus-personell.
 PYTHONPATH=/opt/medicus python3 - <<'EOF'
 import json, subprocess
 from tilgang.cards import build_cards_file
@@ -36,7 +38,8 @@ from tilgang.cards import build_cards_file
 build_cards_file("/etc/medicus/simkort-demo.json", "/etc/medicus/simkort.json")
 for card in json.load(open("/etc/medicus/simkort.json", encoding="utf-8")):
     subprocess.run(["adduser", "--disabled-password", "--comment", card["navn"], card["username"]], check=True)
-    subprocess.run(["usermod", "-aG", "medicus-personell,audio,video", card["username"]], check=True)
+    group = "medicus-it" if card["rolle"] == "IT" else "medicus-personell"
+    subprocess.run(["usermod", "-aG", f"{group},audio,video", card["username"]], check=True)
 EOF
 rm /etc/medicus/simkort-demo.json
 chown medicus-auth:medicus-auth /etc/medicus/simkort.json
@@ -75,7 +78,19 @@ sed -i 's/^ImplicitPolicyTarget=.*/ImplicitPolicyTarget=block/; s/^PresentDevice
   /etc/usbguard/usbguard-daemon.conf
 
 # Desktop shortcuts link to these files, so they must be executable (see medicus-skrivebord).
-chmod 755 /usr/share/applications/medicus-*.desktop
+chmod 755 /usr/share/applications/medicus-*.desktop /usr/share/medicus-it/applications/*.desktop
+
+# --- IT mode: tools only IT staff can start -------------------------------------------
+# Hiding them from the menu is not enough, so the programs themselves belong to medicus-it.
+for tool in /usr/bin/xfce4-terminal /usr/bin/xfce4-taskmanager /usr/bin/xfce4-settings-manager \
+            /usr/bin/nm-connection-editor; do
+  dpkg-statoverride --update --add root medicus-it 0750 "$tool"
+done
+# sudo: only IT staff can even start it, and it asks for the IT card PIN (etc/pam.d/sudo).
+dpkg-statoverride --update --add root medicus-it 4750 /usr/bin/sudo
+chmod 440 /etc/sudoers.d/medicus-it
+# IT users get an amber taskbar (so you see at once that this is IT mode) and IT favourites.
+python3 /usr/local/lib/medicus/it-panel
 
 # --- Our own identity: no terminals, no other brands in what users see ----------------
 # xterm and vim come in as dependencies; a terminal would undo the "no command line" rule.

@@ -1,5 +1,5 @@
-# Desktop: XFCE parts listed one by one, so the "run command" box (xfce4-appfinder) and the
-# terminal are left out. Users start programs from the Start menu only.
+# Desktop: XFCE parts listed one by one, so the "run command" box (xfce4-appfinder) is left
+# out. Users start programs from the Start menu only.
 xorg
 libxfce4ui-utils
 thunar
@@ -67,6 +67,11 @@ clamav-daemon
 tinyproxy
 lynis
 cryptsetup
+
+# IT mode only: these programs belong to the medicus-it group (see the build hook)
+sudo
+xfce4-terminal
+xfce4-taskmanager
 
 # Start-up animation (heartbeat)
 plymouth

@@ -13,11 +13,10 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
-from . import EMERGENCY_MINUTES, EMERGENCY_USER  # noqa: E402
+from . import EMERGENCY_MINUTES, EMERGENCY_USER, IT_ROLE, SITUATIONS  # noqa: E402
 from .ekg import Ekg  # noqa: E402
 
 BRANDING = Path(__file__).parent.parent / "branding"
-REASONS = ["Bevisstløs pasient", "Hjertestans", "Alvorlig allergisk reaksjon", "Alvorlig skade", "Annet"]
 DAYS = ["Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag", "Søndag"]
 MONTHS = ["januar", "februar", "mars", "april", "mai", "juni", "juli", "august",
           "september", "oktober", "november", "desember"]
@@ -40,8 +39,12 @@ window.medicus { background: linear-gradient(160deg, #06281a 0%, #0f5333 50%, #1
 button.primary { background: #1a7f4b; color: #ffffff; border: none; }
 button.primary:hover { background: #156b3f; }
 button.emergency { background: transparent; color: #b3261e; border: 2px solid #b3261e; }
+button.emergency:hover { background: #fdecea; }
+.emergency-info { font-size: 12px; color: #7a1a14; }
 button.emergency-go { background: #b3261e; color: #ffffff; border: none; }
-.emergency-box { background: #fdecea; border-radius: 14px; padding: 16px; color: #7a1a14; }
+button.emergency-go:hover { background: #8f1d17; }
+.emergency-box { background: #fdecea; border-radius: 14px; padding: 14px; }
+.emergency-title { font-size: 16px; font-weight: 700; color: #7a1a14; }
 .error { color: #b3261e; font-weight: 600; }
 .sim { padding: 10px 14px; }
 .sim .sim-title { font-size: 10px; letter-spacing: 2px; font-weight: 700; color: #7fe0ad; }
@@ -142,6 +145,8 @@ class DemoBackend:
          "stillinger": {"ous-ulleval": "Overlege, kardiologi", "stolav": "Gjesteoverlege, kardiologi"}, "sperret": False},
         {"card_id": "amb", "navn": "Amir Haddad", "rolle": "Ambulansearbeider", "hpr": "999000303",
          "username": "amir-haddad", "stillinger": {}, "sperret": False},
+        {"card_id": "it", "navn": "Eirik Strand", "rolle": "IT", "hpr": "IT-4401",
+         "username": "eirik-strand", "stillinger": {}, "sperret": False},
     ]
 
     def __init__(self):
@@ -268,26 +273,26 @@ class LoginWindow(Gtk.ApplicationWindow):
         self.emergency_button.add_css_class("emergency")
         self.emergency_button.connect("clicked", lambda *_: self.show_emergency(True))
         panel.append(self.emergency_button)
+        # Fixed line breaks: wrapping labels can stretch the panel when the screen is short.
+        self.emergency_info = Gtk.Label(xalign=0, label=(
+            f"Kun livsviktig informasjon i {EMERGENCY_MINUTES} min. Logges med ditt navn.\n"
+            "Du skriver en rapport om hvorfor før skiftet er slutt."))
+        self.emergency_info.add_css_class("emergency-info")
+        panel.append(self.emergency_info)
 
+        # Two taps in total: "Nødtilgang", then the situation. Hard to open by mistake, but no
+        # typing and no questions. The situation is filled in on the report afterwards.
         self.emergency = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, visible=False)
         self.emergency.add_css_class("emergency-box")
-        # Fixed line breaks: wrapping labels can stretch the panel when the screen is short.
-        info = Gtk.Label(xalign=0, label=(
-            f"Kun kritisk informasjon i {EMERGENCY_MINUTES} minutter.\n"
-            "Tilgangen logges med ditt navn, kontrolleres\n"
-            "i etterkant, og pasienten blir varslet."))
-        self.reason = Gtk.DropDown.new_from_strings(REASONS)
-        self.reason_detail = Gtk.Entry(placeholder_text="Utdyp kort (valgfritt)")
-        go = Gtk.Button(label="Start nødtilgang")
-        go.add_css_class("emergency-go")
-        go.connect("clicked", lambda *_: self.start_emergency())
+        self.emergency.append(Gtk.Label(xalign=0, label="Hva er situasjonen?", css_classes=["emergency-title"]))
+        for situation in SITUATIONS:
+            button = Gtk.Button(label=situation)
+            button.add_css_class("emergency-go")
+            button.connect("clicked", lambda _b, s=situation: self.start_emergency(s))
+            self.emergency.append(button)
         cancel = Gtk.Button(label="Avbryt")
         cancel.connect("clicked", lambda *_: self.show_emergency(False))
-        buttons = Gtk.Box(spacing=8, homogeneous=True)
-        buttons.append(cancel)
-        buttons.append(go)
-        for widget in (info, self.reason, self.reason_detail, buttons):
-            self.emergency.append(widget)
+        self.emergency.append(cancel)
         panel.append(self.emergency)
 
         # Bottom left: the simulated card reader (demo only). Bottom right: round power buttons.
@@ -376,7 +381,18 @@ class LoginWindow(Gtk.ApplicationWindow):
             self.sim_choice.set_sensitive(card is None)
             if card:
                 self.title.set_text(f"Hei, {card['navn']}")
-                self.subtitle.set_text(f"{card['stilling']} · {site['navn']}")
+                if card.get("rolle") == IT_ROLE:
+                    self.subtitle.set_text(f"IT-modus · {site['navn']}")
+                else:
+                    self.subtitle.set_text(f"{card['stilling']} · {site['navn']}")
+                # Emergency access is for health personnel; IT staff never see patient data.
+                self.emergency_button.set_visible(card.get("rolle") != IT_ROLE)
+                self.emergency_info.set_visible(card.get("rolle") != IT_ROLE)
+                if card.get("rapporter"):
+                    first = card["rapporter"][0]
+                    late = "Fristen er ute! " if first["forsinket"] else ""
+                    self.message.set_text(f"{late}Du har en nødtilgangsrapport å skrive (frist kl. {first['frist'][11:16]}).\n"
+                                          "Den åpnes når du logger inn.")
                 self.pin.grab_focus()
             else:
                 self.title.set_text("Sett inn helsepersonellkortet")
@@ -390,7 +406,7 @@ class LoginWindow(Gtk.ApplicationWindow):
 
     def show_emergency(self, visible):
         self.emergency.set_visible(visible)
-        for widget in (self.emergency_button, self.pin, self.login_button):
+        for widget in (self.emergency_button, self.emergency_info, self.pin, self.login_button):
             widget.set_visible(not visible)
 
     def set_busy(self, busy, text="Logger inn"):
@@ -412,17 +428,20 @@ class LoginWindow(Gtk.ApplicationWindow):
             return
         self.message.set_text("")
         self.set_busy(True)
-        self.lightdm.login(self.card["username"], self.pin.get_text(), "xfce", self.finished)
+        session = "medicus-it" if self.is_it_card() else "xfce"
+        self.lightdm.login(self.card["username"], self.pin.get_text(), session, self.finished)
 
-    def start_emergency(self):
+    def is_it_card(self):
+        return bool(self.card) and self.card.get("rolle") == IT_ROLE
+
+    def start_emergency(self, situation):
         if not self.card or self.busy:
             return
-        reason = REASONS[self.reason.get_selected()]
-        detail = self.reason_detail.get_text().strip()
-        if detail:
-            reason = f"{reason}: {detail}"
+        self.message.set_text("")
+        self.emergency.set_visible(False)
         self.set_busy(True, "Starter nødtilgang")
-        self.lightdm.login(EMERGENCY_USER, reason, "medicus-nod", self.finished)
+        # LightDM asks PAM for a "password"; for emergency access that answer is the situation.
+        self.lightdm.login(EMERGENCY_USER, situation, "medicus-nod", self.finished)
 
     def sim_site(self):
         if not self.sim_sites:

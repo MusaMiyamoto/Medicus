@@ -1,0 +1,27 @@
+#!/usr/bin/python3
+"""Build time: give every IT user an amber taskbar and IT favourites in the Start menu.
+
+Their home folder was copied from /etc/skel, so this edits that copy of the panel settings.
+"""
+
+import grp
+import pwd
+import re
+from pathlib import Path
+
+PANEL = ".config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml"
+FAVOURITES = ["medicus-sikkerhet.desktop", "medicus-it-terminal.desktop", "medicus-it-oppgaver.desktop",
+              "medicus-it-nettverk.desktop", "medicus-it-innstillinger.desktop", "medicus-it-handbok.desktop",
+              "medicus-nettleser.desktop", "thunar.desktop", "medicus-tekst.desktop", "medicus-kort-ut.desktop"]
+AMBER = ["0.42", "0.26", "0.02", "0.95"]
+
+for user in grp.getgrnam("medicus-it").gr_mem:
+    path = Path(pwd.getpwnam(user).pw_dir) / PANEL
+    xml = path.read_text(encoding="utf-8")
+    values = "".join(f'        <value type="string" value="{name}"/>\n' for name in FAVOURITES)
+    xml = re.sub(r'(<property name="favorites" type="array">\n).*?(\s*</property>)', lambda m: m[1] + values.rstrip("\n") + m[2],
+                 xml, count=1, flags=re.S)
+    colour = "".join(f'        <value type="double" value="{v}"/>\n' for v in AMBER)
+    xml = re.sub(r'(<property name="background-rgba" type="array">\n).*?(\s*</property>)', lambda m: m[1] + colour.rstrip("\n") + m[2],
+                 xml, count=1, flags=re.S)
+    path.write_text(xml, encoding="utf-8")

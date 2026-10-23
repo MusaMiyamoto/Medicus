@@ -15,7 +15,7 @@ import time
 from . import EMERGENCY_USER
 from .client import AuthError, call
 
-GROUPS = ("medicus-personell", "medicus-nod")
+GROUPS = ("medicus-personell", "medicus-nod", "medicus-it")
 GRACE_SECONDS = 15
 
 

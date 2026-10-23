@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Nettverk
+Comment=Sett opp kablet nett, trådløst nett og VPN
+Exec=nm-connection-editor
+Icon=network-wired
+Terminal=false
+Categories=System;Settings;

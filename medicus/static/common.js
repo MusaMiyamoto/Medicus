@@ -61,11 +61,24 @@ async function showWho() {
   try {
     const me = await api("/api/meg");
     box.innerHTML = `<b>${esc(me.navn)}</b><br>${esc(me.stilling || me.rolle)} · ${esc(me.virksomhet)}`;
+    reportReminder(me);
     return me;
   } catch (e) {
     box.textContent = e.message;
     return null;
   }
+}
+
+// After emergency access, a red reminder on every page until the report is written.
+// Not on the emergency page itself (no distractions there) or on the report page.
+function reportReminder(me) {
+  const reports = me.rapporter || [];
+  if (!reports.length || me.modus === "nød" || location.pathname === "/rapport") return;
+  const banner = document.createElement("div");
+  banner.className = "banner danger";
+  banner.innerHTML = `<b>Du har ${reports.length === 1 ? "en nødtilgangsrapport" : `${reports.length} nødtilgangsrapporter`}
+    å skrive</b> – frist kl. ${esc(reports[0].frist.slice(11, 16))}. <a href="/rapport">Skriv rapporten nå</a>`;
+  document.querySelector("main").prepend(banner);
 }
 
 const whoReady = showWho();

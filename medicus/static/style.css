@@ -215,3 +215,18 @@ button:focus-visible, .button:focus-within { outline: 3px solid var(--accent); o
 
 /* Paperclip on messages with attachments */
 .clip { vertical-align: -2px; color: #5b6b63; margin-left: 2px; }
+
+/* Emergency access report */
+form.report { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
+form.report button { margin-top: 8px; }
+
+/* Recording a consultation: consent first, then a clear "recording" bar */
+dialog.consent { max-width: 560px; border: none; border-radius: 14px; padding: 22px 24px; }
+dialog.consent::backdrop { background: rgba(0, 0, 0, 0.45); }
+dialog.consent blockquote { margin: 10px 0; padding: 10px 14px; border-left: 4px solid var(--accent, #1a7f4b);
+  background: var(--ok-bg); border-radius: 6px; }
+label.check { display: flex; gap: 8px; align-items: center; font-weight: 600; margin: 14px 0; }
+.recording-bar { display: flex; gap: 12px; align-items: center; margin: 10px 0; font-weight: 700; color: var(--danger); }
+.recording-bar .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--danger); animation: blink 1s infinite; }
+.recording-bar button { margin-left: auto; }
+@keyframes blink { 50% { opacity: 0.3; } }

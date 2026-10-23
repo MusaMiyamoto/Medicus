@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nødtilgangsrapport – Medicus</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img src="/logo.svg" alt="">Medicus</div>
+    <nav>
+      <a href="/pasient">Pasientjournal</a>
+      <a href="/post">Post</a>
+      <a href="/">Journalassistent</a>
+    </nav>
+    <div class="who" id="who"></div>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Nødtilgangsrapport</h2>
+      <p>Du åpnet nødtilgang. Skriv kort hva som skjedde og hvorfor du trengte tilgangen.
+        Rapporten må være skrevet <b>før skiftet ditt er slutt</b>. Den leses av personvernombudet.</p>
+      <div id="reports"></div>
+      <p id="none" class="muted" hidden>Du har ingen rapporter å skrive. Takk!</p>
+    </section>
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+  </main>
+  <script src="/static/common.js"></script>
+  <script>
+    const statusEl = document.getElementById("status");
+    const time = (iso) => iso.replace("T", " kl. ");
+
+    function render(reports) {
+      document.getElementById("none").hidden = reports.length > 0;
+      document.getElementById("reports").innerHTML = reports.map((r) => `
+        <form class="report ${r.forsinket ? "late" : ""}" data-id="${esc(r.id)}">
+          <p><b>${esc(r.situasjon)}</b> · startet ${esc(time(r.startet))} ·
+            ${r.forsinket ? `<span class="tag danger">Fristen gikk ut ${esc(time(r.frist))}</span>` : `frist ${esc(time(r.frist))}`}</p>
+          <label for="t-${esc(r.id)}">Hva skjedde, og hvorfor trengtes nødtilgang?</label>
+          <textarea id="t-${esc(r.id)}" rows="5" required minlength="20"
+            placeholder="F.eks.: Pasient funnet bevisstløs i korridoren. Trengte allergier og faste legemidler før behandling."></textarea>
+          <button type="submit">Send rapport</button>
+        </form>`).join("");
+      document.querySelectorAll("form.report").forEach((f) => f.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        try {
+          await api("/api/nodrapport", { method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: f.dataset.id, tekst: f.querySelector("textarea").value }) });
+          statusEl.textContent = "Takk! Rapporten er sendt.";
+          statusEl.classList.remove("error");
+          f.remove();
+          document.getElementById("none").hidden = document.querySelectorAll("form.report").length > 0;
+        } catch (err) {
+          statusEl.textContent = err.message;
+          statusEl.classList.add("error");
+        }
+      }));
+    }
+    whoReady.then((me) => render((me && me.rapporter) || []));
+  </script>
+</body>
+</html>

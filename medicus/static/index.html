@@ -14,7 +14,6 @@
       <a href="/pasient">Pasientjournal</a>
       <a href="/post">Post</a>
       <a href="/" aria-current="page">Journalassistent</a>
-      <a href="/sikkerhet">Sikkerhet</a>
     </nav>
     <div class="who" id="who"></div>
   </header>
@@ -35,6 +34,10 @@
         </label>
         <button id="sample" type="button" class="secondary">Bruk eksempelsamtale</button>
       </div>
+      <div id="recording" class="recording-bar" hidden role="status">
+        <span class="dot" aria-hidden="true"></span> Opptak <span id="elapsed">00:00</span>
+        <button id="discard" type="button" class="secondary">Pasienten ombestemte seg – slett opptaket</button>
+      </div>
       <label for="transcript">Transkripsjon (kan redigeres)</label>
       <textarea id="transcript" rows="10" placeholder="Ta opp, last opp lyd, eller lim inn tekst her …"></textarea>
       <button id="generate" type="button">Lag journalnotat</button>
@@ -51,6 +54,21 @@
 
     <p id="status" class="status" role="status" aria-live="polite"></p>
   </main>
+
+  <!-- Shown before every recording: a reminder of what to tell the patient, and their answer. -->
+  <dialog id="consent" class="consent">
+    <h2>Før du tar opp samtalen</h2>
+    <p>Spør pasienten, for eksempel:</p>
+    <blockquote>«Jeg vil gjerne ta opp samtalen vår, slik at maskinen kan skrive et utkast til journalnotatet.
+      Opptaket blir bare på denne maskinen og slettes så snart teksten er laget. Det er frivillig,
+      og du kan si nei eller ombestemme deg når som helst. Er det greit for deg?»</blockquote>
+    <label class="check"><input type="checkbox" id="consent-yes"> Pasienten er informert og har sagt ja</label>
+    <div class="row">
+      <button type="button" id="consent-cancel" class="secondary">Avbryt</button>
+      <button type="button" id="consent-no" class="secondary">Pasienten sa nei</button>
+      <button type="button" id="consent-start" disabled>● Start opptak</button>
+    </div>
+  </dialog>
 
   <script src="/static/common.js"></script>
   <script src="/static/app.js"></script>

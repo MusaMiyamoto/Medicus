@@ -3,7 +3,7 @@ import json
 import pytest
 
 from medicus.audit import AuditLog
-from tilgang import EMERGENCY_USER
+from tilgang import EMERGENCY_USER, REPORT_HOURS
 from tilgang.arbeidssted import Arbeidssted, load
 from tilgang.authd import Authority
 from tilgang.cards import SimulatedReader, build_cards_file
@@ -19,6 +19,8 @@ DEMO = [
      "demo_pin": "1234", "stillinger": {"ous-ulleval": "Overlege, kardiologi", "stolav": "Gjesteoverlege"}},
     {"card_id": "spl", "navn": "Jonas Lie", "rolle": "Sykepleier", "hpr": "999000202", "username": "jonas-lie",
      "demo_pin": "2345"},
+    {"card_id": "it", "navn": "Eirik Strand", "rolle": "IT", "hpr": "IT-4401", "username": "eirik-strand",
+     "demo_pin": "4401"},
 ]
 
 
@@ -92,7 +94,7 @@ def test_three_wrong_pins_block_the_card(setup):
     right_pin = ask(authority, ROOT, cmd="login", username="ingrid-berg", pin="1234")
     assert not right_pin["ok"]
     assert "sperret" in right_pin["error"] and "Feil PIN" not in right_pin["error"]
-    assert not ask(authority, ROOT, cmd="emergency", reason="Bevisstløs pasient")["ok"]
+    assert not ask(authority, ROOT, cmd="emergency", situasjon="Bevisstløs pasient")["ok"]
 
 
 def test_removing_card_ends_normal_session(setup):
@@ -103,14 +105,13 @@ def test_removing_card_ends_normal_session(setup):
     assert ask(authority, cmd="status")["okt"] is None
 
 
-def test_emergency_requires_card_and_reason(setup):
+def test_emergency_needs_only_the_card(setup):
     authority, *_ = setup
-    assert "kort" in ask(authority, ROOT, cmd="emergency", reason="Hjertestans")["error"]
+    assert "kort" in ask(authority, ROOT, cmd="emergency", situasjon="Hjertestans")["error"]
     ask(authority, cmd="insert", card_id="spl")
-    assert not ask(authority, ROOT, cmd="emergency", reason="")["ok"]
-    assert ask(authority, ROOT, cmd="emergency", reason="Hjertestans")["ok"]
+    assert ask(authority, ROOT, cmd="emergency", situasjon="Hjertestans")["ok"]
     session = ask(authority, cmd="status")["okt"]
-    assert session["modus"] == "nød"
+    assert session["modus"] == "nød" and session["situasjon"] == "Hjertestans"
     assert session["navn"] == "Jonas Lie"
     assert session["linux_bruker"] == EMERGENCY_USER
     assert session["sekunder_igjen"] == 30 * 60
@@ -119,7 +120,7 @@ def test_emergency_requires_card_and_reason(setup):
 def test_emergency_survives_card_removal_but_expires(setup):
     authority, clock, *_ = setup
     ask(authority, cmd="insert", card_id="spl")
-    ask(authority, ROOT, cmd="emergency", reason="Hjertestans")
+    ask(authority, ROOT, cmd="emergency", situasjon="Hjertestans")
     ask(authority, cmd="remove")
     assert ask(authority, cmd="status")["okt"]["modus"] == "nød"
     clock.now += 30 * 60 + 1
@@ -129,7 +130,7 @@ def test_emergency_survives_card_removal_but_expires(setup):
 def test_who_may_end_a_session(setup):
     authority, *_ = setup
     ask(authority, cmd="insert", card_id="spl")
-    ask(authority, ROOT, cmd="emergency", reason="Hjertestans")
+    ask(authority, ROOT, cmd="emergency", situasjon="Hjertestans")
     assert not ask(authority, STRANGER, cmd="end")["ok"]
     assert ask(authority, MEDICUS_SERVICE, cmd="end")["ok"]
     assert ask(authority, cmd="status")["okt"] is None
@@ -138,11 +139,11 @@ def test_who_may_end_a_session(setup):
 def test_everything_is_audited_with_identity(setup):
     authority, _clock, audit, _ = setup
     ask(authority, cmd="insert", card_id="spl")
-    ask(authority, ROOT, cmd="emergency", reason="Bevisstløs pasient")
+    ask(authority, ROOT, cmd="emergency", situasjon="Bevisstløs pasient")
     entries = [json.loads(line) for line in audit.path.read_text().splitlines()]
     emergency = [e for e in entries if e["action"] == "emergency_start"][0]
     assert emergency["user"] == "999000202"
-    assert emergency["details"]["reason"] == "Bevisstløs pasient"
+    assert emergency["details"]["situasjon"] == "Bevisstløs pasient"
     assert audit.verify() == (True, None)
 
 
@@ -241,3 +242,96 @@ def test_simulated_reader_can_be_switched_off(setup):
     authority, *_ = setup
     authority.simulated = False
     assert not ask(authority, cmd="insert", card_id="lege")["ok"]
+
+
+# --- Emergency reports ---------------------------------------------------------------
+
+def test_unknown_situation_is_recorded_as_not_given(setup):
+    authority, *_ = setup
+    ask(authority, cmd="insert", card_id="spl")
+    ask(authority, ROOT, cmd="emergency", situasjon="<script>")
+    assert ask(authority, cmd="status")["okt"]["situasjon"] == "Ikke oppgitt"
+
+
+def test_emergency_access_leaves_a_report_to_write(setup):
+    authority, _clock, audit, _ = setup
+    ask(authority, cmd="insert", card_id="spl")
+    ask(authority, ROOT, cmd="emergency", situasjon="Hjertestans")
+    ask(authority, MEDICUS_SERVICE, cmd="end")
+    # Next time the card goes in, the login screen knows a report is owed ...
+    ask(authority, cmd="remove")
+    ask(authority, cmd="insert", card_id="spl")
+    owed = ask(authority, cmd="status")["kort"]["rapporter"]
+    assert len(owed) == 1 and owed[0]["situasjon"] == "Hjertestans" and not owed[0]["forsinket"]
+    # ... and after a normal login the person writes it.
+    ask(authority, ROOT, cmd="login", username="jonas-lie", pin="2345")
+    report_id = ask(authority, cmd="status")["okt"]["rapporter"][0]["id"]
+    assert "mer" in ask(authority, MEDICUS_SERVICE, cmd="report", id=report_id, tekst="ok")["error"]
+    text = "Pasient funnet bevisstløs på gangen. Trengte allergier før behandling."
+    assert ask(authority, MEDICUS_SERVICE, cmd="report", id=report_id, tekst=text)["ok"]
+    assert ask(authority, cmd="status")["okt"]["rapporter"] == []
+    written = [json.loads(line) for line in audit.path.read_text().splitlines() if "report_written" in line]
+    assert written[0]["details"]["tekst"] == text
+
+
+def test_only_the_person_who_opened_it_can_write_the_report(setup):
+    authority, *_ = setup
+    ask(authority, cmd="insert", card_id="spl")
+    ask(authority, ROOT, cmd="emergency", situasjon="Hjertestans")
+    report_id = ask(authority, cmd="status")["okt"]["rapporter"][0]["id"]
+    ask(authority, MEDICUS_SERVICE, cmd="end")
+    ask(authority, cmd="remove")
+    login(authority)  # Ingrid Berg
+    text = "Dette er en lang nok tekst for en rapport."
+    assert not ask(authority, MEDICUS_SERVICE, cmd="report", id=report_id, tekst=text)["ok"]
+    assert not ask(authority, STRANGER, cmd="report", id=report_id, tekst=text)["ok"]
+
+
+def test_late_reports_are_flagged_once(setup):
+    authority, clock, audit, _ = setup
+    ask(authority, cmd="insert", card_id="spl")
+    ask(authority, ROOT, cmd="emergency", situasjon="Hjertestans")
+    assert ask(authority, MEDICUS_SERVICE, cmd="overdue")["rapporter"] == []
+    clock.now += REPORT_HOURS * 3600 + 1
+    late = ask(authority, MEDICUS_SERVICE, cmd="overdue")["rapporter"]
+    assert len(late) == 1 and late[0]["forsinket"]
+    ask(authority, cmd="status")
+    flagged = [line for line in audit.path.read_text().splitlines() if "emergency_report_overdue" in line]
+    assert len(flagged) == 1
+    assert not ask(authority, STRANGER, cmd="overdue")["ok"]
+
+
+def test_reports_survive_a_restart(tmp_path):
+    from tilgang.nodrapport import Reports
+    clock = Clock()
+    Reports(tmp_path / "r.json", clock).open("999000202", "Jonas Lie", "Hjertestans")
+    again = Reports(tmp_path / "r.json", clock)
+    assert again.missing("999000202")[0]["situasjon"] == "Hjertestans"
+
+
+# --- IT mode -----------------------------------------------------------------------
+
+def test_it_card_logs_in_to_it_mode(setup):
+    authority, *_ = setup
+    login(authority, card_id="it", username="eirik-strand", pin="4401")
+    assert ask(authority, cmd="status")["okt"]["modus"] == "it"
+    ask(authority, cmd="remove")
+    assert ask(authority, cmd="status")["okt"] is None
+
+
+def test_it_card_cannot_open_emergency_access(setup):
+    authority, *_ = setup
+    ask(authority, cmd="insert", card_id="it")
+    assert not ask(authority, ROOT, cmd="emergency", situasjon="Hjertestans")["ok"]
+
+
+def test_admin_actions_need_the_it_card_and_pin(setup):
+    authority, _clock, audit, _ = setup
+    ask(authority, cmd="insert", card_id="lege")
+    assert not ask(authority, ROOT, cmd="verify", username="ingrid-berg", pin="1234")["ok"]
+    ask(authority, cmd="remove")
+    ask(authority, cmd="insert", card_id="it")
+    assert not ask(authority, STRANGER, cmd="verify", username="eirik-strand", pin="4401")["ok"]
+    assert not ask(authority, ROOT, cmd="verify", username="eirik-strand", pin="0000")["ok"]
+    assert ask(authority, ROOT, cmd="verify", username="eirik-strand", pin="4401")["ok"]
+    assert "admin_confirmed" in audit.path.read_text()

@@ -41,6 +41,9 @@ HIDE = [
     "thunar-bulk-rename.desktop", "thunar-volman-settings.desktop", "org.xfce.mousepad-settings.desktop",
     "org.xfce.mousepad.desktop",
     "nm-connection-editor.desktop", "firefox-esr.desktop", "xfce4-appfinder.desktop",
+    # IT tools: shown only in IT mode, as medicus-it-*.desktop (usr/share/medicus-it/applications).
+    "xfce4-terminal.desktop", "org.xfce.terminal.desktop", "xfce4-taskmanager.desktop",
+    "org.xfce.taskmanager.desktop",
 ]
 
 

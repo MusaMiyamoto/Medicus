@@ -6,8 +6,10 @@ The caller's user id comes from the kernel (SO_PEERCRED), so it can't be faked.
     status          anyone        card in reader + active session
     cards           anyone        simulated cards (simulation mode only)
     insert/remove   anyone        simulated card reader (simulation mode only)
-    login           root (PAM)    card + PIN → normal session
-    emergency       root (PAM)    card + reason → 30-minute emergency session
+    login           root (PAM)    card + PIN → normal session (IT cards: IT session)
+    emergency       root (PAM)    card + situation → 30-minute emergency session + a report to write
+    report          the session's user or the Medicus service: write an emergency report
+    verify          root (PAM)    IT card + PIN confirms an admin action (sudo)
     end             root, the session's user, or the Medicus service
 """
 
@@ -22,10 +24,11 @@ from datetime import datetime, timedelta
 
 from medicus.audit import AuditLog
 
-from . import EMERGENCY_MINUTES, EMERGENCY_USER
+from . import EMERGENCY_MINUTES, EMERGENCY_USER, IT_ROLE, SITUATIONS
 from .arbeidssted import UNKNOWN, Arbeidssted, load_sim_sites, position
 from .arbeidssted import load as load_site
 from .cards import CardError, SimulatedReader
+from .nodrapport import Reports
 
 MAX_REQUEST = 8192
 
@@ -35,7 +38,7 @@ class Authority:
 
     def __init__(self, reader: SimulatedReader, audit: AuditLog, trusted_service_uids: set[int],
                  simulated: bool = True, clock=time.time, site: Arbeidssted = UNKNOWN,
-                 sim_sites: list[Arbeidssted] = ()):
+                 sim_sites: list[Arbeidssted] = (), reports: Reports | None = None):
         self.reader = reader
         self.audit = audit
         self.trusted = trusted_service_uids
@@ -44,6 +47,7 @@ class Authority:
         self.site = site
         self.sim_sites = list(sim_sites)
         self.session: dict | None = None
+        self.reports = reports or Reports(None, clock)
         self.lock = threading.Lock()
 
     def _session(self) -> dict | None:
@@ -53,8 +57,13 @@ class Authority:
             self.session = None
         return self.session
 
+    def _flag_late_reports(self):
+        for item in self.reports.newly_overdue():
+            self.audit.record(item["hpr"], "emergency_report_overdue", {"report": item["id"]})
+
     def handle(self, request: dict, uid: int) -> dict:
         with self.lock:
+            self._flag_late_reports()
             command = request.get("cmd")
             handler = getattr(self, f"cmd_{command}", None)
             if handler is None:
@@ -82,11 +91,13 @@ class Authority:
             public = {k: v for k, v in session.items() if k != "uid"}
             if session.get("utloper"):
                 public["sekunder_igjen"] = max(0, int(session["utloper"] - self.clock()))
+            public["rapporter"] = self.reports.missing(session["hpr"])
         reply = {"kort": card.public() if card else None, "okt": public, "simulert": self.simulated,
                  "arbeidssted": self.site.public()}
         if card:
             reply["kort"]["stilling"] = position(card.stillinger, card.rolle, self.site)
             reply["kort"]["sperret"] = self.reader.is_blocked(card.card_id)
+            reply["kort"]["rapporter"] = self.reports.missing(card.hpr)
         if self.simulated:
             reply["arbeidssteder"] = [s.public() for s in self.sim_sites]
         return reply
@@ -117,8 +128,8 @@ class Authority:
         self.reader.remove()
         if card:
             self.audit.record(card.hpr, "card_removed", {"user": card.username})
-        # Taking the card out ends a normal session. Emergency sessions run until they expire.
-        if self.session and self.session["modus"] == "normal":
+        # Taking the card out ends a normal or IT session. Emergency sessions run until they expire.
+        if self.session and self.session["modus"] in ("normal", "it"):
             self.audit.record(self.session["hpr"], "session_ended", {"reason": "card_removed"})
             self.session = None
 
@@ -132,26 +143,67 @@ class Authority:
         if not self.reader.verify_pin(str(req.get("pin", ""))):
             self.audit.record(card.hpr, "login_failed", {"user": card.username})
             raise CardError(f"Feil PIN. {self.reader.tries_left()} forsøk igjen.")
-        if not (self.session and self.session["username"] == card.username and self.session["modus"] == "normal"):
-            self.session = self._new_session(card, "normal", None)
-            self.audit.record(card.hpr, "login", {"user": card.username})
+        mode = "it" if card.rolle == IT_ROLE else "normal"
+        if not (self.session and self.session["username"] == card.username and self.session["modus"] == mode):
+            self.session = self._new_session(card, mode, None)
+            self.audit.record(card.hpr, "login", {"user": card.username, "mode": mode})
         else:
             self.audit.record(card.hpr, "unlock", {"user": card.username})
+
+    def cmd_verify(self, req, uid):
+        """An IT person confirms an admin action (sudo) with the card PIN. Logged every time."""
+        self._require_root(uid)
+        card = self.reader.inserted()
+        if card is None or card.username != req.get("username"):
+            raise CardError("Sett inn IT-kortet ditt.")
+        if card.rolle != IT_ROLE:
+            raise PermissionError("Bare IT-personell kan gjøre endringer på systemet.")
+        if not self.reader.verify_pin(str(req.get("pin", ""))):
+            self.audit.record(card.hpr, "admin_failed", {"user": card.username})
+            raise CardError(f"Feil PIN. {self.reader.tries_left()} forsøk igjen.")
+        self.audit.record(card.hpr, "admin_confirmed", {"user": card.username, "command": str(req.get("command", ""))[:200]})
 
     def cmd_emergency(self, req, uid):
         self._require_root(uid)
         card = self.reader.inserted()
         if card is None:
             raise CardError("Nødtilgang krever helsepersonellkort, slik at tilgangen kan spores.")
+        if card.rolle == IT_ROLE:
+            raise PermissionError("Nødtilgang er bare for helsepersonell.")
         if self.reader.is_blocked(card.card_id):
             raise CardError("Kortet er sperret.")
-        reason = str(req.get("reason", "")).strip()
-        if len(reason) < 5:
-            raise CardError("Skriv en kort begrunnelse for nødtilgangen.")
-        self.session = self._new_session(card, "nød", reason)
-        self.audit.record(card.hpr, "emergency_start", {"user": card.username, "reason": reason})
+        # No questions first: in an emergency every second counts. The why comes afterwards.
+        situation = str(req.get("situasjon", ""))
+        if situation not in SITUATIONS:
+            situation = "Ikke oppgitt"
+        report = self.reports.open(card.hpr, card.navn, situation)
+        self.session = self._new_session(card, "nød", report["id"])
+        self.session["situasjon"] = situation
+        self.audit.record(card.hpr, "emergency_start",
+                          {"user": card.username, "situasjon": situation, "report": report["id"]})
 
-    def _new_session(self, card, mode, reason) -> dict:
+    def cmd_report(self, req, uid):
+        """Write the report for an emergency access. Only the person who opened it can."""
+        session = self._session()
+        if session is None:
+            raise PermissionError("Du er ikke logget inn.")
+        if not (uid in self.trusted or _uid_of(session["linux_bruker"]) == uid):
+            raise PermissionError("Ikke tillatt.")
+        try:
+            item = self.reports.write(str(req.get("id", "")), session["hpr"], str(req.get("tekst", "")))
+        except (ValueError, LookupError) as e:
+            raise CardError(str(e)) from e
+        self.audit.record(session["hpr"], "emergency_report_written",
+                          {"report": item["id"], "tekst": str(req.get("tekst", "")).strip()[:5000]})
+        return {"rapport": item}
+
+    def cmd_overdue(self, _req, uid):
+        """Late emergency reports, for the Sikkerhetssenter (IT mode)."""
+        if not (uid == 0 or uid in self.trusted):
+            raise PermissionError("Ikke tillatt.")
+        return {"rapporter": self.reports.overdue()}
+
+    def _new_session(self, card, mode, report_id) -> dict:
         start = self.clock()
         person = {k: v for k, v in card.public().items() if k != "stillinger"}
         session = {**person, "modus": mode, "startet": datetime.fromtimestamp(start).isoformat(timespec="seconds"),
@@ -160,7 +212,7 @@ class Authority:
                    "stilling": position(card.stillinger, card.rolle, self.site)}
         session["linux_bruker"] = EMERGENCY_USER if mode == "nød" else card.username
         if mode == "nød":
-            session["begrunnelse"] = reason
+            session["rapport_id"] = report_id
             session["utloper"] = start + timedelta(minutes=EMERGENCY_MINUTES).total_seconds()
         return session
 
@@ -227,6 +279,7 @@ def main():
         SimulatedReader(Path("/etc/medicus/simkort.json"), state / "pin-forsok.json"),
         AuditLog(state / "audit.jsonl"),
         trusted_service_uids=trusted,
+        reports=Reports(state / "nodrapporter.json", time.time),
         simulated=True,
         site=load_site(),
         sim_sites=load_sim_sites(),

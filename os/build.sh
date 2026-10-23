@@ -81,6 +81,9 @@ cp -r "$REPO/branding/wallpapers" config/includes.chroot/usr/share/medicus/
 # Medicus Nettleser's icon, so windows and the taskbar show it.
 mkdir -p config/includes.chroot/usr/share/icons/hicolor/scalable/apps
 cp "$REPO/branding/nettleser.svg" config/includes.chroot/usr/share/icons/hicolor/scalable/apps/medicus-nettleser.svg
+# The IT handbook, opened from IT mode (IT-håndbok).
+mkdir -p config/includes.chroot/usr/share/doc/medicus
+cp "$REPO/docs/IT-handbok.md" config/includes.chroot/usr/share/doc/medicus/
 # Menu: Medicus names and neutral icons, other brands and command tools hidden.
 python3 "$REPO/os/menu.py" config/includes.chroot
 
