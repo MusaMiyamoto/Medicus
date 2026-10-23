@@ -139,7 +139,7 @@ Medicus toolbar and the heartbeat loader. No other brand is visible anywhere.
 - Opens only **approved websites**: health sites (Helsenorge, Felleskatalogen, Legemiddelhåndboka,
   Helsedirektoratet, FHI and others) and **government sites** (NAV, Skatteetaten, Altinn, ID-porten,
   Regjeringen, Politiet, every *kommune.no* and more) and **Norwegian news** (NRK, NTB, VG, Aftenposten,
-  Dagbladet, TV 2, regional papers, and health news like Dagens Medisin and Tidsskriftet), listed in
+  regional papers, and health news like Tidsskriftet and Sykepleien; only Norwegian-owned sites), listed in
   [`medicus/nettsteder.py`](medicus/nettsteder.py). Ads and trackers from other companies stay blocked.
   A web filter (tinyproxy) enforces the same list, so the browser can't get around it.
 - **Nothing points back to Medicus:** the plain engine user agent, no referrer, no proxy headers,
