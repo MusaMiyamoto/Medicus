@@ -21,8 +21,10 @@ done
 python3 -c "import PIL" 2>/dev/null || { echo "Mangler Pillow. Installer: apt install python3-pil" >&2; exit 1; }
 
 # Kernel hardening (Kernel Self Protection Project recommendations that Debian supports).
+# mem_encrypt=on: RAM is encrypted on CPUs with AMD SME (Intel TME is switched on in the firmware),
+# so a session held after the card is taken out is not readable from the memory chips.
 HARDENING="slab_nomerge init_on_alloc=1 init_on_free=1 page_alloc.shuffle=1 randomize_kstack_offset=on \
-vsyscall=none debugfs=off lockdown=integrity"
+vsyscall=none debugfs=off lockdown=integrity mem_encrypt=on"
 
 mkdir -p "$WORK" "$OUT"
 cd "$WORK"

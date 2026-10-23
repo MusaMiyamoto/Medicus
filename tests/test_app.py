@@ -39,6 +39,13 @@ def test_not_logged_in_gets_nothing(env):
     assert app.get(f"/api/nod/pasient/{seed.OLA}").status_code == 403
 
 
+def test_held_session_after_card_out_gets_nothing(env, monkeypatch):
+    app, _sim, login = env
+    login(None)
+    monkeypatch.setattr(medicus_app, "auth_call", lambda *a, **k: {"okt": {**DOCTOR, "holdt_sekunder_igjen": 600}})
+    assert app.get(f"/api/pasient/{seed.OLA}").status_code == 401
+
+
 def test_opening_a_record_notifies_the_patient(env):
     app, sim, login = env
     login(DOCTOR)

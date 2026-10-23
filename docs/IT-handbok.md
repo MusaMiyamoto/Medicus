@@ -26,7 +26,13 @@ There are three ways to log in. They all start with a card in the card reader:
 The rules behind this:
 
 - **No passwords anywhere.** The card and the PIN are the only way in, also for admin rights.
-- **Card out = logged out.** Taking the card out ends a normal or IT session at once.
+- **Card out = locked and held.** Taking the card out locks a normal or IT session at once.
+  - The session is held for `HOLD_MINUTES` (15) so no work is lost; the same card and PIN resume it.
+  - If the card isn't back in time, or someone else logs in, the session ends.
+  - Each step is in the audit log: `session_held`, `session_resumed`, and `session_ended` with the
+    reason `card_not_returned` or `other_user_logged_in`.
+  - Hibernation is masked and RAM encryption is on where the CPU supports it, so a held session never
+    reaches the disk.
 - **Emergency access must be explained.** The person who opened it must write a short report
   before their shift ends (`REPORT_HOURS`, 12 hours). Late reports show up red in the
   Sikkerhetssenter: tell the data protection officer (personvernombudet).
@@ -87,7 +93,7 @@ The rules behind this:
 | Service | What it does | If it stops |
 |---|---|---|
 | `medicus-auth` | Card, PIN, sessions, reports | Nobody can log in |
-| `medicus-oktvakt` | Logs out desktops without a valid card login | Card out no longer logs out |
+| `medicus-oktvakt` | Locks desktops when the card is out; logs out desktops without a valid card login | Card out no longer locks or logs out |
 | `medicus` | The web app on 127.0.0.1:8000 | Patient record, Post etc. show an error |
 | `medicus-helsenett-sim` | The simulated health network on 127.0.0.1:8100 | No patients (demo only) |
 | `nftables`, `usbguard`, `auditd`, `clamav-daemon`, `tinyproxy` | Firewall, USB lock, system log, virus scan, web filter | Sikkerhetssenter turns red |

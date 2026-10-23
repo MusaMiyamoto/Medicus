@@ -40,14 +40,21 @@ There are no passwords. Three ways in, all with a card:
 | Who | Health personnel | Health personnel | IT staff (cards with role `IT`) |
 | How | Card + PIN | Card + one tap on the situation (cardiac arrest, unconscious, …), no PIN | Card + PIN |
 | Sees | Patient record: critical info, visits and notes from every institution, prescriptions | **Only life-critical information**: allergies, critical conditions, medicines in use, implants, next of kin | **No patient data.** Sikkerhetssenter, terminal, all settings, task manager, network, IT handbook |
-| Time | Until you log out or take the card out | 30 minutes, then it closes | Until you log out or take the card out |
+| Time | Until you log out. Card out locks it; not back within 15 minutes ends it | 30 minutes, then it closes | Same as normal |
 | Desktop | Full Medicus desktop | Full-screen emergency page only | Medicus desktop with an amber taskbar and the IT tools |
 | Afterwards | | The person **writes a report before the shift ends** (12 h). Late reports turn the Sikkerhetssenter red | Admin commands (`sudo`) ask for the IT card PIN every time |
 | Logged | Yes, with name and HPR number | Yes, with name, HPR number, situation and report | Yes, every admin command |
 | Patient told | Yes, on Helsenorge | Yes, marked as emergency access | (no access) |
 
 - **Log in once:** every Medicus app knows who you are from the card login. No separate logins.
-- **Card out = logged out.** A root-level service (`medicus-oktvakt`) ends the desktop session immediately.
+- **Card out = locked, nothing lost.** The screen locks at once and the session is **held for 15 minutes**.
+  - **Same card and PIN back:** work continues exactly where it was, with open notes and unsaved text intact.
+  - **Card not back in time:** the session ends.
+  - **Another person logs in:** the held session ends.
+  - **While held:** no app can use the session; the journal service refuses it.
+  - **Enforcement:** a root-level service (`medicus-oktvakt`) does the locking and ending, so the user can't stop it.
+  - **Memory:** RAM is encrypted where the CPU supports it (`mem_encrypt=on`, AMD SME; Intel TME is set in
+    firmware). Hibernation is switched off, so a held session is never written to disk.
 - **Three wrong PINs block the card**, like a real chip card.
 
 In this prototype the card reader is **simulated**: use *Simulert kortleser* at the bottom of the

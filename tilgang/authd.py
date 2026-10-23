@@ -7,6 +7,8 @@ The caller's user id comes from the kernel (SO_PEERCRED), so it can't be faked.
     cards           anyone        simulated cards (simulation mode only)
     insert/remove   anyone        simulated card reader (simulation mode only)
     login           root (PAM)    card + PIN → normal session (IT cards: IT session)
+    unlock          the session's user (lock screen): own card + PIN. Also resumes a session held
+                    after the card was taken out (HOLD_MINUTES).
     emergency       root (PAM)    card + situation → 30-minute emergency session + a report to write
     report          the session's user or the Medicus service: write an emergency report
     verify          root (PAM)    IT card + PIN confirms an admin action (sudo)
@@ -24,7 +26,7 @@ from datetime import datetime, timedelta
 
 from medicus.audit import AuditLog
 
-from . import EMERGENCY_MINUTES, EMERGENCY_USER, IT_ROLE, SITUATIONS
+from . import EMERGENCY_MINUTES, EMERGENCY_USER, HOLD_MINUTES, IT_ROLE, SITUATIONS
 from .arbeidssted import UNKNOWN, Arbeidssted, load_sim_sites, position
 from .arbeidssted import load as load_site
 from .cards import CardError, SimulatedReader
@@ -55,7 +57,16 @@ class Authority:
         if s and s.get("utloper") and self.clock() > s["utloper"]:
             self.audit.record(s["hpr"], "emergency_expired", {"user": s["username"]})
             self.session = None
+        elif s and s.get("holdt_til") and self.clock() > s["holdt_til"]:
+            self.audit.record(s["hpr"], "session_ended", {"reason": "card_not_returned", "mode": s["modus"]})
+            self.session = None
         return self.session
+
+    def _release(self, card):
+        """The same card and PIN came back: the held session continues where it was."""
+        held = self.session.pop("holdt_til")
+        self.audit.record(card.hpr, "session_resumed",
+                          {"user": card.username, "held_seconds": int(self.clock() - (held - HOLD_MINUTES * 60))})
 
     def _flag_late_reports(self):
         for item in self.reports.newly_overdue():
@@ -91,6 +102,8 @@ class Authority:
             public = {k: v for k, v in session.items() if k != "uid"}
             if session.get("utloper"):
                 public["sekunder_igjen"] = max(0, int(session["utloper"] - self.clock()))
+            if session.get("holdt_til"):
+                public["holdt_sekunder_igjen"] = max(0, int(session["holdt_til"] - self.clock()))
             public["rapporter"] = self.reports.missing(session["hpr"])
         reply = {"kort": card.public() if card else None, "okt": public, "simulert": self.simulated,
                  "arbeidssted": self.site.public()}
@@ -128,10 +141,12 @@ class Authority:
         self.reader.remove()
         if card:
             self.audit.record(card.hpr, "card_removed", {"user": card.username})
-        # Taking the card out ends a normal or IT session. Emergency sessions run until they expire.
-        if self.session and self.session["modus"] in ("normal", "it"):
-            self.audit.record(self.session["hpr"], "session_ended", {"reason": "card_removed"})
-            self.session = None
+        # Taking the card out locks a normal or IT session and holds it for HOLD_MINUTES, so open work
+        # isn't lost. Nothing can use it meanwhile. Emergency sessions run until they expire.
+        session = self._session()
+        if session and session["modus"] in ("normal", "it") and not session.get("holdt_til"):
+            session["holdt_til"] = self.clock() + HOLD_MINUTES * 60
+            self.audit.record(session["hpr"], "session_held", {"user": session["username"], "minutes": HOLD_MINUTES})
 
     def cmd_login(self, req, uid):
         self._require_root(uid)
@@ -144,9 +159,16 @@ class Authority:
             self.audit.record(card.hpr, "login_failed", {"user": card.username})
             raise CardError(f"Feil PIN. {self.reader.tries_left()} forsøk igjen.")
         mode = "it" if card.rolle == IT_ROLE else "normal"
-        if not (self.session and self.session["username"] == card.username and self.session["modus"] == mode):
+        current = self._session()
+        if not (current and current["username"] == card.username and current["modus"] == mode):
+            if current and current.get("holdt_til"):
+                # Someone else logs in on this PC: the held session is given up (its desktop is closed).
+                self.audit.record(current["hpr"], "session_ended",
+                                  {"reason": "other_user_logged_in", "mode": current["modus"], "by": card.hpr})
             self.session = self._new_session(card, mode, None)
             self.audit.record(card.hpr, "login", {"user": card.username, "mode": mode})
+        elif current.get("holdt_til"):
+            self._release(card)
         else:
             self.audit.record(card.hpr, "unlock", {"user": card.username})
 
@@ -164,7 +186,10 @@ class Authority:
         if not self.reader.verify_pin(str(req.get("pin", ""))):
             self.audit.record(card.hpr, "unlock_failed", {"user": card.username})
             raise CardError(f"Feil PIN. {self.reader.tries_left()} forsøk igjen.")
-        self.audit.record(card.hpr, "unlock", {"user": card.username})
+        if session.get("holdt_til"):
+            self._release(card)
+        else:
+            self.audit.record(card.hpr, "unlock", {"user": card.username})
 
     def cmd_verify(self, req, uid):
         """An IT person confirms an admin action (sudo) with the card PIN. Logged every time."""

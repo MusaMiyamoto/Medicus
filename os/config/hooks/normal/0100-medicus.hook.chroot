@@ -70,7 +70,7 @@ systemctl enable home.mount var-tmp.mount
 # --- Hardening: switch off what a clinical workstation doesn't need -------------
 systemctl mask avahi-daemon.service avahi-daemon.socket bluetooth.service \
   ctrl-alt-del.target getty@.service autovt@.service serial-getty@.service \
-  debug-shell.service 2>/dev/null || true
+  debug-shell.service hibernate.target hybrid-sleep.target suspend-then-hibernate.target 2>/dev/null || true
 chmod 700 /root
 chmod 600 /etc/usbguard/rules.conf
 chmod 700 /etc/wireguard

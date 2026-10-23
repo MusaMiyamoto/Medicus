@@ -59,9 +59,11 @@ def current_session() -> dict | None:
     if dev:
         return json.loads(dev)
     try:
-        return auth_call("status")["okt"]
+        session = auth_call("status")["okt"]
     except AuthError:
         return None
+    # Card taken out: the session is only held for the card to come back. Nothing may use it meanwhile.
+    return None if session and "holdt_sekunder_igjen" in session else session
 
 
 def normal_session() -> dict:

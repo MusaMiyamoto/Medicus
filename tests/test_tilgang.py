@@ -97,12 +97,55 @@ def test_three_wrong_pins_block_the_card(setup):
     assert not ask(authority, ROOT, cmd="emergency", situasjon="Bevisstløs pasient")["ok"]
 
 
-def test_removing_card_ends_normal_session(setup):
-    authority, *_ = setup
+def test_removing_card_holds_the_session_for_15_minutes_then_ends_it(setup):
+    authority, clock, audit, _ = setup
     ask(authority, cmd="insert", card_id="lege")
     ask(authority, ROOT, cmd="login", username="ingrid-berg", pin="1234")
     ask(authority, cmd="remove")
+    assert ask(authority, cmd="status")["okt"]["holdt_sekunder_igjen"] == 15 * 60
+    clock.now += 15 * 60 + 1
     assert ask(authority, cmd="status")["okt"] is None
+    assert "card_not_returned" in audit.path.read_text()
+
+
+def test_same_card_and_pin_resume_the_held_session(setup, monkeypatch):
+    import tilgang.authd
+    authority, clock, audit, _ = setup
+    INGRID = 1001
+    monkeypatch.setattr(tilgang.authd, "_uid_of", lambda name: INGRID if name == "ingrid-berg" else None)
+    started = login(authority)["startet"]
+    ask(authority, cmd="remove")
+    ask(authority, cmd="remove")  # taking it out "again" does not restart the 15 minutes
+    clock.now += 10 * 60
+    assert not ask(authority, INGRID, cmd="unlock", username="ingrid-berg", pin="1234")["ok"]  # card still out
+    ask(authority, cmd="insert", card_id="lege")
+    assert not ask(authority, INGRID, cmd="unlock", username="ingrid-berg", pin="0000")["ok"]
+    assert "holdt_sekunder_igjen" in ask(authority, cmd="status")["okt"]
+    assert ask(authority, INGRID, cmd="unlock", username="ingrid-berg", pin="1234")["ok"]
+    session = ask(authority, cmd="status")["okt"]
+    assert session["startet"] == started and "holdt_sekunder_igjen" not in session
+    clock.now += 60 * 60  # resumed: no longer on the clock
+    assert ask(authority, cmd="status")["okt"]["navn"] == "Ingrid Berg"
+    assert '"held_seconds": 600' in audit.path.read_text()
+
+
+def test_another_card_cannot_resume_but_can_take_over_the_pc(setup):
+    authority, _clock, audit, _ = setup
+    login(authority)
+    ask(authority, cmd="remove")
+    ask(authority, cmd="insert", card_id="spl")
+    assert not ask(authority, ROOT, cmd="unlock", username="jonas-lie", pin="2345")["ok"]
+    assert ask(authority, ROOT, cmd="login", username="jonas-lie", pin="2345")["ok"]
+    assert ask(authority, cmd="status")["okt"]["navn"] == "Jonas Lie"
+    assert "other_user_logged_in" in audit.path.read_text()
+
+
+def test_held_session_resumes_through_the_login_screen_too(setup):
+    authority, *_ = setup
+    login(authority)
+    ask(authority, cmd="remove")
+    session = login(authority)
+    assert "holdt_sekunder_igjen" not in session
 
 
 def test_emergency_needs_only_the_card(setup):
@@ -159,6 +202,16 @@ def test_guard_terminates_desktops_without_matching_login():
     assert decide(other, sessions, users) == (["3"], False)
     emergency = {"linux_bruker": EMERGENCY_USER}
     assert decide(emergency, [{"session": "4", "user": EMERGENCY_USER}], users) == ([], True)
+
+
+def test_guard_locks_a_held_desktop_but_keeps_it():
+    from tilgang.sessionguard import decide, to_lock
+
+    sessions = [{"session": "3", "user": "ingrid-berg"}, {"session": "1", "user": "lightdm"}]
+    held = {"linux_bruker": "ingrid-berg", "holdt_sekunder_igjen": 600}
+    assert decide(held, sessions, {"ingrid-berg"}) == ([], True)
+    assert to_lock(held, sessions) == ["3"]
+    assert to_lock({"linux_bruker": "ingrid-berg"}, sessions) == [] and to_lock(None, sessions) == []
 
 
 def test_guard_reads_loginctl_json_and_refuses_to_guess():
@@ -316,7 +369,7 @@ def test_it_card_logs_in_to_it_mode(setup):
     login(authority, card_id="it", username="eirik-strand", pin="4401")
     assert ask(authority, cmd="status")["okt"]["modus"] == "it"
     ask(authority, cmd="remove")
-    assert ask(authority, cmd="status")["okt"] is None
+    assert "holdt_sekunder_igjen" in ask(authority, cmd="status")["okt"]  # held and locked, like any card login
 
 
 def test_it_card_cannot_open_emergency_access(setup):
@@ -349,6 +402,5 @@ def test_screen_unlock_only_for_own_session(setup, monkeypatch):
     assert not ask(authority, INGRID, cmd="unlock", username="ingrid-berg", pin="0000")["ok"]
     assert ask(authority, INGRID, cmd="unlock", username="ingrid-berg", pin="1234")["ok"]
     assert "unlock_failed" in audit.path.read_text()
-    ask(authority, cmd="remove")  # card out ends the session: nothing left to unlock
-    ask(authority, cmd="insert", card_id="lege")
-    assert not ask(authority, INGRID, cmd="unlock", username="ingrid-berg", pin="1234")["ok"]
+    ask(authority, ROOT, cmd="end")
+    assert not ask(authority, INGRID, cmd="unlock", username="ingrid-berg", pin="1234")["ok"]  # logged out

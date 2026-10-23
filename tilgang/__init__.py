@@ -17,6 +17,9 @@ EMERGENCY_USER = "nodtilgang"
 # employee number in the "hpr" field instead, so the security log still says who it was.
 IT_ROLE = "IT"
 EMERGENCY_MINUTES = 30
+# Card out: the screen locks and the session is kept this long, so nothing is lost if the card
+# comes back (same card + PIN). After that, or when someone else logs in, the session ends.
+HOLD_MINUTES = 15
 # The emergency report is due within this many hours: the end of the longest normal shift.
 REPORT_HOURS = 12
 # Shown as big buttons after tapping "Nødtilgang": one more tap starts it, no typing.

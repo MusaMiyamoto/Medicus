@@ -1,8 +1,10 @@
 """medicus-oktvakt: makes the desktop follow the card login, enforced by the system.
 
 Runs as root, outside the user's session, so a user can't stop it. Every second:
-  - a desktop session for a Medicus user without a matching login (card removed,
+  - a desktop session for a Medicus user without a matching login (card not returned in time,
     emergency time is up, or logged out elsewhere) is terminated at once;
+  - a login held because the card was taken out has its desktop locked (the lock screen needs
+    the same card and PIN back);
   - a login with no desktop session left (the user logged out) is ended after a grace period.
 """
 
@@ -47,8 +49,16 @@ def decide(login: dict | None, sessions: list[dict], users: set[str]) -> tuple[l
     return terminate, has_desktop
 
 
+def to_lock(login: dict | None, sessions: list[dict]) -> list[str]:
+    """The held login's desktop sessions: locked while its card is out."""
+    if not login or "holdt_sekunder_igjen" not in login:
+        return []
+    return [s["session"] for s in sessions if s.get("user") == login["linux_bruker"]]
+
+
 def main() -> int:
     alone_since = None
+    locked: set[str] = set()
     while True:
         time.sleep(1)
         try:
@@ -61,6 +71,11 @@ def main() -> int:
         terminate, has_desktop = decide(login, sessions, medicus_users())
         for session_id in terminate:
             subprocess.run(["loginctl", "terminate-session", session_id], check=False)
+        # Lock once per hold: the lock screen stays until the card + PIN come back.
+        held = to_lock(login, sessions)
+        for session_id in set(held) - locked:
+            subprocess.run(["loginctl", "lock-session", session_id], check=False)
+        locked = set(held)
         if login and not has_desktop:
             alone_since = alone_since or time.monotonic()
             if time.monotonic() - alone_since > GRACE_SECONDS:
