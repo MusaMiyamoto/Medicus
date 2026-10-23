@@ -137,6 +137,7 @@ hide the package's own menu entry in `os/menu.py` (`HIDE`).
 | *Kortet er sperret* (card blocked) | Three wrong PINs. In IT mode: `sudo nano /var/lib/medicus-auth/pin-forsok.json` and remove the card's line, after checking it is really the owner. |
 | *Får ikke kontakt med innloggingstjenesten* | `sudo systemctl status medicus-auth`, then `sudo journalctl -u medicus-auth -n 50`. |
 | *Kortet tilhører en annen bruker* | The card in the reader isn't the one the screen shows. Take it out and put it back in. |
+| *PC-en er ikke koblet til sykehusets kliniske nett* | Check the cable / Wi-Fi and `medicus-wlan` (certificate valid?). See "Network ports and the clinical VLAN". |
 | Nothing happens after the PIN | Look in `sudo journalctl -b | grep -i pam`. |
 
 ### Someone used emergency access
@@ -222,6 +223,40 @@ sudo medicus-wlan legg-til Sykehus-Ansatt --server radius.sykehuset.no
 Sikkerhetssenter warns 30 days before the certificate runs out. Needs TPM 2.0 switched on in
 BIOS/UEFI and a RADIUS server set up for EAP-TLS. **Test on real hardware first:** the TPM path
 (tpm2-pkcs11 → NetworkManager → wpa_supplicant) can't be tried in a VM without a virtual TPM.
+
+### Network ports and the clinical VLAN
+
+The same TPM certificate also works on the network cable:
+
+```bash
+sudo medicus-wlan kablet --server radius.sykehuset.no      # wired 802.1X (--av removes it)
+```
+
+How each part works:
+- **The switch:** it asks the RADIUS server about the PC, and RADIUS puts PCs with a valid certificate
+  on the **clinical VLAN** (dynamic VLAN assignment). Anything else lands on the guest VLAN or nowhere:
+  a private laptop, a cloned disk, a PC that was stolen and had its certificate revoked. That part is set
+  up in the switch and RADIUS server, not on the PC.
+- **Medicus checks too:** list the clinical subnets in `/etc/medicus/arbeidssted.toml`:
+
+  ```toml
+  nett = ["10.20.0.0/16"]
+  ```
+
+  Then `medicus-authd` only lets health personnel log in, or unlock the screen, while **both** are true:
+  - the PC is connected through a Medicus 802.1X profile (*Medicus: …*, so with the TPM certificate);
+  - the PC has an address in one of those subnets.
+
+  authd reads this itself from the kernel and NetworkManager, so nothing the user runs can fake it.
+
+| Who | Outside the clinical network |
+|---|---|
+| Health personnel | Refused: *PC-en er ikke koblet til sykehusets kliniske nett*. Logged as `login_refused_network` / `unlock_refused_network`. |
+| Emergency access | Always works: lives first. Marked `utenfor_klinisk_nett` in the log. |
+| IT mode | Works, so IT can repair the network. No patient data anyway. Marked `utenfor_klinisk_nett`. |
+
+A `nett` line IT mistyped closes access; it never opens it. Leave `nett` out on PCs that aren't on a
+clinical VLAN yet.
 
 ### DIPS, Epic and the patient list
 

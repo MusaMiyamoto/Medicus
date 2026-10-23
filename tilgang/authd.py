@@ -26,7 +26,7 @@ from datetime import datetime, timedelta
 
 from medicus.audit import AuditLog
 
-from . import EMERGENCY_MINUTES, EMERGENCY_USER, HOLD_MINUTES, IT_ROLE, SITUATIONS
+from . import EMERGENCY_MINUTES, EMERGENCY_USER, HOLD_MINUTES, IT_ROLE, SITUATIONS, nett
 from .arbeidssted import UNKNOWN, Arbeidssted, load_sim_sites, position
 from .arbeidssted import load as load_site
 from .cards import CardError, SimulatedReader
@@ -40,7 +40,7 @@ class Authority:
 
     def __init__(self, reader: SimulatedReader, audit: AuditLog, trusted_service_uids: set[int],
                  simulated: bool = True, clock=time.time, site: Arbeidssted = UNKNOWN,
-                 sim_sites: list[Arbeidssted] = (), reports: Reports | None = None):
+                 sim_sites: list[Arbeidssted] = (), reports: Reports | None = None, network=nett.read):
         self.reader = reader
         self.audit = audit
         self.trusted = trusted_service_uids
@@ -50,7 +50,18 @@ class Authority:
         self.sim_sites = list(sim_sites)
         self.session: dict | None = None
         self.reports = reports or Reports(None, clock)
+        self.network = network
         self.lock = threading.Lock()
+
+    def _on_clinical_network(self) -> bool:
+        """Read by authd itself, never taken from the caller."""
+        return nett.on_clinical_network(self.network(), self.site.nett) if self.site.nett else True
+
+    def _require_clinical_network(self, card, action):
+        if not self._on_clinical_network():
+            self.audit.record(card.hpr, f"{action}_refused_network", {"user": card.username})
+            raise PermissionError("PC-en er ikke koblet til sykehusets kliniske nett, så pasientjournaler er stengt. "
+                                  "Nødtilgang virker fortsatt. Kontakt IT.")
 
     def _session(self) -> dict | None:
         s = self.session
@@ -159,6 +170,10 @@ class Authority:
             self.audit.record(card.hpr, "login_failed", {"user": card.username})
             raise CardError(f"Feil PIN. {self.reader.tries_left()} forsøk igjen.")
         mode = "it" if card.rolle == IT_ROLE else "normal"
+        # Patient records only on the clinical network. IT mode has no patient data, and IT must be
+        # able to log in to repair the network, so it is allowed elsewhere but marked.
+        if mode == "normal":
+            self._require_clinical_network(card, "login")
         current = self._session()
         if not (current and current["username"] == card.username and current["modus"] == mode):
             if current and current.get("holdt_til"):
@@ -166,7 +181,10 @@ class Authority:
                 self.audit.record(current["hpr"], "session_ended",
                                   {"reason": "other_user_logged_in", "mode": current["modus"], "by": card.hpr})
             self.session = self._new_session(card, mode, None)
-            self.audit.record(card.hpr, "login", {"user": card.username, "mode": mode})
+            details = {"user": card.username, "mode": mode}
+            if not self._on_clinical_network():
+                details["utenfor_klinisk_nett"] = True
+            self.audit.record(card.hpr, "login", details)
         elif current.get("holdt_til"):
             self._release(card)
         else:
@@ -186,6 +204,8 @@ class Authority:
         if not self.reader.verify_pin(str(req.get("pin", ""))):
             self.audit.record(card.hpr, "unlock_failed", {"user": card.username})
             raise CardError(f"Feil PIN. {self.reader.tries_left()} forsøk igjen.")
+        if session["modus"] == "normal":
+            self._require_clinical_network(card, "unlock")  # a laptop carried off the ward stays locked
         if session.get("holdt_til"):
             self._release(card)
         else:
@@ -220,8 +240,10 @@ class Authority:
         report = self.reports.open(card.hpr, card.navn, situation)
         self.session = self._new_session(card, "nød", report["id"])
         self.session["situasjon"] = situation
-        self.audit.record(card.hpr, "emergency_start",
-                          {"user": card.username, "situasjon": situation, "report": report["id"]})
+        details = {"user": card.username, "situasjon": situation, "report": report["id"]}
+        if not self._on_clinical_network():
+            details["utenfor_klinisk_nett"] = True  # never blocked: lives first, but the report will show it
+        self.audit.record(card.hpr, "emergency_start", details)
 
     def cmd_report(self, req, uid):
         """Write the report for an emergency access. Only the person who opened it can."""

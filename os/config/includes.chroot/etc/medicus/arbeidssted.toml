@@ -2,3 +2,8 @@
 # The login screen and every Medicus app show this as the workplace of whoever logs in here.
 id = "ous-ulleval"
 navn = "Oslo universitetssykehus, Ullevål"
+
+# The site's clinical networks (VLANs), as subnets. When set, normal logins only work while the PC
+# is connected with its TPM machine certificate (medicus-wlan) AND has an address in one of these.
+# Emergency access and IT mode still work elsewhere, marked in the audit log. See the IT handbook.
+# nett = ["10.20.0.0/16"]

@@ -17,6 +17,15 @@ def test_keyfile_uses_eap_tls_with_the_key_in_the_tpm():
     assert f"ca-cert={wlan.CA}" in text and "ssid=Sykehus-Ansatt" in text
 
 
+def test_wired_profile_uses_the_same_tpm_certificate():
+    text = wlan.wired_keyfile("radius.sykehuset.no", "host/pc01.sykehuset.no", PIN, uid="u2")
+    assert "type=ethernet" in text and "[ethernet]" in text and "eap=tls;" in text
+    assert f"private-key={wlan.KEY_URI}" in text and "domain-suffix-match=radius.sykehuset.no" in text
+    assert f"id={wlan.WIRED_NAME}" in text and wlan.WIRED_NAME.startswith("Medicus: ")  # tilgang.nett looks for this
+    with pytest.raises(ValueError):
+        wlan.wired_keyfile("radius.sykehuset.no\n[ipv4]", "host/pc01", PIN)
+
+
 @pytest.mark.parametrize("ssid", ["", "x" * 33, "Gjest\nallow", "a;b"])
 def test_bad_network_names_are_refused(ssid):
     with pytest.raises(ValueError):

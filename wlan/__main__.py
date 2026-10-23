@@ -6,6 +6,7 @@
     medicus-wlan sertifikat maskin.crt ca.crt          install the signed certificate
     medicus-wlan legg-til SSID --server radius.sykehuset.no
     medicus-wlan fjern SSID
+    medicus-wlan kablet --server radius.sykehuset.no    wired 802.1X with the same certificate (--av removes it)
 
 Changes need root: the command runs itself again through sudo, which asks for the IT card's PIN.
 """
@@ -56,6 +57,7 @@ def status():
         print("Nøkkel i TPM:", "ja" if PIN.exists() else "nei (medicus-wlan nokkel)")
     end = certificate_end()
     print("Sertifikat:", f"gjelder til {end:%d.%m.%Y}" if end else "ikke installert")
+    print("Kablet 802.1X:", "ja" if wlan.WIRED_FILE.exists() else "nei (medicus-wlan kablet --server …)")
     print("\nGodkjente WLAN:")
     for e in wlan.load() or [{"ssid": "(ingen)", "server": "", "dato": ""}]:
         print(f"  {e['ssid']}  {('RADIUS: ' + e['server']) if e['server'] else ''}  {e['dato']}")
@@ -132,6 +134,25 @@ def add_wlan(args):
     print(f"«{args.ssid}» er godkjent. Maskinen kobler seg til med sertifikatet når nettet er i nærheten.")
 
 
+def wired(args):
+    """Wired 802.1X with the TPM certificate, or --av to remove it."""
+    if args.av:
+        wlan.WIRED_FILE.unlink(missing_ok=True)
+        log("wired_8021x_removed", {})
+        run("nmcli", "connection", "reload")
+        print("Kablet 802.1X er fjernet.")
+        return
+    if not CERT.exists():
+        raise ValueError("Installer maskinsertifikatet først: medicus-wlan sertifikat")
+    if not args.server:
+        raise ValueError("Oppgi RADIUS-serveren: medicus-wlan kablet --server radius.sykehuset.no")
+    text = wlan.wired_keyfile(args.server, f"host/{socket.getfqdn()}", PIN.read_text().strip())
+    wlan.write_private(wlan.WIRED_FILE, text)
+    log("wired_8021x_approved", {"server": args.server})
+    run("nmcli", "connection", "reload")
+    print("Kablet nett bruker nå maskinsertifikatet (802.1X). Svitsjen plasserer PC-en på riktig VLAN.")
+
+
 def remove_wlan(args):
     entries = wlan.load()
     if not any(e["ssid"] == args.ssid for e in entries):
@@ -155,6 +176,9 @@ def main(argv=None) -> int:
     p.add_argument("ssid")
     p.add_argument("--server", required=True)
     sub.add_parser("fjern").add_argument("ssid")
+    p = sub.add_parser("kablet")
+    p.add_argument("--server")
+    p.add_argument("--av", action="store_true")
     args = parser.parse_args(argv)
     if args.cmd is None:
         status()
@@ -163,7 +187,7 @@ def main(argv=None) -> int:
         print("Endringer krever IT-kortet. Skriv PIN-koden når du blir spurt.")
         os.execvp("sudo", ["sudo", COMMAND, *sys.argv[1:]])
     actions = {"nokkel": make_key, "foresporsel": make_request, "sertifikat": install_certificate,
-               "legg-til": add_wlan, "fjern": remove_wlan}
+               "legg-til": add_wlan, "fjern": remove_wlan, "kablet": wired}
     try:
         actions[args.cmd](args)
     except (ValueError, OSError) as e:

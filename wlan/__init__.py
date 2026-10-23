@@ -63,21 +63,44 @@ def connection_file(ssid: str) -> Path:
     return CONNECTIONS / f"medicus-wlan-{safe}.nmconnection"
 
 
-def keyfile(ssid: str, server: str, identity: str, pin: str, uid: str | None = None) -> str:
-    """A NetworkManager connection for one approved WLAN, with the key in the TPM."""
-    ssid, server = check_ssid(ssid), check_domain(server)
+WIRED_FILE = CONNECTIONS / "medicus-kablet.nmconnection"
+WIRED_NAME = "Medicus: kablet nett"
+
+
+def _eap_tls(server: str, identity: str, pin: str) -> list[str]:
+    """The 802.1X part: the PC proves itself with the TPM key, and checks the network's RADIUS server."""
+    server = check_domain(server)
     if not re.fullmatch(r"[A-Za-z0-9._/@-]{1,128}", identity) or not re.fullmatch(r"[A-Za-z0-9]{8,64}", pin):
         raise ValueError("Ugyldig identitet eller PIN.")
+    return ["", "[802-1x]", "eap=tls;", f"identity={identity}",
+            f"ca-cert={CA}", f"domain-suffix-match={server}",
+            f"client-cert={CERT}", f"private-key={KEY_URI}",
+            f"private-key-password={pin}", "private-key-password-flags=0",
+            "", "[ipv4]", "method=auto", "", "[ipv6]", "method=auto", ""]
+
+
+def keyfile(ssid: str, server: str, identity: str, pin: str, uid: str | None = None) -> str:
+    """A NetworkManager connection for one approved WLAN, with the key in the TPM."""
+    ssid = check_ssid(ssid)
     return "\n".join([
         "# Laget av medicus-wlan. Endres med medicus-wlan, ikke for hånd.",
         "[connection]", f"id=Medicus: {ssid}", f"uuid={uid or uuid.uuid4()}", "type=wifi", "autoconnect=true",
         "", "[wifi]", "mode=infrastructure", f"ssid={ssid}",
         "", "[wifi-security]", "key-mgmt=wpa-eap", "pmf=3",  # protected management frames required
-        "", "[802-1x]", "eap=tls;", f"identity={identity}",
-        f"ca-cert={CA}", f"domain-suffix-match={server}",
-        f"client-cert={CERT}", f"private-key={KEY_URI}",
-        f"private-key-password={pin}", "private-key-password-flags=0",
-        "", "[ipv4]", "method=auto", "", "[ipv6]", "method=auto", "",
+        *_eap_tls(server, identity, pin),
+    ])
+
+
+def wired_keyfile(server: str, identity: str, pin: str, uid: str | None = None) -> str:
+    """Wired 802.1X on every network port, with the key in the TPM. The switch asks the RADIUS server,
+    which puts this PC on the clinical VLAN because of its certificate (a PC without one gets the guest
+    VLAN or nothing). Higher priority than NetworkManager's automatic wired profile."""
+    return "\n".join([
+        "# Laget av medicus-wlan. Endres med medicus-wlan, ikke for hånd.",
+        "[connection]", f"id={WIRED_NAME}", f"uuid={uid or uuid.uuid4()}", "type=ethernet", "autoconnect=true",
+        "autoconnect-priority=100",
+        "", "[ethernet]",
+        *_eap_tls(server, identity, pin),
     ])
 
 

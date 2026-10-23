@@ -197,6 +197,12 @@ has nothing to work with:
 - **Machine certificate in the TPM:** each PC joins the WLANs IT approves with 802.1X EAP-TLS. The
   private key is made inside the TPM chip and can never be copied out, and the PC checks the
   network's RADIUS certificate, so a fake access point gets nothing (`medicus-wlan`, see the IT handbook).
+  The same certificate works on the network cable (wired 802.1X), so the switch puts only real Medicus
+  PCs on the clinical VLAN.
+- **Patient records only on the clinical network:** when IT lists the site's clinical subnets, health
+  personnel can only log in while the PC is on them **through its TPM certificate**. A PC carried off
+  the ward, or onto a guest network, stays locked even if someone got past the card. Emergency access
+  and IT mode still work everywhere, marked in the security log.
 - **Attack traffic:** malformed packets are dropped and ping is rate-limited. A single PC can't
   stop a large DDoS attack; that has to be handled by the network operator or Norsk helsenett.
   What Medicus does is have nothing open to attack and stay cheap to flood.
