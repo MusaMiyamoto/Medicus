@@ -1,163 +1,75 @@
-"""Draw the Medicus logo: the Rod of Asclepius, a slim rod with one snake wound round it.
+"""Make the Medicus logo files from the icon image.
 
     python3 branding/make_logo.py
 
-Writes branding/medicus-logo.svg and the faint copy on branding/wallpaper.svg. The snake is a
-centre line in pieces that get thinner towards the tail; change SEGMENTS to change its shape.
+Source: branding/medicus-icon-source.png (the green rounded square with the Rod of Asclepius).
+Writes:
+    medicus-logo.png    the icon, 512x512, transparent outside the rounded corners
+    medicus-logo.svg    the same image inside an SVG, which is what the system uses everywhere
+    wallpaper.svg       its faint rod-and-snake mark is replaced with the white parts of the icon
+
+To change the logo: replace medicus-icon-source.png, check BOX below, and run this again.
 """
+import base64
+import io
 import re
 from pathlib import Path
 
+from PIL import Image, ImageDraw
+
 HERE = Path(__file__).parent
-
-GREEN, DARK, IVORY = "#1a7f4b", "#0d4f2e", "#f6fcf8"
-OUT = 1.6  # thin dark outline around the snake, so it separates from the rod where they cross
-
-
-def outline(width: float) -> float:
-    """The outline gets thinner with the body, so the tail tip is not mostly outline."""
-    return min(OUT, 0.6 + width / 3)
-
-# The snake's centre line, head to tail, in pieces that get thinner. "behind" marks where the
-# body passes behind the rod: the rod is drawn again on top there. Pieces meet beside the rod,
-# never on it, so no seam shows on the rod.
-SEGMENTS = [
-    # (path, width, behind)
-    ("M63 27 C56 26.5 52 30.5 52 36.5", 5.6, False),          # neck: a long arc from the head down the left
-    ("M52 36.5 C52 41.5 53.5 44.5 57 47", 5.6, False),
-    ("M57 47 C60.5 49.5 66 51 70.5 52.5", 5.4, True),         # behind the rod
-    ("M70.5 52.5 C74.5 54 75 58.5 71.5 61.5", 5.2, False),    # round the right side
-    ("M71.5 61.5 C67 65.5 61 69.5 57.5 73", 5.0, False),      # long, steep crossing in front
-    ("M57.5 73 C54.5 76 55 80 58.5 81.5", 4.6, False),        # round the left side
-    ("M58.5 81.5 C61.5 83 65 84 68.5 85.5", 4.3, True),       # behind the rod
-    ("M68.5 85.5 C71.5 87 71.5 91 68.8 93", 4.0, False),
-    ("M68.8 93 C66 95 62 97 60 99.5", 3.6, False),            # steep crossing in front
-    ("M60 99.5 C58.6 101 58.2 102.4 58.8 103.2", 3.2, False),
-    ("M58.8 103.2 C61.5 104.2 65.5 104.4 67.6 104.6", 2.8, True),  # behind the rod
-    ("M67.6 104.6 C69.8 105.4 70.6 108.2 70 110.8", 2.2, False),    # the tail runs down beside the rod
-    ("M70 110.8 C69.6 112.5 68.4 113.4 67.3 112.9", 1.2, False),    # and hooks back towards it, to a point
-]
-TIP = 0.6  # width at the very end of the tail
+BOX = (271, 45, 753, 527)  # the rounded square (with its white border) in the source image
+RADIUS = 101               # its corner radius, in source pixels
+BORDER = 14                # the white border; left out of the wallpaper mark
+SIZE = 512
 
 
-def taper(segments, steps=8):
-    """Cut every piece into short bits whose width shrinks smoothly towards the next piece's width,
-    so the body tapers evenly instead of in steps."""
-    out = []
-    for i, (d, width, behind) in enumerate(segments):
-        end_width = segments[i + 1][1] if i + 1 < len(segments) else TIP
-        nums = [float(n) for n in re.findall(r"-?\d+(?:\.\d+)?", d)]
-        p0, p1, p2, p3 = (nums[0], nums[1]), (nums[2], nums[3]), (nums[4], nums[5]), (nums[6], nums[7])
-        for k in range(steps):
-            a, b = k / steps, (k + 1) / steps
-            q = _sub_curve(p0, p1, p2, p3, a, b)
-            w = width + (end_width - width) * (a + b) / 2
-            out.append(("M{:.2f} {:.2f} C{:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f}".format(*q[0], *q[1], *q[2], *q[3]),
-                        w, behind))
-    return out
+def rounded_icon(src: Image.Image) -> Image.Image:
+    icon = src.crop(BOX).convert("RGBA")
+    # Draw the corner mask four times larger and shrink it, for smooth edges.
+    big = Image.new("L", (icon.width * 4, icon.height * 4), 0)
+    ImageDraw.Draw(big).rounded_rectangle((0, 0, big.width - 1, big.height - 1), RADIUS * 4, fill=255)
+    icon.putalpha(big.resize(icon.size, Image.LANCZOS))
+    return icon.resize((SIZE, SIZE), Image.LANCZOS)
 
 
-def _sub_curve(p0, p1, p2, p3, a, b):
-    """The part of a cubic Bézier curve between t=a and t=b."""
-    def point(t):
-        s = 1 - t
-        return tuple(s**3 * p0[i] + 3 * s * s * t * p1[i] + 3 * s * t * t * p2[i] + t**3 * p3[i] for i in (0, 1))
-
-    def slope(t):
-        s = 1 - t
-        return tuple(3 * s * s * (p1[i] - p0[i]) + 6 * s * t * (p2[i] - p1[i]) + 3 * t * t * (p3[i] - p2[i]) for i in (0, 1))
-
-    start, end, d0, d1, k = point(a), point(b), slope(a), slope(b), (b - a) / 3
-    return start, (start[0] + d0[0] * k, start[1] + d0[1] * k), (end[0] - d1[0] * k, end[1] - d1[1] * k), end
-
-
-PIECES = taper(SEGMENTS)
-
-# Head drawn pointing right with the neck at x=0: rounded snout, flat jaw, a little wider than the neck.
-HEAD = ("M0 -3.7 C3 -4.9 7.5 -5.3 10.4 -4.4 C13 -3.6 14.2 -1.7 14 0.2 C13.8 2.1 12.2 3.4 9.6 3.8 "
-        "C6.4 4.3 3 4.1 0 3.7 Z")
-HEAD_SCALE = 0.8  # the head is drawn at full size above, then scaled to fit the slim body
-HEAD_AT = f"translate(63 27) rotate(6) scale({HEAD_SCALE})"
-ROD = "M59.8 18 C59.8 13.4 68.2 13.4 68.2 18 L66.6 112.5 C66.6 115.4 61.4 115.4 61.4 112.5 Z"  # wider at the top
+def white_mark(src: Image.Image) -> Image.Image:
+    """Only the light parts (rod and snake), as white with transparency, for the wallpaper."""
+    x0, y0, x1, y1 = BOX
+    inside = src.crop((x0 + BORDER, y0 + BORDER, x1 - BORDER, y1 - BORDER)).convert("RGB")
+    alpha = Image.new("L", inside.size)
+    alpha.putdata([max(0, min(255, (min(p) - 110) * 2)) for p in inside.getdata()])
+    # Keep only what is well inside the rounded border, so no bit of the white corners shows.
+    keep = Image.new("L", inside.size, 0)
+    ImageDraw.Draw(keep).rounded_rectangle((12, 12, inside.width - 12, inside.height - 12), RADIUS - BORDER, fill=255)
+    alpha = Image.composite(alpha, keep, keep)
+    mark = Image.new("RGBA", inside.size, (255, 255, 255, 0))
+    mark.putalpha(alpha)
+    return mark
 
 
-def svg(size=128):
-    def strokes(colour, outlined=False, pad=0.0, segs=PIECES):
-        return "".join(f'<path d="{d}" stroke="{colour}" stroke-width="{w + (outline(w) if outlined else 0) + pad:.1f}"/>'
-                       for d, w, _ in segs)
-
-    behind = [s for s in PIECES if s[2]]
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="{size}" height="{size}">
-  <title>Medicus – Asklepiosstaven</title>
-  <!-- The Rod of Asclepius: one staff, one serpent. Drawn for Medicus; the symbol itself is ancient
-       and free to use. Generated by branding/make_logo.py: change it there, not here. -->
-  <defs>
-    <radialGradient id="disc" cx="0.32" cy="0.26" r="0.85">
-      <stop offset="0" stop-color="#36ad74"/><stop offset="0.55" stop-color="{GREEN}"/><stop offset="1" stop-color="{DARK}"/>
-    </radialGradient>
-    <linearGradient id="ring" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/><stop offset="1" stop-color="#ffffff" stop-opacity="0.08"/>
-    </linearGradient>
-    <linearGradient id="rod" gradientUnits="userSpaceOnUse" x1="60" y1="0" x2="68" y2="0">
-      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cfe9da"/>
-    </linearGradient>
-    <filter id="lift" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="1.4" stdDeviation="1.3" flood-color="#04210f" flood-opacity="0.45"/>
-    </filter>
-    <!-- where the snake goes behind the rod -->
-    <mask id="behind" maskUnits="userSpaceOnUse" x="0" y="0" width="128" height="128">
-      <g fill="none" stroke-linecap="round" stroke-linejoin="round">{strokes("#ffffff", True, 0.8, behind)}</g>
-    </mask>
-  </defs>
-  <circle cx="64" cy="64" r="62" fill="url(#disc)"/>
-  <circle cx="64" cy="64" r="57.5" fill="none" stroke="url(#ring)" stroke-width="1.6"/>
-  <g filter="url(#lift)">
-    <!-- rod: slim, rounded ends -->
-    <path d="{ROD}" fill="url(#rod)"/>
-    <!-- snake: every green outline first, then the white body, so the joins don't show -->
-    <g fill="none" stroke-linecap="round" stroke-linejoin="round">{strokes(GREEN, True)}</g>
-    <path transform="{HEAD_AT}" d="{HEAD}" fill="{GREEN}" stroke="{GREEN}" stroke-width="{OUT / HEAD_SCALE:.1f}" stroke-linejoin="round"/>
-    <g fill="none" stroke-linecap="round" stroke-linejoin="round">{strokes(IVORY)}</g>
-    <g transform="{HEAD_AT}">
-      <path d="{HEAD}" fill="{IVORY}"/>
-      <path d="M13.6 1 C11 1.6 8.5 1.8 6.2 1.6" fill="none" stroke="{GREEN}" stroke-width="0.9" stroke-linecap="round"/>
-      <ellipse cx="8.6" cy="-1.5" rx="1.25" ry="1.05" fill="{DARK}"/>
-    </g>
-    <!-- the rod again, on top where the snake passes behind it, with green edges -->
-    <g mask="url(#behind)">
-      <path d="{ROD}" fill="none" stroke="{GREEN}" stroke-width="{2 * OUT}"/>
-      <path d="{ROD}" fill="url(#rod)"/>
-    </g>
-  </g>
-</svg>
-'''
-
-
-def faint(line: str, opacity: float) -> str:
-    """One-colour version for the wallpaper: white snake and rod, outlined in the wallpaper's green."""
-    def snake(segs):
-        edge = "".join(f'<path d="{d}" stroke-width="{w + outline(w):.1f}"/>' for d, w, _ in segs)
-        body = "".join(f'<path d="{d}" stroke-width="{w:.1f}"/>' for d, w, _ in segs)
-        return (f'<g fill="none" stroke="{line}" stroke-linecap="round" stroke-linejoin="round">{edge}</g>'
-                f'<g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">{body}</g>')
-
-    front = [s for s in PIECES if not s[2]]
-    edge = "".join(f'<path d="{d}" stroke-width="{w + outline(w):.1f}"/>' for d, w, _ in front)
-    body = "".join(f'<path d="{d}" stroke-width="{w:.1f}"/>' for d, w, _ in front)
-    return (f'<g transform="translate(1180 120) scale(6.6)" opacity="{opacity}">\n'
-            f'    {snake([s for s in PIECES if s[2]])}\n'
-            f'    <path d="{ROD}" fill="#ffffff" stroke="{line}" stroke-width="1.5"/>\n'
-            f'    <g fill="none" stroke="{line}" stroke-linecap="round" stroke-linejoin="round">{edge}</g>\n'
-            f'    <path transform="{HEAD_AT}" d="{HEAD}" fill="{line}" stroke="{line}" stroke-width="{OUT / HEAD_SCALE:.1f}"/>\n'
-            f'    <g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">{body}</g>\n'
-            f'    <path transform="{HEAD_AT}" d="{HEAD}" fill="#ffffff"/>\n'
-            f'  </g>')
+def data_uri(image: Image.Image) -> str:
+    buffer = io.BytesIO()
+    image.save(buffer, "PNG", optimize=True)
+    return "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode()
 
 
 if __name__ == "__main__":
-    (HERE / "medicus-logo.svg").write_text(svg(), encoding="utf-8")
+    source = Image.open(HERE / "medicus-icon-source.png")
+    icon = rounded_icon(source)
+    icon.save(HERE / "medicus-logo.png", optimize=True)
+    (HERE / "medicus-logo.svg").write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">\n'
+        "  <title>Medicus – Asklepiosstaven</title>\n"
+        "  <!-- Made by branding/make_logo.py from medicus-icon-source.png: change it there, not here. -->\n"
+        f'  <image width="128" height="128" href="{data_uri(icon)}"/>\n'
+        "</svg>\n", encoding="utf-8")
+
+    mark = white_mark(source)
     wallpaper = HERE / "wallpaper.svg"
     text = wallpaper.read_text(encoding="utf-8")
-    text = re.sub(r'<g transform="translate\(1180 120\) scale\(6\.6\)".*?\n  </g>', lambda _m: faint("#12603a", 0.13),
-                  text, count=1, flags=re.S)
+    group = (f'<g transform="translate(1180 120) scale(6.6)" opacity="0.13">\n'
+             f'    <image x="6" y="6" width="116" height="116" href="{data_uri(mark.resize((464, 464), Image.LANCZOS))}"/>\n'
+             f'  </g>')
+    text = re.sub(r'<g transform="translate\(1180 120\) scale\(6\.6\)".*?\n  </g>', lambda _m: group, text, count=1, flags=re.S)
     wallpaper.write_text(text, encoding="utf-8")
