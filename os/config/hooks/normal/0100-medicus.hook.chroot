@@ -78,6 +78,13 @@ chmod 700 /etc/wireguard
 sed -i 's/^ImplicitPolicyTarget=.*/ImplicitPolicyTarget=block/; s/^PresentDevicePolicy=.*/PresentDevicePolicy=apply-policy/' \
   /etc/usbguard/usbguard-daemon.conf
 
+# --- Start-up animation: the heartbeat theme, built into the boot image ---------------
+for f in bullet.png entry.png lock.png; do
+  cp -n "/usr/share/plymouth/themes/spinner/$f" /usr/share/plymouth/themes/medicus/ 2>/dev/null || true
+done
+plymouth-set-default-theme medicus
+update-initramfs -u
+
 # --- Look: Medicus wallpapers --------------------------------------------------------
 # XFCE's default wallpaper (xfce-x.svg) becomes "Nordlys", safely across updates. All Medicus
 # wallpapers go in the same folder, so they show up in Settings → Desktop.

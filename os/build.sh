@@ -15,7 +15,10 @@ if [ "$(id -u)" -ne 0 ]; then
   echo "Må kjøres som root: sudo sh os/build.sh" >&2
   exit 1
 fi
-command -v lb >/dev/null || { echo "Installer live-build først: apt install live-build" >&2; exit 1; }
+for tool in lb rsvg-convert rsync; do
+  command -v "$tool" >/dev/null || { echo "Mangler $tool. Installer: apt install live-build librsvg2-bin rsync python3-pil" >&2; exit 1; }
+done
+python3 -c "import PIL" 2>/dev/null || { echo "Mangler Pillow. Installer: apt install python3-pil" >&2; exit 1; }
 
 # Kernel hardening (Kernel Self Protection Project recommendations that Debian supports).
 HARDENING="slab_nomerge init_on_alloc=1 init_on_free=1 page_alloc.shuffle=1 randomize_kstack_offset=on \
@@ -48,17 +51,31 @@ live-config.locales=nb_NO.UTF-8 live-config.keyboard-layouts=no live-config.time
 # drive look world-writable, so reset permissions to sane values while copying.
 rsync -rt --chmod=D755,F644 "$REPO/os/config/" config/
 
-# Boot menu with Medicus branding.
+# Boot graphics: the boot menu background and the heartbeat start-up animation (Plymouth).
+ASSETS=$(mktemp -d)
+python3 "$REPO/branding/make_assets.py" "$ASSETS"
 cp -a /usr/share/live/build/bootloaders config/
-cp "$REPO/branding/boot-splash.svg" config/bootloaders/splash.svg
-sed -i 's/#76a1d0ff/#ff1a7f4b/g' config/bootloaders/syslinux_common/stdmenu.cfg
+cp "$ASSETS/splash.svg" config/bootloaders/splash.svg
+# Our boot menus (Norwegian, centered, auto-start, editing locked) replace live-build's defaults.
+cp -r "$REPO/os/bootloaders/." config/bootloaders/
+# GRUB: a random admin password nobody keeps, so the start command can't be edited.
+GRUB_HASH=$(python3 -c "import hashlib, secrets
+salt = secrets.token_bytes(32)
+digest = hashlib.pbkdf2_hmac('sha512', secrets.token_bytes(32), salt, 100000, 64)
+print(f'grub.pbkdf2.sha512.100000.{salt.hex().upper()}.{digest.hex().upper()}')")
+sed -i "s/@GRUB_PASSWORD_HASH@/$GRUB_HASH/" config/bootloaders/grub-pc/grub.cfg
+sed -i '/^insmod play$/d; /^play /d' config/bootloaders/grub-pc/config.cfg
+mkdir -p config/includes.chroot/usr/share/plymouth/themes
+cp -r "$ASSETS/plymouth" config/includes.chroot/usr/share/plymouth/themes/medicus
+cp "$ASSETS/avatar.png" config/includes.chroot/etc/skel/.face
+rm -rf "$ASSETS"
 
 APP=config/includes.chroot/opt/medicus
 mkdir -p "$APP" config/includes.chroot/usr/share/medicus
 rsync -rt --chmod=D755,F644 --exclude __pycache__ \
   "$REPO/medicus" "$REPO/kalkulator" "$REPO/helsenett" "$REPO/tilgang" "$REPO/branding" \
   "$REPO/samples" "$REPO/deploy" "$REPO/requirements.txt" "$APP/"
-cp "$REPO/branding/medicus-logo.svg" "$REPO/branding/wallpaper.svg" "$REPO/branding/nettleser.svg" \
+cp "$REPO/branding/medicus-logo.svg" "$REPO/branding/wallpaper.svg" "$REPO/branding/nettleser.svg" "$REPO/branding/post.svg" \
   config/includes.chroot/usr/share/medicus/
 cp -r "$REPO/branding/wallpapers" config/includes.chroot/usr/share/medicus/
 

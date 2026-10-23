@@ -15,29 +15,48 @@ from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
 from . import EMERGENCY_MINUTES, EMERGENCY_USER  # noqa: E402
 
-LOGO = next(p for p in (Path("/usr/share/medicus/medicus-logo.svg"),
-                         Path(__file__).parent.parent / "branding" / "medicus-logo.svg") if p.exists())
+BRANDING = Path(__file__).parent.parent / "branding"
 REASONS = ["Bevisstløs pasient", "Hjertestans", "Alvorlig allergisk reaksjon", "Alvorlig skade", "Annet"]
+DAYS = ["Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag", "Søndag"]
+MONTHS = ["januar", "februar", "mars", "april", "mai", "juni", "juli", "august",
+          "september", "oktober", "november", "desember"]
 
 CSS = """
-window.medicus { background: linear-gradient(160deg, #0b3b24 0%, #12603a 55%, #1f8f55 100%); color: #ffffff; }
-.brand { font-size: 30px; font-weight: 700; }
-.clock { font-size: 44px; font-weight: 300; }
-.date { font-size: 16px; opacity: 0.85; }
-.panel { background: #ffffff; color: #1c2430; border-radius: 16px; padding: 28px; }
+window.medicus { background: linear-gradient(160deg, #06281a 0%, #0f5333 50%, #1f8f55 100%); color: #ffffff; }
+.tagline { font-size: 10px; letter-spacing: 3px; color: rgba(255, 255, 255, 0.62); }
+.glass { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.14);
+         border-radius: 18px; padding: 12px 20px; }
+.clock { font-size: 46px; font-weight: 300; }
+.date { font-size: 15px; color: rgba(255, 255, 255, 0.78); }
+.panel { background: #ffffff; color: #17241c; border-radius: 22px; padding: 30px 32px;
+         box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35); }
 .panel .title { font-size: 22px; font-weight: 700; }
-.panel .muted { color: #5b6573; }
-.panel entry { min-height: 42px; font-size: 18px; }
-.panel button { min-height: 42px; font-weight: 600; }
+.panel .muted { color: #56655b; }
+.panel entry { min-height: 46px; font-size: 18px; border-radius: 12px; }
+.panel button { min-height: 46px; font-weight: 700; border-radius: 12px; }
+.card-badge { background: #1a7f4b; border-radius: 999px; padding: 14px; }
 button.primary { background: #1a7f4b; color: #ffffff; border: none; }
+button.primary:hover { background: #156b3f; }
 button.emergency { background: transparent; color: #b3261e; border: 2px solid #b3261e; }
 button.emergency-go { background: #b3261e; color: #ffffff; border: none; }
-.emergency-box { background: #fdecea; border-radius: 10px; padding: 14px; color: #7a1a14; }
+.emergency-box { background: #fdecea; border-radius: 14px; padding: 16px; color: #7a1a14; }
 .error { color: #b3261e; font-weight: 600; }
-.sim { background: rgba(0, 0, 0, 0.25); border-radius: 10px; padding: 8px 12px; }
-.sim label { color: #ffffff; }
-.footer button { background: rgba(255, 255, 255, 0.12); color: #ffffff; border: none; }
+.sim { padding: 10px 14px; }
+.sim .sim-title { font-size: 10px; letter-spacing: 2px; font-weight: 700; color: #7fe0ad; }
+.sim .sim-text { font-size: 13px; color: rgba(255, 255, 255, 0.85); }
+.sim button, .sim dropdown button { background: rgba(255, 255, 255, 0.12); color: #ffffff; border: none; border-radius: 10px; }
+.sim button:hover { background: rgba(255, 255, 255, 0.22); }
+.power { min-width: 54px; min-height: 54px; border-radius: 999px; padding: 0;
+         background: rgba(255, 255, 255, 0.10); border: 1px solid rgba(255, 255, 255, 0.16); }
+.power:hover { background: rgba(255, 255, 255, 0.22); }
+.power-label { font-size: 11px; color: rgba(255, 255, 255, 0.72); }
 """
+
+
+def picture(name: str, size: int) -> Gtk.Image:
+    image = Gtk.Image.new_from_file(str(BRANDING / name))
+    image.set_pixel_size(size)
+    return image
 
 
 class LightDMBackend:
@@ -154,16 +173,21 @@ class LoginWindow(Gtk.ApplicationWindow):
             getattr(root, f"set_margin_{side}")(32)
         self.set_child(root)
 
-        top = Gtk.Box(spacing=14)
-        logo = Gtk.Image.new_from_file(str(LOGO))
-        logo.set_pixel_size(56)
-        brand = Gtk.Label(label="Medicus")
-        brand.add_css_class("brand")
-        top.append(logo)
+        # Top left: logo and the MED✚CUS wordmark. Top right: clock in a frosted panel.
+        top = Gtk.Box(spacing=16, valign=Gtk.Align.START)
+        top.append(picture("medicus-logo.svg", 60))
+        brand = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, valign=Gtk.Align.CENTER)
+        wordmark = Gtk.Picture.new_for_filename(str(BRANDING / "wordmark-compact.svg"))
+        wordmark.set_can_shrink(False)
+        wordmark.set_halign(Gtk.Align.START)
+        tagline = Gtk.Label(label="TRYGG ARBEIDSSTASJON FOR HELSEPERSONELL", xalign=0)
+        tagline.add_css_class("tagline")
+        brand.append(wordmark)
+        brand.append(tagline)
         top.append(brand)
-        spacer = Gtk.Box(hexpand=True)
-        top.append(spacer)
-        clock_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        top.append(Gtk.Box(hexpand=True))
+        clock_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.START)
+        clock_box.add_css_class("glass")
         self.clock = Gtk.Label(xalign=1)
         self.clock.add_css_class("clock")
         self.date = Gtk.Label(xalign=1)
@@ -180,12 +204,24 @@ class LoginWindow(Gtk.ApplicationWindow):
         panel.set_size_request(440, -1)
         center.append(panel)
 
+        # Who's at the reader: a card symbol before a card is inserted, the person's picture after.
+        header = Gtk.Box(spacing=16)
+        self.badge = Gtk.Stack()
+        no_card = Gtk.Box(halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
+        no_card.add_css_class("card-badge")
+        no_card.append(picture("icons/kort.svg", 36))
+        self.badge.add_named(no_card, "kort")
+        self.badge.add_named(picture("avatar.svg", 64), "person")
+        header.append(self.badge)
+        names = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, valign=Gtk.Align.CENTER)
         self.title = Gtk.Label(xalign=0, ellipsize=3)
         self.title.add_css_class("title")
         self.subtitle = Gtk.Label(xalign=0, ellipsize=3)
         self.subtitle.add_css_class("muted")
-        panel.append(self.title)
-        panel.append(self.subtitle)
+        names.append(self.title)
+        names.append(self.subtitle)
+        header.append(names)
+        panel.append(header)
 
         self.pin = Gtk.PasswordEntry(placeholder_text="PIN-kode", show_peek_icon=False)
         self.pin.connect("activate", lambda *_: self.login())
@@ -226,26 +262,44 @@ class LoginWindow(Gtk.ApplicationWindow):
             self.emergency.append(widget)
         panel.append(self.emergency)
 
-        bottom = Gtk.Box(spacing=10)
-        bottom.add_css_class("footer")
-        self.sim = Gtk.Box(spacing=8)
+        # Bottom left: the simulated card reader (demo only). Bottom right: round power buttons.
+        bottom = Gtk.Box(spacing=14, valign=Gtk.Align.END)
+        self.sim = Gtk.Box(spacing=12)
+        self.sim.add_css_class("glass")
         self.sim.add_css_class("sim")
-        self.sim.append(Gtk.Label(label="Simulert kortleser:"))
+        self.sim.append(picture("icons/kort.svg", 30))
+        sim_text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
+        sim_title = Gtk.Label(label="DEMO", xalign=0)
+        sim_title.add_css_class("sim-title")
+        sim_label = Gtk.Label(label="Simulert kortleser", xalign=0)
+        sim_label.add_css_class("sim-text")
+        sim_text.append(sim_title)
+        sim_text.append(sim_label)
+        self.sim.append(sim_text)
         self.sim_cards = self.auth.cards() if self.auth.status().get("simulert") else []
         self.sim_choice = Gtk.DropDown.new_from_strings([f"{c['navn']} – {c['rolle']}" for c in self.sim_cards] or ["–"])
-        insert = Gtk.Button(label="Sett inn kort")
+        self.sim_choice.set_valign(Gtk.Align.CENTER)
+        insert = Gtk.Button(label="Sett inn kort", valign=Gtk.Align.CENTER)
         insert.connect("clicked", lambda *_: self.sim_insert())
-        remove = Gtk.Button(label="Ta ut kort")
+        remove = Gtk.Button(label="Ta ut", valign=Gtk.Align.CENTER)
         remove.connect("clicked", lambda *_: self.sim_remove())
         for widget in (self.sim_choice, insert, remove):
             self.sim.append(widget)
         self.sim.set_visible(bool(self.sim_cards))
         bottom.append(self.sim)
         bottom.append(Gtk.Box(hexpand=True))
-        for label, action in (("Start på nytt", self.lightdm.restart), ("Slå av", self.lightdm.shutdown)):
-            button = Gtk.Button(label=label)
+        for label, icon, action in (("Start på nytt", "icons/omstart.svg", self.lightdm.restart),
+                                    ("Slå av", "icons/slaa-av.svg", self.lightdm.shutdown)):
+            column = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            button = Gtk.Button(halign=Gtk.Align.CENTER, tooltip_text=label)
+            button.add_css_class("power")
+            button.set_child(picture(icon, 22))
             button.connect("clicked", lambda _b, a=action: a())
-            bottom.append(button)
+            caption = Gtk.Label(label=label)
+            caption.add_css_class("power-label")
+            column.append(button)
+            column.append(caption)
+            bottom.append(column)
         root.append(bottom)
 
         self.refresh()
@@ -256,10 +310,7 @@ class LoginWindow(Gtk.ApplicationWindow):
     def tick(self):
         now = datetime.now()
         self.clock.set_text(now.strftime("%H:%M"))
-        days = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag", "søndag"]
-        months = ["januar", "februar", "mars", "april", "mai", "juni", "juli", "august",
-                  "september", "oktober", "november", "desember"]
-        self.date.set_text(f"{days[now.weekday()]} {now.day}. {months[now.month - 1]}")
+        self.date.set_text(f"{DAYS[now.weekday()]} {now.day}. {MONTHS[now.month - 1]}")
         return True
 
     def refresh(self):
@@ -275,6 +326,7 @@ class LoginWindow(Gtk.ApplicationWindow):
             self.pin.set_text("")
             self.message.set_text("")
             self.show_emergency(False)
+            self.badge.set_visible_child_name("person" if card else "kort")
             if card:
                 self.title.set_text(f"Hei, {card['navn']}")
                 self.subtitle.set_text(f"{card['rolle']} · {card['virksomhet']}")

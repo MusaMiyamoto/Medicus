@@ -149,6 +149,24 @@ def test_guard_terminates_desktops_without_matching_login():
     assert decide(emergency, [{"session": "4", "user": EMERGENCY_USER}], users) == ([], True)
 
 
+def test_guard_reads_loginctl_json_and_refuses_to_guess():
+    from types import SimpleNamespace
+
+    from tilgang.sessionguard import desktop_sessions
+
+    seen = {}
+
+    def fake_run(cmd, **_kw):
+        seen["cmd"] = cmd
+        return SimpleNamespace(stdout='[{"session":"3","user":"ingrid-berg"}]')
+
+    assert desktop_sessions(fake_run) == [{"session": "3", "user": "ingrid-berg"}]
+    assert "--json=short" in seen["cmd"]
+    # systemd ignores some flags and prints a table instead: that must not count as "no sessions".
+    table = lambda cmd, **_kw: SimpleNamespace(stdout="SESSION UID USER\n 3 1001 ingrid-berg\n")  # noqa: E731
+    assert desktop_sessions(table) is None
+
+
 def test_unknown_command(setup):
     authority, *_ = setup
     assert not ask(authority, cmd="give_me_root")["ok"]

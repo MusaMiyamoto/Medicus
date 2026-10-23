@@ -65,3 +65,7 @@ clamav-daemon
 tinyproxy
 lynis
 cryptsetup
+
+# Start-up animation (heartbeat)
+plymouth
+plymouth-themes

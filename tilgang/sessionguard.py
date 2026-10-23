@@ -29,12 +29,14 @@ def medicus_users() -> set[str]:
     return users | {EMERGENCY_USER}
 
 
-def desktop_sessions() -> list[dict]:
-    out = subprocess.run(["loginctl", "list-sessions", "--output=json"], capture_output=True, text=True, check=False)
+def desktop_sessions(run=subprocess.run) -> list[dict] | None:
+    """Open login sessions, or None if they can't be read (then this round is skipped, not guessed)."""
+    out = run(["loginctl", "list-sessions", "--json=short"], capture_output=True, text=True, check=False)
     try:
-        return json.loads(out.stdout or "[]")
-    except json.JSONDecodeError:
-        return []
+        sessions = json.loads(out.stdout)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    return sessions if isinstance(sessions, list) else None
 
 
 def decide(login: dict | None, sessions: list[dict], users: set[str]) -> tuple[list[str], bool]:
@@ -53,7 +55,10 @@ def main() -> int:
             login = call("status")["okt"]
         except AuthError:
             continue
-        terminate, has_desktop = decide(login, desktop_sessions(), medicus_users())
+        sessions = desktop_sessions()
+        if sessions is None:
+            continue
+        terminate, has_desktop = decide(login, sessions, medicus_users())
         for session_id in terminate:
             subprocess.run(["loginctl", "terminate-session", session_id], check=False)
         if login and not has_desktop:

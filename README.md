@@ -19,6 +19,9 @@ privacy-first AI documentation assistant ("journalassistent") and a clinical cal
 
 A live ISO you can boot in a virtual machine (VirtualBox, VMware, Hyper-V) or from a USB stick.
 
+- **Start-up:** a centered boot screen (the "I" in MEDICUS is a green cross) that starts by itself
+  after 5 seconds, then a pulsing heartbeat (ECG) animation until the login screen appears.
+  Both are generated from `branding/` by `branding/make_assets.py`.
 - **Own look:** Medicus green, the Medicus logo (Rod of Asclepius, drawn for this project), the
   open-source Arc theme, Papirus icons and Noto fonts. Nothing is taken from Microsoft or Windows.
 - **Desktop:** XFCE with one bottom panel and a **Start** button. The Start menu's favorites are the
@@ -166,7 +169,7 @@ a Normen and GDPR assessment, and a medical-device classification (EU MDR).
 You need Debian, either on a real machine or in WSL on Windows (`wsl --install -d Debian`).
 
 ```bash
-sudo apt install live-build rsync
+sudo apt install live-build rsync librsvg2-bin python3-pil
 ```
 ```bash
 sudo sh os/build.sh /path/to/output-folder
