@@ -10,7 +10,7 @@
       <property name="length" type="uint" value="100"/>
       <property name="position-locked" type="bool" value="true"/>
       <property name="size" type="uint" value="44"/>
-      <property name="icon-size" type="uint" value="28"/>
+      <property name="icon-size" type="uint" value="20"/>
       <property name="background-style" type="uint" value="1"/>
       <property name="background-rgba" type="array">
         <value type="double" value="0.04"/>
@@ -60,6 +60,23 @@
     </property>
     <property name="plugin-5" type="string" value="pulseaudio"/>
     <property name="plugin-6" type="string" value="clock"/>
-    <property name="plugin-7" type="string" value="actions"/>
+    <!-- Log-out menu (click your name). No "switch user" (cards decide who's logged in) and no
+         hibernate (it writes memory, including patient data, to disk). -->
+    <property name="plugin-7" type="string" value="actions">
+      <property name="items" type="array">
+        <value type="string" value="+lock-screen"/>
+        <value type="string" value="-switch-user"/>
+        <value type="string" value="+separator"/>
+        <value type="string" value="+suspend"/>
+        <value type="string" value="-hibernate"/>
+        <value type="string" value="-hybrid-sleep"/>
+        <value type="string" value="+separator"/>
+        <value type="string" value="+restart"/>
+        <value type="string" value="+shutdown"/>
+        <value type="string" value="+separator"/>
+        <value type="string" value="+logout"/>
+        <value type="string" value="-logout-dialog"/>
+      </property>
+    </property>
   </property>
 </channel>
