@@ -19,13 +19,18 @@ function sender(m) {
   return m.kanal === "helsenett" ? m.fra.navn : `${m.fra.navn} <${m.fra.adresse}>`;
 }
 
+// A drawn paperclip: the workstation has no emoji font, so "📎" would show as an empty box.
+const CLIP = `<svg class="clip" viewBox="0 0 24 24" width="14" height="14" role="img" aria-label="Har vedlegg">
+  <title>Har vedlegg</title><path d="M21 11.5l-8.5 8.5a5 5 0 0 1-7-7L14 4.5a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7.5"
+  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
 async function loadList() {
   const list = document.getElementById("list");
   try {
     const items = await api(`/api/post/${box}`);
     list.innerHTML = items.map((m) => `
       <li><button type="button" data-id="${m.id}" class="${m.lest ? "" : "unread"} ${current === m.id ? "active" : ""}">
-        ${BADGE[m.nivå]} ${m.vedlegg ? "📎" : ""}
+        ${BADGE[m.nivå]} ${m.vedlegg ? CLIP : ""}
         <span class="from">${esc(sender(m))}</span>
         <span class="subject">${esc(m.emne)}</span>
         <span class="muted">${when(m.tid)}</span>

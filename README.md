@@ -120,6 +120,8 @@ provider can be connected later through the same interface (with an agreement).
 Medicus OS is a desktop and laptop operating system for ordinary 64-bit PCs (Intel/AMD).
 
 - **Desktop:** Home folder and Trash icons, shortcuts to the Medicus apps, and the **Start** button bottom left.
+  Next to Start, the taskbar has pinned shortcuts to **Medicus Nettleser** (its logo is a light-blue
+  Earth with a rocket in orbit) and **Files** (documents, pictures and downloads).
 - **Standard programs, with plain names:** **Files**, **Text**, **Pictures**, **Dokumenter** (PDF reader,
   in an AppArmor sandbox), **Skjermbilde** (screenshots) and **Mouse** (mouse settings). Settings
   that could run commands (settings editor, keyboard shortcuts) are hidden.

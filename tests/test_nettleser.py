@@ -56,3 +56,14 @@ def test_address_bar(typed, url):
 def test_pages_escape_the_address():
     page = sider.blocked("https://x.example/<script>")
     assert "<script>" not in page and "&lt;script&gt;" in page
+
+
+@pytest.mark.parametrize("page, window", [
+    ("Pasientjournal – Medicus", "Pasientjournal – Medicus Nettleser"),
+    ("NRK – Nyheter", "NRK – Nyheter – Medicus Nettleser"),
+    ("Medicus Nettleser", "Medicus Nettleser"),
+    ("", "Medicus Nettleser"),
+    (None, "Medicus Nettleser"),
+])
+def test_window_title_says_medicus_once(page, window):
+    assert regler.window_title(page) == window

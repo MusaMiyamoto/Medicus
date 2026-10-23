@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Medicus Nettleser
+Comment=Godkjente nettsteder for helse, offentlige tjenester og nyheter
+Exec=medicus-nettleser
+Icon=medicus-nettleser
+Terminal=false

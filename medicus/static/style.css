@@ -212,3 +212,6 @@ button:focus-visible, .button:focus-within { outline: 3px solid var(--accent); o
 .licenses { width: 100%; border-collapse: collapse; margin: 12px 0; }
 .licenses th, .licenses td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #d2ddd5; vertical-align: top; }
 .licenses th { color: #0f4f2f; }
+
+/* Paperclip on messages with attachments */
+.clip { vertical-align: -2px; color: #5b6b63; margin-left: 2px; }

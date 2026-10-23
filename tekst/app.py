@@ -222,4 +222,5 @@ class TekstApp(Gtk.Application):
 
 
 def main(argv=None):
+    GLib.set_prgname("medicus-tekst")  # the taskbar finds name and icon by this
     return TekstApp().run(argv if argv is not None else sys.argv)

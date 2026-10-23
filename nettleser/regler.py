@@ -50,3 +50,13 @@ def normalize(text: str) -> str:
     host = text.split("/", 1)[0].split(":", 1)[0]
     scheme = "http" if host in LOCAL_HOSTS else "https"
     return f"{scheme}://{text}"
+
+
+def window_title(page_title: str | None) -> str:
+    """"Pasientjournal – Medicus Nettleser", never "… – Medicus – Medicus Nettleser"."""
+    title = (page_title or "").strip()
+    for suffix in (" – Medicus", " - Medicus"):
+        title = title.removesuffix(suffix)
+    if not title or title in ("Medicus", "Medicus Nettleser"):
+        return "Medicus Nettleser"
+    return f"{title} – Medicus Nettleser"

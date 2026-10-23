@@ -5,7 +5,7 @@ import sys
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import Gdk, Gtk  # noqa: E402
+from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
 from . import units  # noqa: E402
 from .calc import CalcError, calculate  # noqa: E402
@@ -280,4 +280,5 @@ class KalkulatorApp(Gtk.Application):
 
 
 def main(argv=None):
+    GLib.set_prgname("medicus-kalkulator")  # the taskbar finds name and icon by this
     return KalkulatorApp().run(argv if argv is not None else sys.argv)

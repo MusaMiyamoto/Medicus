@@ -186,12 +186,7 @@ class BrowserWindow(Gtk.ApplicationWindow):
         self.forward.set_sensitive(self.view.can_go_forward())
 
     def update_title(self):
-        title = self.view.get_title()
-        # The start page is itself called "Medicus Nettleser"; don't say it twice.
-        if not title or title == "Medicus Nettleser":
-            self.set_title("Medicus Nettleser")
-        else:
-            self.set_title(f"{title} – Medicus Nettleser")
+        self.set_title(regler.window_title(self.view.get_title()))
 
 
 class BrowserApp(Gtk.Application):
@@ -225,6 +220,8 @@ class BrowserApp(Gtk.Application):
 def main(argv=None):
     argv = list(sys.argv if argv is None else argv)
     kiosk = "--kiosk" in argv
+    # The taskbar groups and names windows by program name; without this it shows "-c".
+    GLib.set_prgname("medicus-nettleser")
     if kiosk:
         argv.remove("--kiosk")
     return BrowserApp(kiosk).run(argv)

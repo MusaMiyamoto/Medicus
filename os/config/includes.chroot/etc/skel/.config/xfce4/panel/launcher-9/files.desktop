@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Files
+Comment=Dokumenter, bilder og nedlastinger
+Exec=thunar
+Icon=system-file-manager
+Terminal=false

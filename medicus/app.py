@@ -28,6 +28,7 @@ from .config import settings
 STATIC = Path(__file__).parent / "static"
 SAMPLE = Path(__file__).parent.parent / "samples" / "konsultasjon_eksempel.txt"
 LOGO = Path(__file__).parent.parent / "branding" / "medicus-logo.svg"
+BROWSER_LOGO = Path(__file__).parent.parent / "branding" / "nettleser.svg"
 
 app = FastAPI(title="Medicus", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
@@ -118,6 +119,11 @@ def index():
 @app.get("/logo.svg")
 def logo():
     return FileResponse(LOGO, media_type="image/svg+xml")
+
+
+@app.get("/nettleser.svg")
+def browser_logo():
+    return FileResponse(BROWSER_LOGO, media_type="image/svg+xml")
 
 
 @app.get("/pasient")

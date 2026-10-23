@@ -71,3 +71,11 @@ def test_norwegian_news_but_not_their_ad_networks():
     assert any(p.search("akamai.vgc.no") for p in patterns)   # VG's pictures load
     assert not any(p.search("securepubads.g.doubleclick.net") for p in patterns)
     assert not any(p.search("www.facebook.com") for p in patterns)
+
+
+def test_audit_rules_never_watch_removed_programs():
+    """One failing rule used to stop auditd from starting at all (Firefox was removed)."""
+    from pathlib import Path
+    rules = (Path(__file__).parent.parent / "os/config/includes.chroot/etc/audit/rules.d/90-medicus.rules").read_text()
+    assert "\n-i\n" in rules
+    assert "firefox" not in rules.lower()
