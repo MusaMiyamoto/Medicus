@@ -11,33 +11,45 @@ from pathlib import Path
 HERE = Path(__file__).parent
 
 GREEN, DARK, IVORY = "#1a7f4b", "#0d4f2e", "#f6fcf8"
-OUT = 3.4  # green outline around the snake, so it separates from the rod where they cross
+OUT = 2.8  # green outline around the snake, so it separates from the rod where they cross
+
+
+def outline(width: float) -> float:
+    """The outline gets thinner with the body, so the tail tip is not mostly outline."""
+    return min(OUT, 1.2 + width / 2)
 
 # The snake's centre line, head to tail, in pieces that get thinner. "behind" marks where the
-# body passes behind the rod: the rod is drawn again on top there.
+# body passes behind the rod: the rod is drawn again on top there. Pieces meet beside the rod,
+# never on it, so no seam shows on the rod.
 SEGMENTS = [
     # (path, width, behind)
-    ("M71 27 C62 25 52 29 51 38", 7.4, False),     # neck curls over the top of the rod
-    ("M51 38 C50 46 57 50 64 53", 7.1, False),     # across the front, down to the right
-    ("M64 53 C72 56.5 78 60 77 65", 6.8, False),   # round the right side
-    ("M77 65 C76 70 70 72 64 74", 6.4, True),      # behind the rod ...
-    ("M64 74 C58 76 53 79 54 84", 6.0, True),      # ... and out on the left
-    ("M54 84 C55 88 59 90 64 92", 5.6, False),     # across the front again
-    ("M64 92 C70 94 73.5 97 72 101", 5.1, False),
-    ("M72 101 C71 104 67 105.5 64 106", 4.5, True),  # behind the rod
-    ("M64 106 C59.5 107 56.5 108.5 57 111.5", 3.6, True),  # thin tail tip on the left
+    ("M63 25.5 C58 25.5 55 28.5 54.5 34", 5.2, False),       # neck: the head lies over the top of the rod
+    ("M54.5 34 C54 40 55 43.5 58 46", 5.0, False),           # down the left side
+    ("M58 46 C62 48.5 67 50 71 51.8", 4.8, True),            # behind the rod
+    ("M71 51.8 C74.5 54 74 58.5 70.5 61", 4.6, False),       # round the right side
+    ("M70.5 61 C66 63.5 61 65 58 68", 4.4, False),           # across the front, down to the left
+    ("M58 68 C55.5 70.5 55.6 74 57.5 75.6", 4.1, False),
+    ("M57.5 75.6 C61 78 66 79 69.8 80.6", 3.8, True),        # behind the rod
+    ("M69.8 80.6 C72.6 82.6 72 87 68.5 89", 3.5, False),
+    ("M68.5 89 C65.5 91 62 92.5 59.6 95", 3.1, False),       # across the front
+    ("M59.6 95 C58.2 97.2 58.3 99.3 59.2 100.3", 2.7, False),
+    ("M59.2 100.3 C61.5 102 65 102.6 67.8 103.8", 2.3, True),  # behind the rod
+    ("M67.8 103.8 C70.2 105.4 70.6 108.6 69.8 111.4", 1.9, False),  # tail runs straight down the rod's side
+    ("M69.8 111.4 C69.5 112.6 69 113.6 68.3 114.4", 1.0, False),    # ... and ends in a point
 ]
 
 # Head drawn pointing right with the neck at x=0: rounded snout, flat jaw, a little wider than the neck.
 HEAD = ("M0 -3.7 C3 -4.9 7.5 -5.3 10.4 -4.4 C13 -3.6 14.2 -1.7 14 0.2 C13.8 2.1 12.2 3.4 9.6 3.8 "
         "C6.4 4.3 3 4.1 0 3.7 Z")
-HEAD_AT = "translate(71 27) rotate(8)"
-ROD = "M60.6 19 C60.6 14.6 67.4 14.6 67.4 19 L66.8 113 C66.8 116 61.2 116 61.2 113 Z"
+HEAD_SCALE = 0.72  # the head is drawn at full size above, then scaled to fit the slim body
+HEAD_AT = f"translate(63 25.5) rotate(4) scale({HEAD_SCALE})"
+ROD = "M59.8 18 C59.8 13.4 68.2 13.4 68.2 18 L66.6 112.5 C66.6 115.4 61.4 115.4 61.4 112.5 Z"  # wider at the top
 
 
 def svg(size=128):
-    def strokes(colour, extra, segs=SEGMENTS):
-        return "".join(f'<path d="{d}" stroke="{colour}" stroke-width="{w + extra:.1f}"/>' for d, w, _ in segs)
+    def strokes(colour, outlined=False, pad=0.0, segs=SEGMENTS):
+        return "".join(f'<path d="{d}" stroke="{colour}" stroke-width="{w + (outline(w) if outlined else 0) + pad:.1f}"/>'
+                       for d, w, _ in segs)
 
     behind = [s for s in SEGMENTS if s[2]]
     return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="{size}" height="{size}">
@@ -59,7 +71,7 @@ def svg(size=128):
     </filter>
     <!-- where the snake goes behind the rod -->
     <mask id="behind" maskUnits="userSpaceOnUse" x="0" y="0" width="128" height="128">
-      <g fill="none" stroke-linecap="round" stroke-linejoin="round">{strokes("#ffffff", OUT, behind)}</g>
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round">{strokes("#ffffff", True, 0.8, behind)}</g>
     </mask>
   </defs>
   <circle cx="64" cy="64" r="62" fill="url(#disc)"/>
@@ -68,9 +80,9 @@ def svg(size=128):
     <!-- rod: slim, rounded ends -->
     <path d="{ROD}" fill="url(#rod)"/>
     <!-- snake: every green outline first, then the white body, so the joins don't show -->
-    <g fill="none" stroke-linecap="round" stroke-linejoin="round">{strokes(GREEN, OUT)}</g>
-    <path transform="{HEAD_AT}" d="{HEAD}" fill="{GREEN}" stroke="{GREEN}" stroke-width="{OUT}" stroke-linejoin="round"/>
-    <g fill="none" stroke-linecap="round" stroke-linejoin="round">{strokes(IVORY, 0)}</g>
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">{strokes(GREEN, True)}</g>
+    <path transform="{HEAD_AT}" d="{HEAD}" fill="{GREEN}" stroke="{GREEN}" stroke-width="{OUT / HEAD_SCALE:.1f}" stroke-linejoin="round"/>
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">{strokes(IVORY)}</g>
     <g transform="{HEAD_AT}">
       <path d="{HEAD}" fill="{IVORY}"/>
       <path d="M13.6 1 C11 1.6 8.5 1.8 6.2 1.6" fill="none" stroke="{GREEN}" stroke-width="0.9" stroke-linecap="round"/>
@@ -89,19 +101,19 @@ def svg(size=128):
 def faint(line: str, opacity: float) -> str:
     """One-colour version for the wallpaper: white snake and rod, outlined in the wallpaper's green."""
     def snake(segs):
-        edge = "".join(f'<path d="{d}" stroke-width="{w + OUT:.1f}"/>' for d, w, _ in segs)
+        edge = "".join(f'<path d="{d}" stroke-width="{w + outline(w):.1f}"/>' for d, w, _ in segs)
         body = "".join(f'<path d="{d}" stroke-width="{w:.1f}"/>' for d, w, _ in segs)
         return (f'<g fill="none" stroke="{line}" stroke-linecap="round" stroke-linejoin="round">{edge}</g>'
                 f'<g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">{body}</g>')
 
     front = [s for s in SEGMENTS if not s[2]]
-    edge = "".join(f'<path d="{d}" stroke-width="{w + OUT:.1f}"/>' for d, w, _ in front)
+    edge = "".join(f'<path d="{d}" stroke-width="{w + outline(w):.1f}"/>' for d, w, _ in front)
     body = "".join(f'<path d="{d}" stroke-width="{w:.1f}"/>' for d, w, _ in front)
     return (f'<g transform="translate(1180 120) scale(6.6)" opacity="{opacity}">\n'
             f'    {snake([s for s in SEGMENTS if s[2]])}\n'
             f'    <path d="{ROD}" fill="#ffffff" stroke="{line}" stroke-width="1.5"/>\n'
             f'    <g fill="none" stroke="{line}" stroke-linecap="round" stroke-linejoin="round">{edge}</g>\n'
-            f'    <path transform="{HEAD_AT}" d="{HEAD}" fill="{line}" stroke="{line}" stroke-width="{OUT}"/>\n'
+            f'    <path transform="{HEAD_AT}" d="{HEAD}" fill="{line}" stroke="{line}" stroke-width="{OUT / HEAD_SCALE:.1f}"/>\n'
             f'    <g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">{body}</g>\n'
             f'    <path transform="{HEAD_AT}" d="{HEAD}" fill="#ffffff"/>\n'
             f'  </g>')
