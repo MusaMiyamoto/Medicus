@@ -194,6 +194,9 @@ has nothing to work with:
 - **Services:** each Medicus service runs as its own locked-down user with only the access it needs.
   The login service has no network at all.
 - **Less to attack:** Bluetooth, network discovery (Avahi), Ctrl+Alt+Del reboot and core dumps are switched off.
+  Drivers for floppy, FireWire, webcams and Bluetooth, and rarely used network protocols, can't be
+  loaded (`/etc/modprobe.d/medicus.conf`). Switching to another screen with Ctrl+Alt+F1–F12 and
+  killing the desktop with Ctrl+Alt+Backspace are turned off.
 - **Other:** screen locks after 5 minutes (unlock with card + PIN), automatic daily security updates.
 - AppArmor is on. (Debian skips loading AppArmor profiles in the *live* session; they load once the OS is installed.)
 
