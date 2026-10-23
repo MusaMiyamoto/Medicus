@@ -25,9 +25,9 @@ CSS = """
 window.medicus { background: linear-gradient(160deg, #06281a 0%, #0f5333 50%, #1f8f55 100%); color: #ffffff; }
 .tagline { font-size: 10px; letter-spacing: 3px; color: rgba(255, 255, 255, 0.62); }
 .glass { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.14);
-         border-radius: 18px; padding: 12px 20px; }
-.clock { font-size: 46px; font-weight: 300; }
-.date { font-size: 15px; color: rgba(255, 255, 255, 0.78); }
+         border-radius: 16px; padding: 8px 16px; }
+.clock { font-size: 30px; font-weight: 300; }
+.date { font-size: 12px; color: rgba(255, 255, 255, 0.75); }
 .panel { background: #ffffff; color: #17241c; border-radius: 22px; padding: 30px 32px;
          box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35); }
 .panel .title { font-size: 22px; font-weight: 700; }
@@ -49,7 +49,7 @@ button.emergency-go { background: #b3261e; color: #ffffff; border: none; }
 .power { min-width: 54px; min-height: 54px; border-radius: 999px; padding: 0;
          background: rgba(255, 255, 255, 0.10); border: 1px solid rgba(255, 255, 255, 0.16); }
 .power:hover { background: rgba(255, 255, 255, 0.22); }
-.power-label { font-size: 11px; color: rgba(255, 255, 255, 0.72); }
+.sim button.card-toggle { padding: 6px 14px; }
 """
 
 
@@ -279,27 +279,31 @@ class LoginWindow(Gtk.ApplicationWindow):
         self.sim_cards = self.auth.cards() if self.auth.status().get("simulert") else []
         self.sim_choice = Gtk.DropDown.new_from_strings([f"{c['navn']} – {c['rolle']}" for c in self.sim_cards] or ["–"])
         self.sim_choice.set_valign(Gtk.Align.CENTER)
-        insert = Gtk.Button(label="Sett inn kort", valign=Gtk.Align.CENTER)
-        insert.connect("clicked", lambda *_: self.sim_insert())
-        remove = Gtk.Button(label="Ta ut", valign=Gtk.Align.CENTER)
-        remove.connect("clicked", lambda *_: self.sim_remove())
-        for widget in (self.sim_choice, insert, remove):
-            self.sim.append(widget)
+        # One button that follows the reader: "Sett inn kort" when empty, "Ta ut kort" when a card is in.
+        self.card_toggle = Gtk.Button(valign=Gtk.Align.CENTER)
+        self.card_toggle.add_css_class("card-toggle")
+        toggle_content = Gtk.Box(spacing=8)
+        self.toggle_icon = Gtk.Stack()
+        self.toggle_icon.add_named(picture("icons/kort-inn.svg", 22), "inn")
+        self.toggle_icon.add_named(picture("icons/kort-ut.svg", 22), "ut")
+        self.toggle_label = Gtk.Label()
+        toggle_content.append(self.toggle_icon)
+        toggle_content.append(self.toggle_label)
+        self.card_toggle.set_child(toggle_content)
+        self.card_toggle.connect("clicked", lambda *_: self.sim_toggle())
+        self.sim.append(self.sim_choice)
+        self.sim.append(self.card_toggle)
         self.sim.set_visible(bool(self.sim_cards))
         bottom.append(self.sim)
         bottom.append(Gtk.Box(hexpand=True))
         for label, icon, action in (("Start på nytt", "icons/omstart.svg", self.lightdm.restart),
                                     ("Slå av", "icons/slaa-av.svg", self.lightdm.shutdown)):
-            column = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-            button = Gtk.Button(halign=Gtk.Align.CENTER, tooltip_text=label)
+            button = Gtk.Button(valign=Gtk.Align.CENTER, tooltip_text=label)
+            button.update_property([Gtk.AccessibleProperty.LABEL], [label])
             button.add_css_class("power")
             button.set_child(picture(icon, 22))
             button.connect("clicked", lambda _b, a=action: a())
-            caption = Gtk.Label(label=label)
-            caption.add_css_class("power-label")
-            column.append(button)
-            column.append(caption)
-            bottom.append(column)
+            bottom.append(button)
         root.append(bottom)
 
         self.refresh()
@@ -327,6 +331,9 @@ class LoginWindow(Gtk.ApplicationWindow):
             self.message.set_text("")
             self.show_emergency(False)
             self.badge.set_visible_child_name("person" if card else "kort")
+            self.toggle_icon.set_visible_child_name("ut" if card else "inn")
+            self.toggle_label.set_text("Ta ut kort" if card else "Sett inn kort")
+            self.sim_choice.set_sensitive(card is None)
             if card:
                 self.title.set_text(f"Hei, {card['navn']}")
                 self.subtitle.set_text(f"{card['rolle']} · {card['virksomhet']}")
@@ -371,13 +378,11 @@ class LoginWindow(Gtk.ApplicationWindow):
         self.set_busy(True)
         self.lightdm.login(EMERGENCY_USER, reason, "medicus-nod", self.finished)
 
-    def sim_insert(self):
-        if self.sim_cards:
+    def sim_toggle(self):
+        if self.card:
+            self.auth.remove()
+        elif self.sim_cards:
             self.auth.insert(self.sim_cards[self.sim_choice.get_selected()]["card_id"])
-            self.refresh()
-
-    def sim_remove(self):
-        self.auth.remove()
         self.refresh()
 
 

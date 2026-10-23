@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Remove card: a card with an arrow pointing out of the reader. -->
+  <rect x="8" y="20" width="32" height="22" rx="4" fill="none" stroke="#ffffff" stroke-width="3"/>
+  <rect x="13" y="26" width="8" height="6" rx="1.2" fill="#f2b8b5"/>
+  <path d="M24 16 V 4 M18 9 L 24 3 L 30 9" fill="none" stroke="#f2b8b5" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
