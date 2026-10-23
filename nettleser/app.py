@@ -62,6 +62,12 @@ class BrowserWindow(Gtk.ApplicationWindow):
         settings.set_enable_developer_extras(False)
         settings.set_enable_media_stream(True)  # microphone for the journal assistant (asked per site)
         settings.set_javascript_can_open_windows_automatically(False)
+        # Reveal as little as possible to websites: the engine's ordinary user agent with no
+        # Medicus name added, no WebGL (graphics-card fingerprint) and no WebRTC (can leak the
+        # machine's internal IP address).
+        settings.set_user_agent(None)
+        settings.set_enable_webgl(False)
+        settings.set_enable_webrtc(False)
         self.view.connect("decide-policy", self.on_policy)
         self.view.connect("permission-request", self.on_permission)
         self.view.connect("load-changed", self.on_load)

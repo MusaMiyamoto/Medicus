@@ -31,6 +31,15 @@ LOGO = Path(__file__).parent.parent / "branding" / "medicus-logo.svg"
 
 app = FastAPI(title="Medicus", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
+
+@app.middleware("http")
+async def privacy_headers(request, call_next):
+    # External sites opened from a Medicus page never see where the user came from.
+    response = await call_next(request)
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 audit = AuditLog(settings.audit_log)
 
 
@@ -232,7 +241,8 @@ def sites_page():
 
 @app.get("/api/nettsteder")
 def sites():
-    return [{"domene": d, "navn": n, "beskrivelse": b} for d, n, b in nettsteder.SITES]
+    return [{"gruppe": group, "nettsteder": [{"domene": d, "navn": n, "beskrivelse": b} for d, n, b in sites]}
+            for group, sites in nettsteder.GROUPS]
 
 
 # --- Sikkerhetssenter --------------------------------------------------------

@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
   <title>Medicus Nettleser</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -18,18 +19,23 @@
   <main>
     <section class="card">
       <h2>Godkjente nettsteder</h2>
-      <p class="muted">Medicus Nettleser åpner bare godkjente nettsteder for helsepersonell. Sporing blokkeres,
-        og alle forbindelser er krypterte. Trenger du et nettsted som mangler? Spør IT.</p>
-      <div id="sites" class="sites"></div>
+      <p class="muted">Medicus Nettleser åpner bare godkjente nettsteder. Sporing blokkeres, alle forbindelser
+        er krypterte, og nettstedene ser ikke hvilket system du bruker. Mangler du et nettsted? Spør IT.</p>
+      <div id="groups"></div>
     </section>
   </main>
   <script src="/static/common.js"></script>
   <script>
-    api("/api/nettsteder").then((sites) => {
-      document.getElementById("sites").innerHTML = sites.map((s) => `
-        <a class="site" href="https://www.${esc(s.domene)}/">
-          <b>${esc(s.navn)}</b><span class="muted">${esc(s.beskrivelse)}</span><span class="domain">${esc(s.domene)}</span>
-        </a>`).join("");
+    function card(s) {
+      const inner = `<b>${esc(s.navn)}</b><span class="muted">${esc(s.beskrivelse)}</span>`;
+      // "kommune.no" covers every municipality (oslo.kommune.no …), so it has no single page to open.
+      if (s.domene === "kommune.no") return `<div class="site">${inner}<span class="domain">*.kommune.no</span></div>`;
+      return `<a class="site" rel="noreferrer" href="https://www.${esc(s.domene)}/">${inner}<span class="domain">${esc(s.domene)}</span></a>`;
+    }
+    api("/api/nettsteder").then((groups) => {
+      document.getElementById("groups").innerHTML = groups.map((g) => `
+        <h3 class="group">${esc(g.gruppe)}</h3>
+        <div class="sites">${g.nettsteder.map(card).join("")}</div>`).join("");
     });
   </script>
 </body>

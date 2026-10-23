@@ -44,6 +44,19 @@ def test_web_filter_matches_sites_and_subdomains_only():
     assert not allowed("google.com")
 
 
-def test_browser_allowlist_matches_filter():
-    assert len(nettsteder.firefox_exceptions()) == len(nettsteder.SITES)
-    assert all(e.startswith("https://") for e in nettsteder.firefox_exceptions())
+def test_browser_and_filter_use_the_same_list():
+    from nettleser import regler
+
+    patterns = [re.compile(line) for line in nettsteder.proxy_filter().splitlines()]
+    for domain, _, _ in nettsteder.SITES:
+        assert regler.is_allowed(f"https://www.{domain}/")
+        assert any(p.search(f"www.{domain}") for p in patterns)
+
+
+def test_government_sites_and_municipalities_are_allowed():
+    from nettleser import regler
+
+    for url in ("https://www.nav.no/", "https://www.skatteetaten.no/", "https://login.idporten.no/",
+                "https://www.oslo.kommune.no/", "https://www.regjeringen.no/"):
+        assert regler.is_allowed(url), url
+    assert not regler.is_allowed("https://kommune.no.example.com/")

@@ -52,10 +52,6 @@ import json
 from medicus import nettsteder
 
 open("/etc/tinyproxy/filter", "w").write(nettsteder.proxy_filter())
-path = "/usr/lib/firefox-esr/distribution/policies.json"
-policies = json.load(open(path))
-policies["policies"]["WebsiteFilter"]["Exceptions"] += nettsteder.firefox_exceptions()
-json.dump(policies, open(path, "w"), indent=2)
 EOF
 
 # --- Virus database: included in the image so scanning works from the first boot ----
