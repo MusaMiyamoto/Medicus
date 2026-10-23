@@ -53,6 +53,7 @@ The rules behind this:
 | `helsenett/` | One interface to the national health services, plus a simulator | Python + FastAPI |
 | `epj/` | Journal systems: saving notes, the doctor's patient list, DIPS (FHIR), transfer from Epic | Python |
 | `utstyr/` | Medical USB devices approved by IT (`medicus-utstyr`) | Python, USBGuard |
+| `wlan/` | Machine certificate in the TPM and approved WLANs (`medicus-wlan`) | Python, tpm2-pkcs11, NetworkManager |
 | `nettleser/` | **Medicus Nettleser**, the browser (only approved sites) | Python + GTK 4 + WebKitGTK 6 |
 | `tekst/`, `kalkulator/` | The Text editor and the calculator | Python + GTK 4 |
 | `branding/` | Logo, wallpapers, boot screen; `make_assets.py` builds the images | SVG, Python + Pillow |
@@ -194,6 +195,27 @@ until IT approves it: dictation microphones (SpeechMike), spirometers, ECG dongl
 Where it is: the list is `/etc/medicus/medisinsk-utstyr.json`, the rules are generated into
 `/etc/usbguard/rules.d/50-medisinsk-utstyr.conf` (don't edit that file by hand), and every change is
 logged in `/var/lib/medicus-utstyr/audit.jsonl` with who did it.
+
+### Wi-Fi with a machine certificate (TPM)
+
+Medicus PCs join Wi-Fi with 802.1X EAP-TLS: a certificate instead of a password. The private key is
+made **inside the TPM chip** and can't be copied out, so a cloned disk can't get on the network. The
+PC only joins the WLANs on IT's list, and only if the RADIUS server proves its name with a certificate
+from your own CA (so a fake access point with the same name gets nothing).
+
+Once per PC, in IT mode (each step asks for the IT card PIN):
+
+```bash
+sudo medicus-wlan nokkel                                   # key inside the TPM
+sudo medicus-wlan foresporsel                              # request → sign it in your CA
+sudo medicus-wlan sertifikat maskin.crt ca.crt             # install the signed certificate
+sudo medicus-wlan legg-til Sykehus-Ansatt --server radius.sykehuset.no
+```
+
+`medicus-wlan` shows the status, and `sudo medicus-wlan fjern SSID` removes a network. The
+Sikkerhetssenter warns 30 days before the certificate runs out. Needs TPM 2.0 switched on in
+BIOS/UEFI and a RADIUS server set up for EAP-TLS. **Test on real hardware first:** the TPM path
+(tpm2-pkcs11 → NetworkManager → wpa_supplicant) can't be tried in a VM without a virtual TPM.
 
 ### DIPS, Epic and the patient list
 

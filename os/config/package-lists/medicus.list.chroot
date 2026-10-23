@@ -76,3 +76,9 @@ xfce4-taskmanager
 # Start-up animation (heartbeat)
 plymouth
 plymouth-themes
+# Machine certificate in the TPM for Wi-Fi (802.1X EAP-TLS), see wlan/
+tpm2-tools
+libtpm2-pkcs11-1
+libtpm2-pkcs11-tools
+pkcs11-provider
+libengine-pkcs11-openssl

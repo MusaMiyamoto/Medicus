@@ -187,6 +187,9 @@ has nothing to work with:
   The real endpoint and keys come from Norsk helsenett or the IT department.
 - **Wi-Fi:** random hardware address while scanning, private IPv6, no network discovery (mDNS/LLMNR).
   Health personnel can't add new networks (like open café Wi-Fi). IT sets them up.
+- **Machine certificate in the TPM:** each PC joins the WLANs IT approves with 802.1X EAP-TLS. The
+  private key is made inside the TPM chip and can never be copied out, and the PC checks the
+  network's RADIUS certificate, so a fake access point gets nothing (`medicus-wlan`, see the IT handbook).
 - **Attack traffic:** malformed packets are dropped and ping is rate-limited. A single PC can't
   stop a large DDoS attack; that has to be handled by the network operator or Norsk helsenett.
   What Medicus does is have nothing open to attack and stay cheap to flood.

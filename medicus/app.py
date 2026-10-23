@@ -305,7 +305,7 @@ def security_status(_session: dict = Depends(it_session)):
     except AuthError:
         late = None
     devices = sikkerhet.medical_devices(utstyr.connected(), utstyr.load())
-    return sikkerhet.checks() + [sikkerhet.emergency_reports(late), devices]
+    return sikkerhet.checks() + [sikkerhet.emergency_reports(late), devices, sikkerhet.machine_certificate()]
 
 
 # --- Emergency access ------------------------------------------------------

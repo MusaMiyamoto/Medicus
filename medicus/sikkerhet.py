@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 
 import utstyr
+import wlan
 
 OK, WARN, FAIL, INFO = "ok", "advarsel", "feil", "info"
 
@@ -97,6 +98,19 @@ def medical_devices(devices: list, entries: list[dict]) -> dict:
     names = ", ".join(f"{d.name or 'ukjent enhet'} ({d.vendor}:{d.product}, port {d.port})" for d in blocked[:5])
     return {"navn": "Medisinsk USB-utstyr", "status": INFO,
             "forklaring": f"Blokkert nå: {names}. Godkjenn bare utstyr virksomheten har kjøpt inn. {text}"}
+
+
+def machine_certificate() -> dict:
+    """The Wi-Fi machine certificate (key in the TPM) and how long it is valid."""
+    end = None
+    if wlan.CERT.exists():
+        try:
+            out = subprocess.run(["openssl", "x509", "-in", str(wlan.CERT), "-noout", "-enddate"],
+                                 capture_output=True, text=True, timeout=5).stdout
+            end = wlan.parse_enddate(out)
+        except (OSError, ValueError, subprocess.TimeoutExpired):
+            pass
+    return wlan.certificate_status(wlan.TPM_DEVICE.exists(), end, len(wlan.load()))
 
 
 def emergency_reports(late: list[dict] | None) -> dict:

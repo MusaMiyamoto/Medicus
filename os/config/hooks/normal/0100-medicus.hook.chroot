@@ -83,6 +83,10 @@ sed -i '/^#\?RuleFolder=/d' /etc/usbguard/usbguard-daemon.conf
 echo "RuleFolder=/etc/usbguard/rules.d/" >> /etc/usbguard/usbguard-daemon.conf
 [ -f /etc/medicus/medisinsk-utstyr.json ] || echo "[]" > /etc/medicus/medisinsk-utstyr.json
 chmod 644 /etc/medicus/medisinsk-utstyr.json
+# Machine certificate: the TPM token store and its PIN are root only (medicus-wlan).
+mkdir -p /etc/medicus/tpm
+chmod 700 /etc/medicus/tpm
+[ -f /etc/medicus/wlan.json ] || echo "[]" > /etc/medicus/wlan.json
 
 # Desktop shortcuts link to these files, so they must be executable (see medicus-skrivebord).
 chmod 755 /usr/share/applications/medicus-*.desktop /usr/share/medicus-it/applications/*.desktop
