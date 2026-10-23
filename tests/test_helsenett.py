@@ -65,14 +65,36 @@ def test_shared_note_reaches_gp_view(sim):
 
 def request_body(**overrides):
     return {
+        "myndighetstype": "Politiet / påtalemyndigheten",
         "myndighet": "Politiet, Testby", "saksbehandler": "Etterforsker Test", "fnr": seed.KARI,
-        "hjemmel": "Rettens kjennelse/beslutning", "formal": "Etterforskning av sak 123, kjennelse vedlagt.",
+        "hjemmel": "Pasientens samtykke (helsepersonelloven § 22)", "formal": "Etterforskning av sak 123, samtykke vedlagt.",
         "data": ["Kontakter og notater"], "periode": "2026-08", **overrides,
     }
 
 
 def test_disclosure_needs_listed_legal_basis(sim):
     assert sim.post("/api/utlevering", json=request_body(hjemmel="Fordi vi vil")).status_code == 422
+
+
+def test_legal_basis_must_fit_the_authority(sim):
+    # The tax office cannot use the child-welfare provision; only consent or an explicit law.
+    body = request_body(myndighetstype="Annen myndighet eller virksomhet", myndighet="Skatteetaten",
+                        hjemmel="Pålegg fra barnevernstjenesten (helsepersonelloven § 33, barnevernsloven § 13-2)")
+    assert sim.post("/api/utlevering", json=body).status_code == 422
+    assert sim.post("/api/utlevering", json=request_body(myndighetstype="Hemmelig tjeneste")).status_code == 422
+
+
+def test_child_welfare_can_request_with_its_own_basis(sim):
+    body = request_body(myndighetstype="Barnevernstjenesten", myndighet="Barnevernstjenesten i Testby",
+                        hjemmel="Pålegg fra barnevernstjenesten (helsepersonelloven § 33, barnevernsloven § 13-2)")
+    assert sim.post("/api/utlevering", json=body).status_code == 200
+
+
+def test_every_authority_has_a_basis_and_police_cannot_just_demand():
+    from helsenett import hjemler
+    assert all(a["hjemler"] for a in hjemler.AUTHORITIES)
+    police = hjemler.BY_TYPE["Politiet / påtalemyndigheten"]["hjemler"]
+    assert not any("kjennelse" in h.lower() for h in police)
 
 
 def test_approved_disclosure_releases_minimum_and_notifies(sim):

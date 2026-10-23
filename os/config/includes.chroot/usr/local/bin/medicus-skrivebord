@@ -1,6 +1,6 @@
 #!/bin/sh
-# Runs at login: puts the Medicus shortcuts on the desktop the first time. Users may delete them;
-# they won't come back.
+# Runs at login: the first time, puts the Medicus shortcuts on the desktop and the user's own
+# folders in the Files sidebar. Users may change both; they won't be reset.
 #
 # Home folders are mounted noexec, so a shortcut *file* there can never be "executable", and XFCE
 # would warn that it's untrusted. Instead each shortcut is a link to the read-only, executable
@@ -17,4 +17,15 @@ for app in medicus-pasient medicus-post medicus-nettleser medicus-kalkulator med
   ln -sfn "$src" "$dst"
   gio set -t string "$dst" metadata::xfce-exe-checksum "$(sha256sum "$src" | cut -d' ' -f1)" 2>/dev/null
 done
+
+# Files sidebar: the four folders people actually use, in a fixed order.
+mkdir -p "$HOME/.config/gtk-3.0"
+: > "$HOME/.config/gtk-3.0/bookmarks"
+for kind in DOCUMENTS PICTURES DOWNLOAD; do
+  folder=$(xdg-user-dir "$kind" 2>/dev/null)
+  [ -n "$folder" ] && [ "$folder" != "$HOME" ] || continue
+  mkdir -p "$folder"
+  printf 'file://%s %s\n' "$folder" "$(basename "$folder")" >> "$HOME/.config/gtk-3.0/bookmarks"
+done
+rm -f "$DIR/.keep" "$HOME/Dokumenter/.keep" "$HOME/Nedlastinger/.keep"
 touch "$DONE"

@@ -12,7 +12,7 @@ privacy-first AI documentation assistant ("journalassistent") and a clinical cal
 | **Login** | [`tilgang/`](tilgang/) | Card + PIN login, emergency access, and the session rules |
 | **Health network** | [`helsenett/`](helsenett/) | One interface to the national services, plus a local simulator |
 | **Patient record and journal assistant** | [`medicus/`](medicus/) | The clinician's web app |
-| **Medicus Kalkulator** | [`kalkulator/`](kalkulator/) | Calculator plus converters for volume, weight and gram ↔ milliliter |
+| **Medicus Kalkulator** | [`kalkulator/`](kalkulator/) | Calculator plus converters for volume, weight and weight ↔ volume |
 | **Branding** | [`branding/`](branding/) | Logo (the Rod of Asclepius), wallpaper, boot screen |
 
 ## Medicus OS
@@ -50,9 +50,14 @@ login screen. Demo cards (PIN `1234` for all of them):
 
 | Card | Role |
 |---|---|
-| Ingrid Berg | Doctor (*lege*), GP office: can write prescriptions |
-| Jonas Lie | Nurse (*sykepleier*), out-of-hours clinic |
+| Ingrid Berg | Doctor (*lege*): can write prescriptions |
+| Jonas Lie | Nurse (*sykepleier*) |
 | Amir Haddad | Paramedic (*ambulansearbeider*) |
+
+**The workplace comes from the PC, not the card.** Each machine has its workplace in
+`/etc/medicus/arbeidssted.toml` (for example Oslo universitetssykehus, Ullevål). The same card
+shows the person's position (*stilling*) at that workplace, so a doctor who logs in at St. Olavs
+in Trondheim or at Aker is shown there. In the demo, pick the workplace on the login screen.
 
 ### Health network, Helsenorge and authorities
 
@@ -61,10 +66,26 @@ login screen. Demo cards (PIN `1234` for all of them):
   helsenett is one setting, once there's an agreement.
 - **Patients see every access:** the simulated citizen portal (*Innbyggerportal*) shows who opened
   the record and why, prescriptions, visits and notes from every institution, and disclosures to authorities.
-- **Requests from authorities (e.g. police)** go through a request workflow, never direct access:
+- **Requests from authorities** go through a request workflow, never direct access:
   a legal basis, purpose and the minimum data needed. A privacy officer approves or refuses, only
   the approved data is released, it's logged, and the patient is told unless a legal basis allows
-  delaying the notice. The listed legal bases are examples and must be checked by a lawyer.
+  delaying the notice.
+- **Each authority can only use the legal bases that apply to it** ([`helsenett/hjemler.py`](helsenett/hjemler.py)).
+  The main rule is confidentiality (*helsepersonelloven* § 21):
+
+  | Authority | Possible legal basis |
+  |---|---|
+  | Police / prosecution | Patient consent, § 31 (prevent serious harm), § 23 nr. 4 (weighty interests). Investigating a case is not enough on its own: doctors and nurses can't testify about patients (*straffeprosessloven* § 119), and records generally can't be seized (§ 204). |
+  | Courts / *barneverns- og helsenemnda* | Patient consent, exemption from the County Governor (*tvisteloven* § 22-5), duty to testify to the board (*barnevernsloven* § 13-4) |
+  | Child welfare (*barnevernet*) | Order under *helsepersonelloven* § 33 and *barnevernsloven* § 13-2 (only the information needed, not the whole record) |
+  | NAV | Information needed for a benefit claim (*folketrygdloven* § 21-4) |
+  | Health supervision (*Helsetilsynet*, *Statsforvalteren*) | Supervision case (§ 30, *helsetilsynsloven* § 7) |
+  | Municipal health and care services | Order under § 32 |
+  | Infection control (municipal chief medical officer, FHI) | *Smittevernloven* §§ 2-2 and 2-3 |
+  | Immigration authorities | Expulsion case under § 29 d |
+  | Everyone else (tax office, employers, insurers) | Only with the patient's consent or an explicit law |
+
+  These rules are a careful reading of the law, but they **must be checked by a lawyer** before real use.
 
 ### Medicus Post: messages, image sharing and phishing protection
 
@@ -95,21 +116,30 @@ provider can be connected later through the same interface (with an agreement).
 Medicus OS is a desktop and laptop operating system for ordinary 64-bit PCs (Intel/AMD).
 
 - **Desktop:** Home folder and Trash icons, shortcuts to the Medicus apps, and the **Start** button bottom left.
-- **Standard programs:** file manager, text editor (Mousepad), image viewer (Ristretto), PDF reader
-  (Evince, which runs in an AppArmor sandbox) and a screenshot tool.
+- **Standard programs, with plain names:** **Files**, **Text**, **Pictures**, **Dokumenter** (PDF reader,
+  in an AppArmor sandbox), **Skjermbilde** (screenshots) and **Mouse** (mouse settings). Settings
+  that could run commands (settings editor, keyboard shortcuts) are hidden.
+- **Files** is kept clean: big icons, folders first, no menu bar, and a sidebar with just
+  *Hjem*, *Skrivebord*, *Dokumenter*, *Bilder*, *Nedlastinger* and *Papirkurv*. Music, video,
+  template and public folders aren't created, and there's no network or file-system clutter or
+  "open terminal here".
 - **Wallpapers:** four Norwegian nature scenes drawn for Medicus, so we own them fully with no
   licensing risk: *Nordlys* (default), *Fjord*, *Skog* and *Fjell*, plus the Medicus wallpaper.
   Choose under Settings → Desktop.
 
 ### Medicus Nettleser
 
-Firefox ESR, locked down (the same idea as Brave: a proven engine with stricter defaults):
+Our own browser ([`nettleser/`](nettleser/)), built on the open-source WebKit engine with a
+Medicus toolbar and the heartbeat loader. No other brand is visible anywhere.
 
-- Opens only **approved health websites** (Helsenorge, Felleskatalogen, Legemiddelhåndboka,
-  Helsedirektoratet, FHI and others, listed in [`medicus/nettsteder.py`](medicus/nettsteder.py)).
+- Opens only **approved websites**: health sites (Helsenorge, Felleskatalogen, Legemiddelhåndboka,
+  Helsedirektoratet, FHI and others) and **government sites** (NAV, Skatteetaten, Altinn, ID-porten,
+  Regjeringen, Politiet, every *kommune.no* and more), listed in [`medicus/nettsteder.py`](medicus/nettsteder.py).
   A web filter (tinyproxy) enforces the same list, so the browser can't get around it.
-- Tracker, fingerprinting and cryptomining blocking on, HTTPS only, no extensions, no saved
-  passwords, history cleared on exit.
+- **Nothing points back to Medicus:** the plain engine user agent, no referrer, no proxy headers,
+  WebGL and WebRTC off (fingerprinting and IP leaks), and a neutral "not allowed" page.
+- Nothing is saved: no history, cookies or cache survive closing the browser. HTTPS only for the
+  internet, no extensions, no developer tools, and only Medicus apps can use the microphone.
 
 ### Cyber defense
 
@@ -150,8 +180,8 @@ has nothing to work with:
 - **Login:** card only, no passwords, no automatic login, no admin (`sudo`) access, text consoles switched off.
 - **Network:** firewall blocks everything incoming. Users and apps can only reach this machine. Only
   the system itself can go online, for security updates.
-- **Browser:** only Medicus pages can be opened. Extensions, developer tools, password saving and
-  telemetry are blocked, and history is cleared on exit.
+- **Browser:** only approved sites can be opened. No extensions, developer tools or saved passwords,
+  and nothing is kept after closing.
 - **USB:** only keyboards, mice, headsets, hubs and card readers. Memory sticks, cameras and
   network adapters are blocked, including devices that combine them.
 - **Kernel:** hardening boot settings (memory zeroing, lockdown, no vsyscall) and `/etc/sysctl.d/90-medicus.conf`.
@@ -182,11 +212,13 @@ The first build downloads 1–2 GB and takes a while. Later builds reuse the dow
 A GTK 4 desktop app in the Start menu:
 
 - **Kalkulator:** + − × ÷ and parentheses, with a decimal comma (`2,5 × 4`).
-- **Volum:** ml, dl, liter. Type an amount and see it in every unit at once.
-- **Vekt:** mg, gram, hektogram, kilo.
-- **Gram ↔ milliliter:** uses the substance's **density**. Water (1 g/ml) is the default,
-  there are presets for milk, olive oil, honey and ethanol, or you can type your own density.
-  The result always shows which density was used.
+- **Volum:** µl, ml, cl, dl, liter, plus teaspoon (5 ml) and tablespoon (15 ml) as used on
+  medicine labels. Type an amount and see it in every unit at once.
+- **Vekt:** µg, mg, gram, hektogram, kilo.
+- **Vekt ↔ volum:** any weight unit to every volume unit and back (for example liter → kg,
+  ml → g, mg → µl), using the substance's **density**. Water (1 g/ml) is the default, with presets
+  for blood, saline 0.9 %, glucose 5 %, breast milk, hand disinfectant (ethanol 70 %), pure
+  ethanol and olive oil, or you can type your own density. The result shows which density was used.
 
 > ⚠️ The Kalkulator is **not** for medication dosing. Always use the official product information (SPC)
 > and local procedures.
@@ -306,8 +338,9 @@ pytest
 - [ ] Pick different note templates (GP, emergency room, home care, psychiatry)
 - [ ] Send notes to patient record systems via FHIR instead of copy and paste
 - [x] Hardened Linux OS image (Debian + XFCE) with a Start menu
-- [x] Calculator with volume, weight and gram ↔ milliliter converters
+- [x] Calculator with volume, weight and weight ↔ volume converters
 - [ ] Download the AI models (Ollama and Whisper) during OS setup, so the journal assistant works offline out of the box
-- [ ] Medicus branding: wallpaper, boot screen, installer
+- [x] Medicus branding: wallpaper, boot screen, login
+- [ ] Installer branding
 - [ ] Clinician testing and time-saving measurements
 - [ ] Assess medical-device classification (EU MDR) and compliance with Normen and GDPR

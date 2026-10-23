@@ -73,7 +73,50 @@ def test_mass(amount, source, target, expected):
 
 def test_convert_to_all_keeps_table_order():
     rows = units.convert_to_all(Decimal("1"), by_symbol(units.VOLUME, "l"), units.VOLUME)
-    assert [(u.symbol, v) for u, v in rows] == [("ml", 1000), ("dl", 10), ("l", 1)]
+    assert [u.symbol for u, _ in rows] == ["µl", "ml", "cl", "dl", "l", "ts", "ss"]
+    assert [v for _, v in rows][:5] == [1000000, 1000, 100, 10, 1]
+
+
+@pytest.mark.parametrize(
+    "amount, source, target, expected",
+    [
+        ("250", "µg", "mg", "0.25"),
+        ("2", "ss", "ml", "30"),
+        ("10", "ml", "ts", "2"),
+        ("5", "µl", "ml", "0.005"),
+        ("33", "cl", "dl", "3.3"),
+    ],
+)
+def test_small_and_spoon_units(amount, source, target, expected):
+    table = units.VOLUME + units.MASS
+    assert units.convert(Decimal(amount), by_symbol(table, source), by_symbol(table, target)) == Decimal(expected)
+
+
+@pytest.mark.parametrize(
+    "amount, source, target, density, expected",
+    [
+        ("1", "l", "kg", "1.00", "1"),            # 1 liter water weighs 1 kg
+        ("2", "kg", "l", "1.00", "2"),
+        ("450", "ml", "g", "1.06", "477"),        # blood
+        ("1.06", "kg", "l", "1.06", "1"),
+        ("5", "dl", "hg", "1.00", "5"),
+        ("10", "mg", "µl", "1.00", "10"),
+    ],
+)
+def test_mass_volume_in_any_units(amount, source, target, density, expected):
+    table = units.VOLUME + units.MASS
+    value = units.across(Decimal(amount), by_symbol(table, source), by_symbol(table, target), Decimal(density))
+    assert value == Decimal(expected)
+
+
+def test_across_to_all_lists_the_other_kind():
+    rows = units.across_to_all(Decimal("1"), by_symbol(units.VOLUME, "l"), Decimal("1"))
+    assert [u.symbol for u, _ in rows] == ["µg", "mg", "g", "hg", "kg"]
+
+
+def test_across_needs_one_mass_and_one_volume():
+    with pytest.raises(ValueError):
+        units.across(Decimal("1"), units.ML, units.VOLUME[4], Decimal("1"))
 
 
 def test_water_is_default_and_one_to_one():

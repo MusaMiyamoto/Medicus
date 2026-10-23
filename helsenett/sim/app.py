@@ -16,19 +16,13 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .. import fnr as fnrlib
+from .. import hjemler
 from . import seed
 from .post import make_router
 
 STATIC = Path(__file__).parent / "static"
 
 CATEGORIES = ["Kritisk informasjon", "Legemidler", "Kontakter og notater"]
-LEGAL_BASES = [
-    "Pasientens samtykke",
-    "Rettens kjennelse/beslutning",
-    "Helsepersonelloven § 23 nr. 4 (tungtveiende interesser)",
-    "Helsepersonelloven § 31 (avverge alvorlig skade)",
-    "Annen lovhjemmel (spesifiser i formål)",
-]
 
 
 def now() -> str:
@@ -88,6 +82,7 @@ class AccessIn(BaseModel):
 
 
 class RequestIn(BaseModel):
+    myndighetstype: str
     myndighet: str = Field(min_length=3, max_length=200)
     saksbehandler: str = Field(min_length=3, max_length=200)
     fnr: str
@@ -199,15 +194,17 @@ def create_app(state_path: Path) -> FastAPI:
     @app.get("/api/utlevering")
     def list_requests():
         return {"forespørsler": sorted(store.data["utleveringer"], key=lambda r: r["id"], reverse=True),
-                "hjemler": LEGAL_BASES, "kategorier": CATEGORIES}
+                "myndigheter": hjemler.AUTHORITIES, "kategorier": CATEGORIES}
 
     @app.post("/api/utlevering")
     def submit_request(body: RequestIn):
         if not fnrlib.is_valid(body.fnr):
             raise HTTPException(422, "Ugyldig fødselsnummer.")
         store.patient(body.fnr)
-        if body.hjemmel not in LEGAL_BASES:
-            raise HTTPException(422, "Velg en lovhjemmel fra listen.")
+        if body.myndighetstype not in hjemler.BY_TYPE:
+            raise HTTPException(422, "Velg type myndighet fra listen.")
+        if not hjemler.allowed(body.myndighetstype, body.hjemmel):
+            raise HTTPException(422, "Denne lovhjemmelen gjelder ikke for denne myndigheten.")
         if not set(body.data) <= set(CATEGORIES):
             raise HTTPException(422, "Ukjent datakategori.")
         with store.lock:

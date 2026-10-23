@@ -1,4 +1,4 @@
-"""GTK 4 window: calculator, volume, weight and gram ↔ milliliter."""
+"""GTK 4 window: calculator, volume, weight and weight ↔ volume."""
 
 import sys
 
@@ -150,29 +150,35 @@ class UnitPage(Gtk.Box):
 
 
 class DensityPage(Gtk.Box):
-    DIRECTIONS = ["gram → milliliter", "milliliter → gram"]
+    """Weight ↔ volume in any units (e.g. liter → kilogram), using the substance's density.
+    Type an amount in a weight or volume unit; see it in every unit of the other kind."""
+
+    UNITS = units.MASS + units.VOLUME
 
     def __init__(self):
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         box = page_box()
         self.append(box)
-        box.append(heading("Gram ↔ milliliter"))
+        box.append(heading("Vekt ↔ volum"))
 
         warning = Gtk.Label(label=DOSING_WARNING, xalign=0, wrap=True)
         warning.add_css_class("warning")
         box.append(warning)
 
         form = Gtk.Grid(row_spacing=10, column_spacing=12)
-        self.direction = Gtk.DropDown.new_from_strings(self.DIRECTIONS)
+        amount_row = Gtk.Box(spacing=8)
         self.amount = Gtk.Entry(placeholder_text="For eksempel 250", hexpand=True)
+        self.unit = Gtk.DropDown.new_from_strings([f"{u.name} ({u.symbol})" for u in self.UNITS])
+        self.unit.set_selected(self.UNITS.index(units.GRAM))
+        amount_row.append(self.amount)
+        amount_row.append(self.unit)
         self.substance = Gtk.DropDown.new_from_strings(
             [s.name if s.density is None else f"{s.name} (ca. {format_number(s.density)} g/ml)"
              for s in units.SUBSTANCES]
         )
         self.density = Gtk.Entry(placeholder_text="g/ml, for eksempel 1,2", sensitive=False)
         for i, (label, widget) in enumerate([
-            ("Retning", self.direction),
-            ("Mengde", self.amount),
+            ("Mengde", amount_row),
             ("Stoff", self.substance),
             ("Tetthet (g/ml)", self.density),
         ]):
@@ -180,14 +186,16 @@ class DensityPage(Gtk.Box):
             form.attach(widget, 1, i, 1, 1)
         box.append(form)
 
-        self.result = Gtk.Label(xalign=0, selectable=True, wrap=True)
-        self.result.add_css_class("result")
+        self.message = Gtk.Label(xalign=0, wrap=True)
+        self.message.add_css_class("error")
+        box.append(self.message)
+        self.results = Gtk.Grid(row_spacing=10, column_spacing=16)
+        box.append(self.results)
         self.detail = Gtk.Label(xalign=0, wrap=True)
-        box.append(self.result)
         box.append(self.detail)
 
         for widget, signal in [
-            (self.direction, "notify::selected"),
+            (self.unit, "notify::selected"),
             (self.substance, "notify::selected"),
             (self.amount, "changed"),
             (self.density, "changed"),
@@ -195,16 +203,25 @@ class DensityPage(Gtk.Box):
             widget.connect(signal, lambda *_: self.update())
         self.update()
 
+    def show_rows(self, rows):
+        while (child := self.results.get_first_child()) is not None:
+            self.results.remove(child)
+        for i, (unit, text) in enumerate(rows):
+            value = Gtk.Label(label=text, xalign=1, selectable=True, hexpand=True)
+            value.add_css_class("unit-value")
+            self.results.attach(value, 0, i, 1, 1)
+            self.results.attach(Gtk.Label(label=f"{unit.name} ({unit.symbol})", xalign=0), 1, i, 1, 1)
+
     def update(self):
         substance = units.SUBSTANCES[self.substance.get_selected()]
         self.density.set_sensitive(substance.density is None)
-        grams_first = self.direction.get_selected() == 0
-        source, target = ("g", "ml") if grams_first else ("ml", "g")
-        self.result.remove_css_class("error")
+        source = self.UNITS[self.unit.get_selected()]
+        empty = [(u, "–") for u in units.other_table(source)]
+        self.message.set_text("")
+        self.detail.set_text("")
         try:
             if not self.amount.get_text().strip():
-                self.result.set_text("–")
-                self.detail.set_text("")
+                self.show_rows(empty)
                 return
             amount = parse_number(self.amount.get_text())
             if substance.density is None:
@@ -213,28 +230,27 @@ class DensityPage(Gtk.Box):
             else:
                 density = substance.density
                 name = substance.name.lower()
-            convert = units.grams_to_ml if grams_first else units.ml_to_grams
-            value = convert(amount, density)
+            rows = units.across_to_all(amount, source, density)
         except (NumberError, units.DensityError) as e:
-            self.result.set_text(str(e))
-            self.result.add_css_class("error")
-            self.detail.set_text("")
+            self.message.set_text(str(e))
+            self.show_rows(empty)
             return
-        self.result.set_text(f"{format_number(amount)} {source} = {format_number(value)} {target}")
-        self.detail.set_text(f"Beregnet med tetthet {format_number(density)} g/ml ({name}).")
+        self.show_rows([(u, format_number(v)) for u, v in rows])
+        self.detail.set_text(f"{format_number(amount)} {source.symbol}, beregnet med tetthet "
+                             f"{format_number(density)} g/ml ({name}).")
 
 
 class KalkulatorWindow(Gtk.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app, title="Medicus Kalkulator")
-        self.set_default_size(640, 560)
+        self.set_default_size(680, 640)
         self.set_icon_name("accessories-calculator")
 
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE, hexpand=True)
         self.stack.add_titled(CalculatorPage(), "kalkulator", "Kalkulator")
-        self.stack.add_titled(UnitPage(units.VOLUME, "Volum", "For eksempel 250"), "volum", "Volum (ml, dl, l)")
-        self.stack.add_titled(UnitPage(units.MASS, "Vekt", "For eksempel 500"), "vekt", "Vekt (mg, g, hg, kg)")
-        self.stack.add_titled(DensityPage(), "tetthet", "Gram ↔ milliliter")
+        self.stack.add_titled(UnitPage(units.VOLUME, "Volum", "For eksempel 250"), "volum", "Volum (µl – l)")
+        self.stack.add_titled(UnitPage(units.MASS, "Vekt", "For eksempel 500"), "vekt", "Vekt (µg – kg)")
+        self.stack.add_titled(DensityPage(), "tetthet", "Vekt ↔ volum")
 
         sidebar = Gtk.StackSidebar(stack=self.stack)
         sidebar.set_size_request(190, -1)

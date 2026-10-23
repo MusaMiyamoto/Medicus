@@ -28,6 +28,7 @@ function requestCard(r) {
     <div class="card">
       <div class="row" style="justify-content:space-between">
         <h2 style="margin:0">#${r.id} ${esc(r.myndighet)}</h2>
+        ${r.myndighetstype ? `<span class="muted">${esc(r.myndighetstype)}</span>` : ""}
         <span class="tag ${STATUS_TAG[r.status]}">${esc(r.status)}</span>
       </div>
       <div class="muted">${when(r.tid)} · ${esc(r.saksbehandler)}</div>
@@ -39,14 +40,26 @@ function requestCard(r) {
     </div>`;
 }
 
+let authorities = [];
+
+// Each kind of authority only sees the legal bases that apply to it.
+function showBases() {
+  const chosen = authorities.find((a) => a.type === document.getElementById("myndighetstype").value);
+  document.getElementById("hjemmel").innerHTML = chosen.hjemler.map((h) => `<option>${esc(h)}</option>`).join("");
+  document.getElementById("merknad").textContent = chosen.merknad;
+}
+
 async function load() {
   const data = await api("/api/utlevering");
   document.getElementById("queue").innerHTML = data["forespørsler"].map(requestCard).join("")
     || "<p class='muted'>Ingen forespørsler.</p>";
   document.querySelectorAll("form.decision").forEach((form) => form.addEventListener("submit", decide));
-  const select = document.getElementById("hjemmel");
-  if (!select.options.length) {
-    select.innerHTML = data.hjemler.map((h) => `<option>${esc(h)}</option>`).join("");
+  const types = document.getElementById("myndighetstype");
+  if (!types.options.length) {
+    authorities = data.myndigheter;
+    types.innerHTML = authorities.map((a) => `<option>${esc(a.type)}</option>`).join("");
+    types.addEventListener("change", showBases);
+    showBases();
     document.getElementById("categories").innerHTML = data.kategorier.map((c) =>
       `<label style="font-weight:normal"><input type="checkbox" value="${esc(c)}" style="width:auto"> ${esc(c)}</label>`).join("");
   }
@@ -84,6 +97,7 @@ document.getElementById("form").addEventListener("submit", async (event) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        myndighetstype: document.getElementById("myndighetstype").value,
         myndighet: document.getElementById("myndighet").value,
         saksbehandler: document.getElementById("saksbehandler").value,
         fnr: document.getElementById("fnr").value,
@@ -96,6 +110,7 @@ document.getElementById("form").addEventListener("submit", async (event) => {
     status.textContent = `Forespørsel #${r.id} er sendt og venter på behandling.`;
     status.classList.remove("error");
     event.target.reset();
+    showBases();
     await load();
   } catch (e) {
     status.textContent = e.message;

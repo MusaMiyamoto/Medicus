@@ -28,13 +28,16 @@
       <p class="muted">Helsepersonell har taushetsplikt. Forespørselen må ha gyldig lovhjemmel og et konkret formål,
         og ber bare om de opplysningene som er nødvendige.</p>
       <form id="form">
-        <label for="myndighet">Myndighet</label>
-        <input id="myndighet" required placeholder="F.eks. Politiet, Testby politistasjon">
+        <label for="myndighetstype">Type myndighet</label>
+        <select id="myndighetstype" required></select>
+        <p id="merknad" class="muted"></p>
+        <label for="myndighet">Myndighet og kontor</label>
+        <input id="myndighet" required placeholder="F.eks. Testby politistasjon">
         <label for="saksbehandler">Saksbehandler og kontaktinformasjon</label>
         <input id="saksbehandler" required>
         <label for="fnr">Pasientens fødselsnummer</label>
         <input id="fnr" required inputmode="numeric" pattern="[0-9]{11}" placeholder="11 siffer">
-        <label for="hjemmel">Lovhjemmel</label>
+        <label for="hjemmel">Lovhjemmel (bare de som gjelder for denne myndigheten)</label>
         <select id="hjemmel" required></select>
         <label for="formal">Formål og begrunnelse</label>
         <textarea id="formal" rows="4" required minlength="20"></textarea>
