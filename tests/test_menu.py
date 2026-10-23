@@ -24,6 +24,12 @@ def test_the_names_the_user_asked_for(tmp_path):
     assert menu.RENAME["xfce-mouse-settings.desktop"][0] == "Mouse"
 
 
+def test_text_is_our_own_editor():
+    desktop = Path(__file__).parent.parent / "os/config/includes.chroot/usr/share/applications/medicus-tekst.desktop"
+    assert "Name=Text\n" in desktop.read_text(encoding="utf-8")
+    assert "org.xfce.mousepad.desktop" in menu.HIDE
+
+
 def test_terminals_and_command_tools_are_hidden():
     for f in ("debian-xterm.desktop", "debian-uxterm.desktop", "xfce4-settings-editor.desktop",
               "xfce-keyboard-settings.desktop", "xfce4-terminal-emulator.desktop"):

@@ -1,9 +1,10 @@
 [Icon Theme]
 Name=Medicus
 Comment=Papirus med Medicus-tilpasninger
-# Everything comes from Papirus, except the emblems below.
+# Everything comes from Papirus, except the emblems and app icons below. The app icons replace
+# the original programs' own logos, so no other brand shows in windows or the taskbar.
 Inherits=Papirus,hicolor
-Directories=scalable/emblems
+Directories=scalable/emblems,scalable/apps
 
 [scalable/emblems]
 Size=16
@@ -11,3 +12,10 @@ MinSize=8
 MaxSize=512
 Type=Scalable
 Context=Emblems
+
+[scalable/apps]
+Size=48
+MinSize=8
+MaxSize=512
+Type=Scalable
+Context=Applications

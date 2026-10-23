@@ -161,6 +161,10 @@ class BrowserWindow(Gtk.ApplicationWindow):
     def on_failed(self, _view, _event, url, error):
         if error.matches(WebKit.NetworkError.quark(), WebKit.NetworkError.CANCELLED):
             return False
+        # An allowed page that redirects to a blocked site: say it's not allowed, not "failed".
+        if not regler.is_allowed(url):
+            self.show_blocked(url)
+            return True
         self.view.load_alternate_html(sider.failed(url, error.message), url, None)
         return True
 

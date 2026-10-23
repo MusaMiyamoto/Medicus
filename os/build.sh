@@ -73,7 +73,7 @@ rm -rf "$ASSETS"
 APP=config/includes.chroot/opt/medicus
 mkdir -p "$APP" config/includes.chroot/usr/share/medicus
 rsync -rt --chmod=D755,F644 --exclude __pycache__ \
-  "$REPO/medicus" "$REPO/kalkulator" "$REPO/helsenett" "$REPO/tilgang" "$REPO/nettleser" "$REPO/branding" \
+  "$REPO/medicus" "$REPO/kalkulator" "$REPO/helsenett" "$REPO/tilgang" "$REPO/nettleser" "$REPO/tekst" "$REPO/branding" \
   "$REPO/samples" "$REPO/deploy" "$REPO/requirements.txt" "$APP/"
 cp "$REPO/branding/medicus-logo.svg" "$REPO/branding/wallpaper.svg" "$REPO/branding/nettleser.svg" "$REPO/branding/post.svg" \
   config/includes.chroot/usr/share/medicus/

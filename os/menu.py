@@ -10,10 +10,10 @@ import sys
 from pathlib import Path
 
 # file name: (new name, neutral icon, command)
+# (Text is Medicus' own editor, usr/share/applications/medicus-tekst.desktop.)
 RENAME = {
     "thunar.desktop": ("Files", "system-file-manager", "thunar %F"),
-    "org.xfce.ristretto.desktop": ("Pictures", "image-x-generic", "ristretto %U"),
-    "org.xfce.mousepad.desktop": ("Text", "accessories-text-editor", "mousepad %U"),
+    "org.xfce.ristretto.desktop": ("Pictures", "medicus-bilder", "ristretto %U"),
     "org.gnome.Evince.desktop": ("Dokumenter", "x-office-document", "evince %U"),
     "xfce4-screenshooter.desktop": ("Skjermbilde", "camera-photo", "xfce4-screenshooter"),
     "org.pulseaudio.pavucontrol.desktop": ("Lyd", "audio-volume-high", "pavucontrol"),
@@ -39,19 +39,30 @@ HIDE = [
     "xfce-wmtweaks-settings.desktop", "xfce-workspaces-settings.desktop", "xfce4-color-settings.desktop",
     "panel-preferences.desktop", "panel-desktop-handler.desktop", "thunar-settings.desktop",
     "thunar-bulk-rename.desktop", "thunar-volman-settings.desktop", "org.xfce.mousepad-settings.desktop",
+    "org.xfce.mousepad.desktop",
     "nm-connection-editor.desktop", "firefox-esr.desktop", "xfce4-appfinder.desktop",
 ]
 
 
-def desktop(name: str, icon: str, command: str, categories: str) -> str:
-    return (f"[Desktop Entry]\nType=Application\nName={name}\nIcon={icon}\nExec={command}\n"
+# What the Start menu shows under the name.
+COMMENTS = {
+    "thunar.desktop": "Mapper og filer: dokumenter, bilder og nedlastinger",
+    "org.xfce.ristretto.desktop": "Se bilder",
+    "org.gnome.Evince.desktop": "Les PDF-dokumenter",
+    "xfce4-screenshooter.desktop": "Ta bilde av skjermen",
+    "org.pulseaudio.pavucontrol.desktop": "Lydstyrke for hodesett og høyttalere",
+}
+
+
+def desktop(name: str, icon: str, command: str, categories: str, comment: str = "") -> str:
+    comment_line = f"Comment={comment}\n" if comment else ""
+    return (f"[Desktop Entry]\nType=Application\nName={name}\n{comment_line}Icon={icon}\nExec={command}\n"
             f"Terminal=false\nCategories={categories}\n")
 
 
 CATEGORIES = {
     "thunar.desktop": "Utility;FileManager;",
     "org.xfce.ristretto.desktop": "Graphics;Viewer;",
-    "org.xfce.mousepad.desktop": "Utility;TextEditor;",
     "org.gnome.Evince.desktop": "Office;Viewer;",
     "xfce4-screenshooter.desktop": "Utility;",
     "org.pulseaudio.pavucontrol.desktop": "Settings;AudioVideo;",
@@ -64,7 +75,8 @@ def main(out: str):
     folder.mkdir(parents=True, exist_ok=True)
     for file, (name, icon, command) in RENAME.items():
         categories = CATEGORIES.get(file, "Settings;DesktopSettings;")
-        (folder / file).write_text(desktop(name, icon, command, categories), encoding="utf-8")
+        (folder / file).write_text(desktop(name, icon, command, categories, COMMENTS.get(file, "")),
+                                   encoding="utf-8")
     for file in HIDE:
         (folder / file).write_text("[Desktop Entry]\nType=Application\nName=Skjult\nNoDisplay=true\nHidden=true\n",
                                    encoding="utf-8")

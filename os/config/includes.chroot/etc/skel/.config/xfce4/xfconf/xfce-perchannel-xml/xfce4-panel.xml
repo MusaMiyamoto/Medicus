@@ -41,6 +41,9 @@
       <property name="show-command-menueditor" type="bool" value="false"/>
       <property name="show-command-switchuser" type="bool" value="false"/>
       <property name="show-command-hibernate" type="bool" value="false"/>
+      <!-- Tall enough that every favourite fits without scrolling. -->
+      <property name="menu-width" type="int" value="480"/>
+      <property name="menu-height" type="int" value="620"/>
       <property name="favorites" type="array">
         <value type="string" value="medicus-pasient.desktop"/>
         <value type="string" value="medicus-post.desktop"/>
@@ -51,6 +54,7 @@
         <value type="string" value="medicus-innbygger.desktop"/>
         <value type="string" value="medicus-utlevering.desktop"/>
         <value type="string" value="thunar.desktop"/>
+        <value type="string" value="medicus-tekst.desktop"/>
         <value type="string" value="medicus-kort-ut.desktop"/>
       </property>
     </property>

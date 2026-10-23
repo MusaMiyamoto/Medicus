@@ -123,6 +123,8 @@ Medicus OS is a desktop and laptop operating system for ordinary 64-bit PCs (Int
 - **Standard programs, with plain names:** **Files**, **Text**, **Pictures**, **Dokumenter** (PDF reader,
   in an AppArmor sandbox), **Skjermbilde** (screenshots) and **Mouse** (mouse settings). Settings
   that could run commands (settings editor, keyboard shortcuts) are hidden.
+- **Text** is Medicus' own small editor (`tekst/`): open, save, undo, and a question before closing
+  with unsaved changes. Its own editor, so no other product's name shows in the window title.
 - **Files** is kept clean: big icons, folders first, no menu bar, and a sidebar with just
   *Hjem*, *Skrivebord*, *Dokumenter*, *Bilder*, *Nedlastinger* and *Papirkurv*. Music, video,
   template and public folders aren't created, and there's no network or file-system clutter or

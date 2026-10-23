@@ -52,7 +52,6 @@ NEWS = [
     ("aftenposten.no", "Aftenposten", "Nyheter"),
     ("nettavisen.no", "Nettavisen", "Nyheter"),
     ("e24.no", "E24", "Økonomi"),
-    ("dn.no", "Dagens Næringsliv", "Økonomi"),
     ("bt.no", "Bergens Tidende", "Nyheter fra Vestland"),
     ("aftenbladet.no", "Stavanger Aftenblad", "Nyheter fra Rogaland"),
     ("adressa.no", "Adresseavisen", "Nyheter fra Trøndelag"),
@@ -69,8 +68,9 @@ SUPPORT = [
     "vgc.no", "sacdn.no", "esm.schibsted.tech", "images.stream.schibsted.media",  # Schibsted
     "acdn.no", "api.no",                                                         # Amedia
     "polarismedia.no",                                                           # Polaris Media
-    "dngroup.com", "nhst.tech",                                                  # DN Media
 ]
+# Not here: Dagens Næringsliv. dn.no sends every visitor through a foreign sign-in service
+# (zephr.com) first, so it can't be opened without that company seeing each visit.
 
 GROUPS = [("Helse", HEALTH), ("Offentlige tjenester", GOVERNMENT), ("Nyheter", NEWS)]
 SITES = HEALTH + GOVERNMENT + NEWS

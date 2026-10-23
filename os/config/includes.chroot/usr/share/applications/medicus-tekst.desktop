@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Text
+Comment=Skriv og les enkle tekstfiler og notater
+Exec=medicus-tekst %F
+Icon=medicus-tekst
+Terminal=false
+Categories=Utility;TextEditor;
+MimeType=text/plain;
+Keywords=tekst;notat;txt;skriv;
