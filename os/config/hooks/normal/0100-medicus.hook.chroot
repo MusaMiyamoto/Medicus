@@ -1,0 +1,14 @@
+#!/bin/sh
+# Runs inside the image while it is being built.
+set -e
+
+# Service account for the journal assistant: no login shell, no home folder.
+adduser --system --group --home /var/lib/medicus --no-create-home medicus
+
+python3 -m venv /opt/medicus/.venv
+/opt/medicus/.venv/bin/pip install --no-cache-dir -r /opt/medicus/requirements.txt
+
+install -m 644 /opt/medicus/deploy/medicus.service /etc/systemd/system/medicus.service
+systemctl enable medicus.service
+systemctl enable nftables.service
+systemctl enable apparmor.service

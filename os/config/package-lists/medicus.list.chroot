@@ -1,0 +1,45 @@
+# Desktop: XFCE with a Windows-style start menu (Whisker Menu)
+xorg
+xfce4
+xfce4-whiskermenu-plugin
+xfce4-terminal
+xfce4-screensaver
+xfce4-power-manager
+xfce4-pulseaudio-plugin
+xfce4-notifyd
+lightdm
+lightdm-gtk-greeter
+network-manager
+network-manager-gnome
+firefox-esr
+firefox-esr-l10n-nb-no
+xdg-utils
+pipewire-audio
+pavucontrol
+fonts-noto-core
+fonts-dejavu
+
+# Norwegian language and keyboard
+locales
+keyboard-configuration
+console-setup
+
+# Medicus apps
+python3
+python3-venv
+python3-pip
+python3-gi
+gir1.2-gtk-4.0
+
+# Security
+nftables
+apparmor
+apparmor-utils
+apparmor-profiles
+unattended-upgrades
+sudo
+
+# Installer (with full-disk encryption option)
+calamares
+calamares-settings-debian
+cryptsetup

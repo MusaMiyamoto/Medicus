@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lock the screen after 5 minutes without activity. -->
+<channel name="xfce4-screensaver" version="1.0">
+  <property name="saver" type="empty">
+    <property name="enabled" type="bool" value="true"/>
+    <property name="idle-activation" type="empty">
+      <property name="enabled" type="bool" value="true"/>
+      <property name="delay" type="int" value="5"/>
+    </property>
+  </property>
+  <property name="lock" type="empty">
+    <property name="enabled" type="bool" value="true"/>
+    <property name="saver-activation" type="empty">
+      <property name="enabled" type="bool" value="true"/>
+      <property name="delay" type="int" value="0"/>
+    </property>
+  </property>
+</channel>

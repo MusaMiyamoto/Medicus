@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Medicus Kalkulator
+Comment=Kalkulator og omregning av volum, vekt og gram til milliliter
+Exec=medicus-kalkulator
+Icon=accessories-calculator
+Terminal=false
+Categories=Utility;Calculator;
+Keywords=kalkulator;omregning;ml;dl;liter;mg;gram;hektogram;kilo;

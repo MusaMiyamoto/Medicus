@@ -1,6 +1,72 @@
 # Medicus
 
-A local, privacy-first AI documentation assistant ("journalassistent") for Norwegian healthcare.
+A hardened, Linux-based operating system for Norwegian healthcare workers, with a local,
+privacy-first AI documentation assistant ("journalassistent") and a clinical calculator.
+
+The project has three parts:
+
+| Part | Folder | What it is |
+|---|---|---|
+| **Medicus OS** | [`os/`](os/) | Debian 13 Linux with an XFCE desktop and a Start menu, built as a bootable ISO |
+| **Medicus Kalkulator** | [`kalkulator/`](kalkulator/) | Calculator plus converters for volume, weight and gram ↔ milliliter |
+| **Medicus Journalassistent** | [`medicus/`](medicus/) | Turns a recorded consultation into a draft journal note |
+
+## Medicus OS
+
+A live ISO you can boot in a virtual machine (VirtualBox, VMware, Hyper-V) or from a USB stick.
+
+- **Desktop:** XFCE with one bottom panel and a **Start** button. The Start menu's favorites are
+  Medicus Journalassistent, Medicus Kalkulator, Firefox, the file manager and the terminal.
+- **Norwegian by default:** language `nb_NO`, Norwegian keyboard, Oslo time zone.
+- **Hardened:**
+  - Firewall (nftables) blocks all incoming connections.
+  - Screen locks after 5 minutes without activity.
+  - AppArmor on, kernel hardening settings in `/etc/sysctl.d/90-medicus.conf`.
+    (Debian skips loading AppArmor profiles in the *live* session; they load once the OS is installed.)
+  - Automatic daily security updates.
+  - No remote-login (SSH) server.
+  - The journal assistant runs as its own locked-down service user that can't reach the network.
+- **Installer:** the desktop includes the Calamares installer, which can install to disk with full-disk encryption.
+
+Live session login: user `bruker`, password `live` (the live-build default). Change it after installing.
+
+### Building the ISO
+
+You need Debian, either on a real machine or in WSL on Windows (`wsl --install -d Debian`).
+
+```bash
+sudo apt install live-build rsync
+```
+```bash
+sudo sh os/build.sh /path/to/output-folder
+```
+
+The first build downloads 1–2 GB and takes a while. Later builds reuse the download cache in `/var/tmp/medicus-os`.
+
+## Medicus Kalkulator
+
+A GTK 4 desktop app in the Start menu:
+
+- **Kalkulator:** + − × ÷ and parentheses, with a decimal comma (`2,5 × 4`).
+- **Volum:** ml, dl, liter. Type an amount and see it in every unit at once.
+- **Vekt:** mg, gram, hektogram, kilo.
+- **Gram ↔ milliliter:** uses the substance's **density**. Water (1 g/ml) is the default,
+  there are presets for milk, olive oil, honey and ethanol, or you can type your own density.
+  The result always shows which density was used.
+
+> ⚠️ The Kalkulator is **not** for medication dosing. Always use the official product information (SPC)
+> and local procedures.
+
+All arithmetic uses exact decimals, so 0,1 + 0,2 is exactly 0,3. The calculator parses
+input safely and never runs it as code.
+
+Run it on any Linux desktop with GTK 4 (`sudo apt install python3-gi gir1.2-gtk-4.0`):
+
+```bash
+python3 -m kalkulator
+```
+
+## Medicus Journalassistent
 
 A clinician records a consultation. Medicus transcribes it and drafts a structured
 journal note in Norwegian. The clinician reviews, edits and approves it, then pastes
@@ -96,6 +162,9 @@ pytest
 - [ ] Login with HelseID
 - [ ] Pick different note templates (GP, emergency room, home care, psychiatry)
 - [ ] Send notes to patient record systems via FHIR instead of copy and paste
-- [ ] Hardened Linux image (based on Debian) that boots straight into Medicus
+- [x] Hardened Linux OS image (Debian + XFCE) with a Start menu
+- [x] Calculator with volume, weight and gram ↔ milliliter converters
+- [ ] Download the AI models (Ollama and Whisper) during OS setup, so the journal assistant works offline out of the box
+- [ ] Medicus branding: wallpaper, boot screen, installer
 - [ ] Clinician testing and time-saving measurements
 - [ ] Assess medical-device classification (EU MDR) and compliance with Normen and GDPR
