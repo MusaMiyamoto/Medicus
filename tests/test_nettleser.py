@@ -16,7 +16,8 @@ def test_allowed(url):
 
 
 @pytest.mark.parametrize("url", [
-    "https://www.vg.no/",
+    "https://www.facebook.com/",
+    "https://vgc.no/",                          # image server: only for pictures, not a page
     "http://www.felleskatalogen.no/",          # unencrypted to the internet
     "https://helsenorge.no.evil.example/",
     "https://fakehelsenorge.no/",

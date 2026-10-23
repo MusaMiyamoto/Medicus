@@ -207,3 +207,8 @@ button:focus-visible, .button:focus-within { outline: 3px solid var(--accent); o
 
 .status { min-height: 1.5em; color: var(--muted); }
 .status.error { color: var(--danger); }
+
+/* "Om Medicus": list of open-source components */
+.licenses { width: 100%; border-collapse: collapse; margin: 12px 0; }
+.licenses th, .licenses td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #d2ddd5; vertical-align: top; }
+.licenses th { color: #0f4f2f; }

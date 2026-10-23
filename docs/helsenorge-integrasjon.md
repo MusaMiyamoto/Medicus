@@ -37,7 +37,7 @@ Nothing else in Medicus needs to change. The apps don't know which one they're t
 | Visits and notes from all institutions | `encounters`, `add_note` | **Pasientens journaldokumenter** / document sharing | Simulated |
 | Prescriptions | `prescriptions`, `prescribe` | **e-resept** (Reseptformidleren) | Simulated |
 | Patient sees who opened their record | `log_access` | **Helsenorge** (access log and notices) | Simulated |
-| Requests from authorities | simulator `/utlevering` | Handled by each institution's privacy officer and legal team, not a national API | Simulated workflow |
+| Requests from authorities | simulator `/utlevering` | Decided by each institution (the data controller), with advice from its privacy officer and lawyers, not a national API | Simulated workflow |
 
 ## Steps towards a real connection
 

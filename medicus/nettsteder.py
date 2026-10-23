@@ -43,10 +43,37 @@ GOVERNMENT = [
     ("lovdata.no", "Lovdata", "Lover og forskrifter"),
 ]
 
-GROUPS = [("Helse", HEALTH), ("Offentlige tjenester", GOVERNMENT)]
-SITES = HEALTH + GOVERNMENT
+# Norwegian news, so staff can follow the news at work. Ads and trackers from other companies
+# stay blocked, because only these domains (and the image servers below) get through.
+NEWS = [
+    ("nrk.no", "NRK", "Nyheter, radio og TV"),
+    ("ntb.no", "NTB", "Nyhetsbyrået"),
+    ("vg.no", "VG", "Nyheter"),
+    ("aftenposten.no", "Aftenposten", "Nyheter"),
+    ("dagbladet.no", "Dagbladet", "Nyheter"),
+    ("tv2.no", "TV 2", "Nyheter"),
+    ("nettavisen.no", "Nettavisen", "Nyheter"),
+    ("e24.no", "E24", "Økonomi"),
+    ("dn.no", "Dagens Næringsliv", "Økonomi"),
+    ("bt.no", "Bergens Tidende", "Nyheter fra Vestland"),
+    ("aftenbladet.no", "Stavanger Aftenblad", "Nyheter fra Rogaland"),
+    ("adressa.no", "Adresseavisen", "Nyheter fra Trøndelag"),
+    ("nordlys.no", "Nordlys", "Nyheter fra Nord-Norge"),
+    ("dagensmedisin.no", "Dagens Medisin", "Nyheter om helse"),
+    ("tidsskriftet.no", "Tidsskrift for Den norske legeforening", "Medisinsk fagtidsskrift"),
+    ("sykepleien.no", "Sykepleien", "Fagtidsskrift for sykepleiere"),
+    ("legeforeningen.no", "Legeforeningen", "Nyheter for leger"),
+]
+
+# Image and script servers the news sites need. They can't be opened as pages; the web filter
+# only lets the news sites load pictures from them.
+SUPPORT = ["vgc.no", "acdn.no", "dbstatic.no"]
+
+GROUPS = [("Helse", HEALTH), ("Offentlige tjenester", GOVERNMENT), ("Nyheter", NEWS)]
+SITES = HEALTH + GOVERNMENT + NEWS
 
 
 def proxy_filter() -> str:
-    """tinyproxy filter (extended regex), one line per site, matching the site and its subdomains."""
-    return "".join(f"^(.*\\.)?{re.escape(domain)}$\n" for domain, _, _ in SITES)
+    """tinyproxy filter (extended regex), one line per domain, matching the domain and its subdomains."""
+    domains = [domain for domain, _, _ in SITES] + SUPPORT
+    return "".join(f"^(.*\\.)?{re.escape(domain)}$\n" for domain in domains)

@@ -130,6 +130,11 @@ def emergency_page():
     return FileResponse(STATIC / "nod.html")
 
 
+@app.get("/om")
+def about_page():
+    return FileResponse(STATIC / "om.html")
+
+
 @app.get("/api/meg")
 def me():
     session = current_session()

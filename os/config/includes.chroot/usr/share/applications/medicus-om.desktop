@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Om Medicus
+Comment=Om systemet og lisensene for fri programvare
+Exec=medicus-nettleser http://127.0.0.1:8000/om
+Icon=help-about
+Terminal=false
+Categories=System;
+Keywords=om;lisens;versjon;

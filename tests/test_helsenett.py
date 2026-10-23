@@ -100,7 +100,7 @@ def test_every_authority_has_a_basis_and_police_cannot_just_demand():
 def test_approved_disclosure_releases_minimum_and_notifies(sim):
     r = sim.post("/api/utlevering", json=request_body()).json()
     decided = sim.post(f"/api/utlevering/{r['id']}/vedtak", json={
-        "beslutning": "godkjent", "begrunnelse": "Gyldig kjennelse, begrenset til august.", "behandlet_av": "Personvernombud Test",
+        "beslutning": "godkjent", "begrunnelse": "Gyldig kjennelse, begrenset til august.", "behandlet_av": "Avdelingsleder Test",
     }).json()
     assert decided["status"] == "Godkjent"
     assert set(decided["utlevert"]) == {"Kontakter og notater"}
@@ -111,7 +111,7 @@ def test_approved_disclosure_releases_minimum_and_notifies(sim):
 def test_rejected_disclosure_releases_nothing(sim):
     r = sim.post("/api/utlevering", json=request_body()).json()
     decided = sim.post(f"/api/utlevering/{r['id']}/vedtak", json={
-        "beslutning": "avslått", "begrunnelse": "Mangler gyldig hjemmel.", "behandlet_av": "Personvernombud Test",
+        "beslutning": "avslått", "begrunnelse": "Mangler gyldig hjemmel.", "behandlet_av": "Avdelingsleder Test",
     }).json()
     assert decided["status"] == "Avslått"
     assert "utlevert" not in decided

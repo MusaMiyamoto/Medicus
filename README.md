@@ -19,6 +19,9 @@ privacy-first AI documentation assistant ("journalassistent") and a clinical cal
 
 A live ISO you can boot in a virtual machine (VirtualBox, VMware, Hyper-V) or from a USB stick.
 
+Medicus is meant **only for machines owned and run by the health trust, municipality or another
+public body**, never for private PCs or phones.
+
 - **Start-up:** a centered boot screen (the "I" in MEDICUS is a green cross) that starts by itself
   after 5 seconds, then a pulsing heartbeat (ECG) animation until the login screen appears.
   Both are generated from `branding/` by `branding/make_assets.py`.
@@ -67,7 +70,8 @@ in Trondheim or at Aker is shown there. In the demo, pick the workplace on the l
 - **Patients see every access:** the simulated citizen portal (*Innbyggerportal*) shows who opened
   the record and why, prescriptions, visits and notes from every institution, and disclosures to authorities.
 - **Requests from authorities** go through a request workflow, never direct access:
-  a legal basis, purpose and the minimum data needed. A privacy officer approves or refuses, only
+  a legal basis, purpose and the minimum data needed. The institution (the data controller, or the responsible health
+  personnel) approves or refuses, with advice from the privacy officer when needed. Only
   the approved data is released, it's logged, and the patient is told unless a legal basis allows
   delaying the notice.
 - **Each authority can only use the legal bases that apply to it** ([`helsenett/hjemler.py`](helsenett/hjemler.py)).
@@ -134,7 +138,9 @@ Medicus toolbar and the heartbeat loader. No other brand is visible anywhere.
 
 - Opens only **approved websites**: health sites (Helsenorge, Felleskatalogen, Legemiddelhåndboka,
   Helsedirektoratet, FHI and others) and **government sites** (NAV, Skatteetaten, Altinn, ID-porten,
-  Regjeringen, Politiet, every *kommune.no* and more), listed in [`medicus/nettsteder.py`](medicus/nettsteder.py).
+  Regjeringen, Politiet, every *kommune.no* and more) and **Norwegian news** (NRK, NTB, VG, Aftenposten,
+  Dagbladet, TV 2, regional papers, and health news like Dagens Medisin and Tidsskriftet), listed in
+  [`medicus/nettsteder.py`](medicus/nettsteder.py). Ads and trackers from other companies stay blocked.
   A web filter (tinyproxy) enforces the same list, so the browser can't get around it.
 - **Nothing points back to Medicus:** the plain engine user agent, no referrer, no proxy headers,
   WebGL and WebRTC off (fingerprinting and IP leaks), and a neutral "not allowed" page.
@@ -206,6 +212,14 @@ sudo sh os/build.sh /path/to/output-folder
 ```
 
 The first build downloads 1–2 GB and takes a while. Later builds reuse the download cache in `/var/tmp/medicus-os`.
+
+### Open source and selling Medicus
+
+Medicus is built on free software (Debian, Xfce, WebKitGTK and more). *Om Medicus* in the Start
+menu lists the components and their licenses; the full license text for each package is in
+`/usr/share/doc/<package>/copyright`. Anyone who gets Medicus must be able to get the source code
+of the GPL parts. Before selling it for real patient use, Medicus also needs CE marking under
+EU MDR (if classified as a medical device), a Normen/GDPR assessment and an agreement with Norsk helsenett.
 
 ## Medicus Kalkulator
 

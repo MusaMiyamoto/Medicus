@@ -60,3 +60,14 @@ def test_government_sites_and_municipalities_are_allowed():
                 "https://www.oslo.kommune.no/", "https://www.regjeringen.no/"):
         assert regler.is_allowed(url), url
     assert not regler.is_allowed("https://kommune.no.example.com/")
+
+
+def test_norwegian_news_but_not_their_ad_networks():
+    from nettleser import regler
+
+    patterns = [re.compile(line) for line in nettsteder.proxy_filter().splitlines()]
+    for url in ("https://www.nrk.no/", "https://www.vg.no/", "https://www.aftenposten.no/"):
+        assert regler.is_allowed(url), url
+    assert any(p.search("akamai.vgc.no") for p in patterns)   # VG's pictures load
+    assert not any(p.search("securepubads.g.doubleclick.net") for p in patterns)
+    assert not any(p.search("www.facebook.com") for p in patterns)

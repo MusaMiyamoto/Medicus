@@ -1,7 +1,7 @@
 """The simulator's API (used by Medicus through SimulatedClient) and its two web pages:
 
 /helsenorge   what the patient sees: who opened their record, prescriptions, visits, disclosures
-/utlevering   requests from authorities (e.g. police) and the review by the privacy officer
+/utlevering   requests from authorities (e.g. police) and the institution's decision
 """
 
 import json

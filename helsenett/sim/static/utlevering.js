@@ -14,7 +14,7 @@ function requestCard(r) {
       <label>Begrunnelse for vedtaket</label>
       <textarea name="begrunnelse" rows="3" required minlength="10"></textarea>
       <label>Behandlet av</label>
-      <input name="behandlet_av" required placeholder="Navn, personvernombud">
+      <input name="behandlet_av" required placeholder="Navn og stilling (behandlingsansvarlig eller ansvarlig helsepersonell)">
       <label><input type="checkbox" name="varsle" checked style="width:auto"> Varsle pasienten på Helsenorge</label>
       <label>Hjemmel for å utsette varsel (bare hvis varsel ikke sendes)</label>
       <input name="utsatt">
