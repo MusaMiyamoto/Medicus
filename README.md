@@ -12,7 +12,7 @@ privacy-first AI documentation assistant ("journalassistent") and a clinical cal
 | **Login** | [`tilgang/`](tilgang/) | Card + PIN login, emergency access, and the session rules |
 | **Health network** | [`helsenett/`](helsenett/) | One interface to the national services, plus a local simulator |
 | **Patient record and journal assistant** | [`medicus/`](medicus/) | The clinician's web app |
-| **Kalkulator** | [`kalkulator/`](kalkulator/) | Calculator plus converters for volume, weight and weight ↔ volume |
+| **Kalkulator** | [`kalkulator/`](kalkulator/) | Calculator, converters for volume and weight, and clinical scores (BMI, eGFR, CHA₂DS₂-VASc) |
 | **Branding** | [`branding/`](branding/) | Logo (the Rod of Asclepius), wallpaper, boot screen |
 
 ## Medicus OS
@@ -253,6 +253,14 @@ A GTK 4 desktop app in the Start menu:
   ml → g, mg → µl), using the substance's **density**. Water (1 g/ml) is the default, with presets
   for blood, saline 0.9 %, glucose 5 %, breast milk, hand disinfectant (ethanol 70 %), pure
   ethanol and olive oil, or you can type your own density. The result shows which density was used.
+- **Kliniske skårer** ([`kalkulator/klinisk.py`](kalkulator/klinisk.py)): age and sex are typed once and
+  used by every score.
+  - **BMI** with the WHO class.
+  - **eGFR**: CKD-EPI 2021 without race, from creatinine in µmol/L, adults only, with the G1–G5 stage.
+  - **CHA₂DS₂-VASc** and **CHA₂DS₂-VA**: the sex-free version used in the ESC 2024 guidelines.
+  - **Felleskatalogen**: look up a medicine in Nettleser.
+
+  The scores only calculate. They never suggest a medicine or a dose.
 
 > ⚠️ The Kalkulator is **not** for medication dosing. Always use the official product information (SPC)
 > and local procedures.

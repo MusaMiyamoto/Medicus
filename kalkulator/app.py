@@ -1,13 +1,15 @@
-"""GTK 4 window: calculator, volume, weight and weight ↔ volume."""
+"""GTK 4 window: calculator, volume, weight, weight ↔ volume and clinical scores."""
 
+import subprocess
 import sys
+from decimal import Decimal
 
 import gi
 
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
-from . import units  # noqa: E402
+from . import klinisk, units  # noqa: E402
 from .calc import CalcError, calculate  # noqa: E402
 from .numfmt import NumberError, format_number, parse_number  # noqa: E402
 
@@ -241,6 +243,141 @@ class DensityPage(Gtk.Box):
                              f"{format_number(density)} g/ml ({name}).")
 
 
+def open_link(url: str):
+    """Felleskatalogen opens in Nettleser, which allows felleskatalogen.no."""
+    subprocess.Popen(["medicus-nettleser", url], start_new_session=True)
+
+
+def number_entry(grid, row, label, example) -> Gtk.Entry:
+    grid.attach(Gtk.Label(label=label, xalign=0), 0, row, 1, 1)
+    entry = Gtk.Entry(placeholder_text=example, hexpand=True)
+    grid.attach(entry, 1, row, 1, 1)
+    return entry
+
+
+class ClinicalPage(Gtk.Box):
+    """BMI, eGFR and CHA₂DS₂-VASc, with a Felleskatalogen search. Updates as you type."""
+
+    RISKS = [("heart_failure", "Hjertesvikt (C)"), ("hypertension", "Hypertensjon (H)"), ("diabetes", "Diabetes (D)"),
+             ("stroke_tia", "Hjerneslag, TIA eller tromboemboli (S₂, 2 poeng)"),
+             ("vascular", "Karsykdom: hjerteinfarkt, perifer arteriesykdom, aortaplakk (V)")]
+
+    def __init__(self):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL)
+        scroller = Gtk.ScrolledWindow(vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
+        box = page_box()
+        scroller.set_child(box)
+        self.append(scroller)
+        warning = Gtk.Label(label="Hjelpeverktøy. Kontroller alltid mot gjeldende retningslinjer og preparatomtalen.",
+                            xalign=0, wrap=True)
+        warning.add_css_class("warning")
+        box.append(warning)
+
+        # Patient: shared by all three, so age and sex are typed once.
+        box.append(heading("Pasient"))
+        grid = Gtk.Grid(row_spacing=8, column_spacing=12)
+        self.age = number_entry(grid, 0, "Alder (år)", "For eksempel 72")
+        self.sex = Gtk.DropDown.new_from_strings(["Kvinne", "Mann"])
+        grid.attach(Gtk.Label(label="Kjønn", xalign=0), 0, 1, 1, 1)
+        grid.attach(self.sex, 1, 1, 1, 1)
+        box.append(grid)
+
+        box.append(heading("BMI"))
+        grid = Gtk.Grid(row_spacing=8, column_spacing=12)
+        self.weight = number_entry(grid, 0, "Vekt (kg)", "For eksempel 80")
+        self.height = number_entry(grid, 1, "Høyde (cm)", "For eksempel 175")
+        box.append(grid)
+        self.bmi = self.result_label(box)
+
+        box.append(heading("eGFR (CKD-EPI 2021)"))
+        grid = Gtk.Grid(row_spacing=8, column_spacing=12)
+        self.creatinine = number_entry(grid, 0, "Kreatinin (µmol/L)", "For eksempel 95")
+        box.append(grid)
+        self.egfr = self.result_label(box)
+
+        box.append(heading("CHA₂DS₂-VASc (hjerneslagrisiko ved atrieflimmer)"))
+        self.checks = {}
+        for key, text in self.RISKS:
+            self.checks[key] = Gtk.CheckButton(label=text)
+            self.checks[key].connect("toggled", lambda *_: self.update())
+            box.append(self.checks[key])
+        box.append(Gtk.Label(label="Alder og kjønn tas fra «Pasient» over.", xalign=0))
+        self.stroke = self.result_label(box)
+
+        box.append(heading("Felleskatalogen"))
+        row = Gtk.Box(spacing=8)
+        self.drug = Gtk.Entry(placeholder_text="Legemiddel, for eksempel apixaban", hexpand=True)
+        self.drug.connect("activate", lambda *_: self.look_up())
+        button = Gtk.Button(label="Slå opp")
+        button.connect("clicked", lambda *_: self.look_up())
+        row.append(self.drug)
+        row.append(button)
+        box.append(row)
+        self.lookup_message = self.result_label(box)
+
+        for entry in (self.age, self.weight, self.height, self.creatinine):
+            entry.connect("changed", lambda *_: self.update())
+        self.sex.connect("notify::selected", lambda *_: self.update())
+        self.update()
+
+    @staticmethod
+    def result_label(box) -> Gtk.Label:
+        label = Gtk.Label(xalign=0, wrap=True, selectable=True)
+        label.add_css_class("unit-value")
+        box.append(label)
+        return label
+
+    @staticmethod
+    def number(entry) -> float | None:
+        text = entry.get_text()
+        return float(parse_number(text)) if text.strip() else None
+
+    def show(self, label, compute):
+        """Run one calculation; show its result, a hint, or the error, without stopping the others."""
+        try:
+            label.set_text(compute() or "–")
+            label.remove_css_class("error")
+        except (NumberError, klinisk.ScoreError) as e:
+            label.set_text(str(e))
+            label.add_css_class("error")
+
+    def update(self):
+        female = self.sex.get_selected() == 0
+
+        def bmi():
+            weight, height = self.number(self.weight), self.number(self.height)
+            if weight is None or height is None:
+                return ""
+            value, group = klinisk.bmi(weight, height)
+            return f"BMI {format_number(Decimal(str(value)))} kg/m² · {group}"
+
+        def egfr():
+            creatinine, age = self.number(self.creatinine), self.number(self.age)
+            if creatinine is None or age is None:
+                return "Fyll inn alder og kreatinin." if creatinine is not None else ""
+            value, stage = klinisk.egfr(creatinine, int(age), female)
+            return f"eGFR {value} ml/min/1,73 m² · {stage}"
+
+        def stroke():
+            age = self.number(self.age)
+            if age is None:
+                return "Fyll inn alder."
+            risk = klinisk.StrokeRisk(age=int(age), female=female,
+                                      **{key: check.get_active() for key, check in self.checks.items()})
+            return (f"CHA₂DS₂-VASc {klinisk.cha2ds2_vasc(risk)} poeng · CHA₂DS₂-VA {klinisk.cha2ds2_va(risk)} poeng "
+                    "(ESC 2024 bruker CHA₂DS₂-VA, uten kjønn)")
+
+        self.show(self.bmi, bmi)
+        self.show(self.egfr, egfr)
+        self.show(self.stroke, stroke)
+
+    def look_up(self):
+        def url():
+            open_link(klinisk.felleskatalogen(self.drug.get_text()))
+            return "Åpnet i Nettleser."
+        self.show(self.lookup_message, url)
+
+
 class KalkulatorWindow(Gtk.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app, title="Kalkulator")
@@ -252,6 +389,7 @@ class KalkulatorWindow(Gtk.ApplicationWindow):
         self.stack.add_titled(UnitPage(units.VOLUME, "Volum", "For eksempel 250"), "volum", "Volum (µl – l)")
         self.stack.add_titled(UnitPage(units.MASS, "Vekt", "For eksempel 500"), "vekt", "Vekt (µg – kg)")
         self.stack.add_titled(DensityPage(), "tetthet", "Vekt ↔ volum")
+        self.stack.add_titled(ClinicalPage(), "klinisk", "Kliniske skårer")
 
         sidebar = Gtk.StackSidebar(stack=self.stack)
         sidebar.set_size_request(190, -1)
