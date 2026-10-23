@@ -27,9 +27,9 @@ pavucontrol
 fonts-noto-core
 fonts-dejavu
 
-# Standard programs
-firefox-esr
-firefox-esr-l10n-nb-no
+# Standard programs (Medicus Nettleser is our own, on the WebKit engine)
+gir1.2-webkit-6.0
+adwaita-icon-theme
 mousepad
 ristretto
 evince

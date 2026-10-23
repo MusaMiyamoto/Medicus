@@ -35,6 +35,11 @@
       <property name="show-button-title" type="bool" value="true"/>
       <property name="show-button-icon" type="bool" value="true"/>
       <property name="button-icon" type="string" value="/usr/share/medicus/medicus-logo.svg"/>
+      <!-- No settings-manager or menu-editor button: those reach tools users should not change. -->
+      <property name="show-command-settings" type="bool" value="false"/>
+      <property name="show-command-menueditor" type="bool" value="false"/>
+      <property name="show-command-switchuser" type="bool" value="false"/>
+      <property name="show-command-hibernate" type="bool" value="false"/>
       <property name="favorites" type="array">
         <value type="string" value="medicus-pasient.desktop"/>
         <value type="string" value="medicus-post.desktop"/>

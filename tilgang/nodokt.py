@@ -14,7 +14,7 @@ URL = "http://127.0.0.1:8000/nod"
 
 def main() -> int:
     try:
-        subprocess.run(["firefox-esr", "--kiosk", "--private-window", URL], check=False)
+        subprocess.run(["medicus-nettleser", "--kiosk", URL], check=False)
     finally:
         try:
             call("end")

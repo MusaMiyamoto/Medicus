@@ -73,11 +73,16 @@ rm -rf "$ASSETS"
 APP=config/includes.chroot/opt/medicus
 mkdir -p "$APP" config/includes.chroot/usr/share/medicus
 rsync -rt --chmod=D755,F644 --exclude __pycache__ \
-  "$REPO/medicus" "$REPO/kalkulator" "$REPO/helsenett" "$REPO/tilgang" "$REPO/branding" \
+  "$REPO/medicus" "$REPO/kalkulator" "$REPO/helsenett" "$REPO/tilgang" "$REPO/nettleser" "$REPO/branding" \
   "$REPO/samples" "$REPO/deploy" "$REPO/requirements.txt" "$APP/"
 cp "$REPO/branding/medicus-logo.svg" "$REPO/branding/wallpaper.svg" "$REPO/branding/nettleser.svg" "$REPO/branding/post.svg" \
   config/includes.chroot/usr/share/medicus/
 cp -r "$REPO/branding/wallpapers" config/includes.chroot/usr/share/medicus/
+# Medicus Nettleser's icon, so windows and the taskbar show it.
+mkdir -p config/includes.chroot/usr/share/icons/hicolor/scalable/apps
+cp "$REPO/branding/nettleser.svg" config/includes.chroot/usr/share/icons/hicolor/scalable/apps/medicus-nettleser.svg
+# Menu: Medicus names and neutral icons, other brands and command tools hidden.
+python3 "$REPO/os/menu.py" config/includes.chroot
 
 chmod 755 config/hooks/normal/*.hook.chroot config/includes.chroot/usr/local/bin/* \
   config/includes.chroot/usr/local/lib/medicus/* config/includes.chroot/usr/local/sbin/*

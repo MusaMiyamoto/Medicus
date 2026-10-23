@@ -2,7 +2,7 @@
 Type=Application
 Name=Sikkerhetssenter
 Comment=Se at brannmur, virusbeskyttelse, USB-lås og VPN virker
-Exec=xdg-open http://127.0.0.1:8000/sikkerhet
+Exec=medicus-nettleser http://127.0.0.1:8000/sikkerhet
 Icon=security-high
 Terminal=false
 Categories=System;Security;

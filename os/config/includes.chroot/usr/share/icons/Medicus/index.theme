@@ -1,0 +1,13 @@
+[Icon Theme]
+Name=Medicus
+Comment=Papirus med Medicus-tilpasninger
+# Everything comes from Papirus, except the emblems below.
+Inherits=Papirus,hicolor
+Directories=scalable/emblems
+
+[scalable/emblems]
+Size=16
+MinSize=8
+MaxSize=512
+Type=Scalable
+Context=Emblems

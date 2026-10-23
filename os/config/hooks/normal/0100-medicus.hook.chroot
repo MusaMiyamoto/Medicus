@@ -81,11 +81,26 @@ sed -i 's/^ImplicitPolicyTarget=.*/ImplicitPolicyTarget=block/; s/^PresentDevice
 # Desktop shortcuts link to these files, so they must be executable (see medicus-skrivebord).
 chmod 755 /usr/share/applications/medicus-*.desktop
 
+# --- Our own identity: no terminals, no other brands in what users see ----------------
+# xterm and vim come in as dependencies; a terminal would undo the "no command line" rule.
+apt-get purge -y xterm vim vim-runtime vim-tiny 2>/dev/null || true
+# The system calls itself Medicus OS (ID_LIKE=debian keeps Debian tools working).
+dpkg-divert --quiet --add --rename --divert /usr/lib/os-release.debian /usr/lib/os-release
+cp /usr/lib/medicus/os-release /usr/lib/os-release
+printf 'Medicus OS \\n \\l\n\n' > /etc/issue
+printf 'Medicus OS\n' > /etc/issue.net
+gtk-update-icon-cache -q -f /usr/share/icons/hicolor 2>/dev/null || true
+update-desktop-database -q /usr/share/applications /usr/local/share/applications 2>/dev/null || true
+
 # --- Start-up animation: the heartbeat theme, built into the boot image ---------------
 for f in bullet.png capslock.png entry.png keyboard.png keymap-render.png lock.png; do
   cp -n "/usr/share/plymouth/themes/spinner/$f" /usr/share/plymouth/themes/medicus/
 done
 # Make Medicus the default everywhere Plymouth looks, so it never falls back to Debian's theme.
+# Debian's Plymouth shows debian-logo.png in every theme; show the Medicus logo instead.
+dpkg-divert --quiet --add --rename --divert /usr/share/plymouth/debian-logo.png.debian \
+  /usr/share/plymouth/debian-logo.png
+cp /usr/share/plymouth/themes/medicus/watermark.png /usr/share/plymouth/debian-logo.png
 plymouth-set-default-theme medicus
 sed -i 's/^Theme=.*/Theme=medicus/' /usr/share/plymouth/plymouthd.defaults
 update-initramfs -u

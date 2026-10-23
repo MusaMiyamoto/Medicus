@@ -2,8 +2,8 @@
 Type=Application
 Name=Medicus Journalassistent
 Comment=Lag journalnotat fra en konsultasjon – alt kjører lokalt
-Exec=xdg-open http://127.0.0.1:8000
-Icon=accessories-text-editor
+Exec=medicus-nettleser http://127.0.0.1:8000
+Icon=document-edit
 Terminal=false
 Categories=Office;
 Keywords=journal;notat;konsultasjon;
