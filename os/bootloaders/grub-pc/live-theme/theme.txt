@@ -26,7 +26,7 @@ terminal-font: "Unifont Regular 16"
         width = 30%
         top = 90%
         height = 16
-        text = "Medicus OS starter om %d sekunder"
+        text = "Medicus starter om %d sekunder"
         font = "Unifont Regular 16"
         text_color = "#b0d8c4"
         fg_color = "#1a7f4b"

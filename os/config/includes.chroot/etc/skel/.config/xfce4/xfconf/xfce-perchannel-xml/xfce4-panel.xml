@@ -31,8 +31,9 @@
   </property>
   <property name="plugins" type="empty">
     <property name="plugin-1" type="string" value="whiskermenu">
+      <!-- Only the Medicus logo on the Start button; "Start" stays as the tooltip. -->
       <property name="button-title" type="string" value="Start"/>
-      <property name="show-button-title" type="bool" value="true"/>
+      <property name="show-button-title" type="bool" value="false"/>
       <property name="show-button-icon" type="bool" value="true"/>
       <property name="button-icon" type="string" value="/usr/share/medicus/medicus-logo.svg"/>
       <!-- No settings-manager or menu-editor button: those reach tools users should not change. -->
@@ -55,6 +56,8 @@
     </property>
     <property name="plugin-2" type="string" value="tasklist">
       <property name="grouping" type="uint" value="1"/>
+      <!-- no drag handle (the little lines next to the Start button) -->
+      <property name="show-handle" type="bool" value="false"/>
     </property>
     <property name="plugin-3" type="string" value="separator">
       <property name="expand" type="bool" value="true"/>

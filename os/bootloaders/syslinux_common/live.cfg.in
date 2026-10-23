@@ -1,5 +1,5 @@
 label live-@FLAVOUR@
-	menu label ^Start Medicus OS
+	menu label ^Start Medicus
 	menu default
 	linux @LINUX@
 	initrd @INITRD@

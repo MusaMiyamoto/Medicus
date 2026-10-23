@@ -167,7 +167,11 @@ class BrowserWindow(Gtk.ApplicationWindow):
 
     def update_title(self):
         title = self.view.get_title()
-        self.set_title(f"{title} – Medicus Nettleser" if title else "Medicus Nettleser")
+        # The start page is itself called "Medicus Nettleser"; don't say it twice.
+        if not title or title == "Medicus Nettleser":
+            self.set_title("Medicus Nettleser")
+        else:
+            self.set_title(f"{title} – Medicus Nettleser")
 
 
 class BrowserApp(Gtk.Application):

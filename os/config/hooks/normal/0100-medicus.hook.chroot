@@ -80,6 +80,8 @@ chmod 755 /usr/share/applications/medicus-*.desktop
 # --- Our own identity: no terminals, no other brands in what users see ----------------
 # xterm and vim come in as dependencies; a terminal would undo the "no command line" rule.
 apt-get purge -y xterm vim vim-runtime vim-tiny 2>/dev/null || true
+# Window titles say Text, Pictures, Files and Dokumenter, not Mousepad, Ristretto, Thunar, Evince.
+python3 /usr/local/lib/medicus/rebrand-apps
 # The system calls itself Medicus OS (ID_LIKE=debian keeps Debian tools working).
 dpkg-divert --quiet --add --rename --divert /usr/lib/os-release.debian /usr/lib/os-release
 cp /usr/lib/medicus/os-release /usr/lib/os-release
@@ -93,10 +95,18 @@ for f in bullet.png capslock.png entry.png keyboard.png keymap-render.png lock.p
   cp -n "/usr/share/plymouth/themes/spinner/$f" /usr/share/plymouth/themes/medicus/
 done
 # Make Medicus the default everywhere Plymouth looks, so it never falls back to Debian's theme.
-# Debian's Plymouth shows debian-logo.png in every theme; show the Medicus logo instead.
+# Debian's Plymouth shows debian-logo.png in every theme. Replace it with our watermark, which is
+# empty: only the heartbeat is shown while booting.
 dpkg-divert --quiet --add --rename --divert /usr/share/plymouth/debian-logo.png.debian \
   /usr/share/plymouth/debian-logo.png
 cp /usr/share/plymouth/themes/medicus/watermark.png /usr/share/plymouth/debian-logo.png
+# Plymouth's initramfs hook also overwrites every two-step theme's watermark with this
+# "debian 13" image, so replace it (and its sizes) too.
+for size in 64 128 256; do
+  logo="/usr/share/desktop-base/debian-logos/logo-text-version-$size.png"
+  dpkg-divert --quiet --add --rename --divert "$logo.debian" "$logo"
+  cp /usr/share/plymouth/themes/medicus/watermark.png "$logo"
+done
 plymouth-set-default-theme medicus
 sed -i 's/^Theme=.*/Theme=medicus/' /usr/share/plymouth/plymouthd.defaults
 update-initramfs -u

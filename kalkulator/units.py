@@ -19,8 +19,8 @@ VOLUME = [
     Unit("cl", "centiliter", Decimal("0.01")),
     Unit("dl", "desiliter", Decimal("0.1")),
     Unit("l", "liter", Decimal("1")),
-    Unit("ts", "teskje (5 ml)", Decimal("0.005")),
-    Unit("ss", "spiseskje (15 ml)", Decimal("0.015")),
+    Unit("ts", "teskje à 5 ml", Decimal("0.005")),
+    Unit("ss", "spiseskje à 15 ml", Decimal("0.015")),
 ]
 
 # Base unit: gram.

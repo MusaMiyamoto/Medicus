@@ -5,7 +5,7 @@
 Creates:
     splash.svg                  boot menu background (640x480), logo and wordmark centered
     plymouth/medicus.plymouth   start-up animation theme
-    plymouth/watermark.png      logo + wordmark shown while booting
+    plymouth/watermark.png      empty: only the heartbeat is shown while booting
     plymouth/throbber-NNNN.png  heartbeat (ECG) animation frames
     avatar.png                  default profile picture
 
@@ -61,12 +61,6 @@ def splash_svg() -> str:
 </svg>"""
 
 
-def watermark_svg() -> str:
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 260" width="440" height="260">
-  {logo_and_wordmark(128, 0, 138, 220)}
-</svg>"""
-
-
 def ecg_y(x: float, width: float, base: float, amp: float) -> float:
     """One heartbeat across the strip: P wave, QRS spike, T wave."""
     t = x / width
@@ -113,7 +107,7 @@ ImageDir=/usr/share/plymouth/themes/medicus
 WatermarkHorizontalAlignment=.5
 WatermarkVerticalAlignment=.42
 HorizontalAlignment=.5
-VerticalAlignment=.70
+VerticalAlignment=.5
 DialogHorizontalAlignment=.5
 DialogVerticalAlignment=.70
 TitleHorizontalAlignment=.5
@@ -142,9 +136,9 @@ def main(out_dir: str):
     plymouth = out / "plymouth"
     plymouth.mkdir(parents=True, exist_ok=True)
     (out / "splash.svg").write_text(splash_svg(), encoding="utf-8")
-    watermark = out / "watermark.svg"
-    watermark.write_text(watermark_svg(), encoding="utf-8")
-    subprocess.run(["rsvg-convert", str(watermark), "-o", str(plymouth / "watermark.png")], check=True)
+    # Nothing but the heartbeat while booting: the watermark is one transparent pixel. It also
+    # replaces Debian's logo images, which Plymouth would otherwise show.
+    Image.new("RGBA", (1, 1), (0, 0, 0, 0)).save(plymouth / "watermark.png")
     heartbeat_frames(plymouth)
     (plymouth / "medicus.plymouth").write_text(PLYMOUTH_THEME, encoding="utf-8")
     # Profile picture for every user (~/.face), shown in the Start menu.
