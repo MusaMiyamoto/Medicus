@@ -1,0 +1,23 @@
+# The hospital's own patient record systems, shown next to Medicus. Set by IT; empty by default.
+# After a change: sudo medicus-journalsystem oppdater   (asks for the IT card PIN)
+# Each system gets its own icon in the Start menu. Only health personnel with a normal card login
+# can open them. See the IT handbook, "The hospital's record systems".
+#
+# A RemoteApp from the hospital's Remote Desktop servers. Logs in with the health worker's card.
+# No disks, clipboard, USB or printers are shared with the server.
+#
+# [[system]]
+# navn = "Journal (fjern)"
+# type = "rdp"
+# server = "rds.sykehuset.no"      # the Remote Desktop server or farm
+# port = 3389                      # optional
+# program = "||Journal"            # the RemoteApp's alias; leave out to show the whole remote desktop
+# gateway = "rdgw.sykehuset.no"    # optional: Remote Desktop Gateway (port 443)
+# mikrofon = false                 # optional: send the microphone, for dictation
+#
+# A web version, opened in Nettleser. Only this exact host name is allowed.
+#
+# [[system]]
+# navn = "Journal (web)"
+# type = "web"
+# url = "https://journal.sykehuset.no/"

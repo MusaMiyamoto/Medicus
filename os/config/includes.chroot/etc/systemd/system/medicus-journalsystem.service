@@ -1,0 +1,20 @@
+# Applies /etc/medicus/journalsystemer.toml: /etc/hosts entries, firewall openings, web filter, icons.
+# Runs at boot and every 30 minutes (the servers' addresses can change). Needs root for nftables and /etc.
+[Unit]
+Description=Medicus journalsystemer (brannmur og ikoner)
+Wants=network-online.target
+After=network-online.target nftables.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/medicus-journalsystem oppdater
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectClock=true
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native

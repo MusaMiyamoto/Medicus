@@ -82,3 +82,4 @@ libtpm2-pkcs11-1
 libtpm2-pkcs11-tools
 pkcs11-provider
 libengine-pkcs11-openssl
+freerdp3-x11

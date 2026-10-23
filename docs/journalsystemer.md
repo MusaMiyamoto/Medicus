@@ -1,7 +1,10 @@
-# Journal systems: DIPS and transfer from Epic
+# Journal systems: DIPS, transfer from Epic, and the hospital's own system next to Medicus
 
 How Medicus saves notes into a patient's record, where the doctor's patient list comes from, and how
 a record is moved from Epic. The code is in [`epj/`](../epj/) (*elektronisk pasientjournal*).
+
+The last section covers showing the hospital's existing record system in a locked-down window
+next to Medicus. That code is in [`journalsystem/`](../journalsystem/).
 
 > Medicus is a prototype with synthetic data. A connection to a real DIPS or Epic needs an agreement
 > with the health trust or municipality and the vendor, a HelseID client and a DPIA first.
@@ -84,3 +87,46 @@ in a `Binary`. Entries marked `entered-in-error` are skipped. When fetching from
 
 A synthetic example is in [`samples/epic-eksport-eksempel.json`](../samples/epic-eksport-eksempel.json)
 (Kari Nordmann, a test patient in the simulator).
+
+## The hospital's own record system next to Medicus
+
+A hospital doesn't switch record system overnight. Medicus can show the one it has, DIPS Arena,
+Epic or another, in its own window. The system keeps running on the hospital's servers; the Medicus
+PC only shows it. IT lists the systems in `/etc/medicus/journalsystemer.toml` and runs
+`sudo medicus-journalsystem oppdater`. Each system gets an icon in the Start menu.
+
+```toml
+[[system]]
+navn = "DIPS Arena"
+type = "rdp"                        # a RemoteApp from the hospital's Remote Desktop servers
+server = "rds.sykehuset.no"
+program = "||DIPSArena"             # the published RemoteApp; leave out for the whole remote desktop
+gateway = "rdgw.sykehuset.no"       # optional
+
+[[system]]
+navn = "Epic (web)"
+type = "web"                        # a web version, opened in Nettleser
+url = "https://epic.sykehuset.no/"
+```
+
+**Remote window (`rdp`)**, with FreeRDP:
+
+| | |
+|---|---|
+| Login | The health worker's **own card** (smart-card logon), so there is **no second login**. The servers must accept smart-card logon with the health personnel cards. |
+| Shared with the server | **Nothing**: no disks, no clipboard, no USB, no printers. Patient data can't be copied out through the window, and the server can't reach the PC's files. The card is shared so the record system can sign, for example prescriptions. The microphone is shared only if `mikrofon = true`, for dictation. |
+| Server certificate | Must be trusted by the PC (`/cert:deny`). There is no "connect anyway". |
+| Network | The firewall opens **only** the listed servers' addresses and ports. The addresses go into `/etc/hosts`, because users have no DNS of their own. They are refreshed at boot and every 30 minutes. |
+
+**Web version (`web`):** opens in Nettleser. Only that exact host name is allowed, over HTTPS, and
+the web filter lets it through.
+
+**Who can open them:** only health personnel with a normal card login. They are not available in IT
+mode, during emergency access, or while the session is held after the card was taken out.
+
+**If something is wrong in the file:**
+- *One bad entry:* `oppdater` refuses the whole change, so nothing half-checked goes live.
+- *The file can't be read at all:* Nettleser allows no extra hosts.
+- *VPN kill switch on* (`medicus-vpn på`): the servers must be reached through the VPN.
+- **Test against the hospital's real servers first:** smart-card logon in a remote session depends on
+  how their servers and card readers are set up.

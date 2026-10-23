@@ -13,6 +13,7 @@ privacy-first AI documentation assistant ("journalassistent") and a clinical cal
 | **Health network** | [`helsenett/`](helsenett/) | One interface to the national services, plus a local simulator |
 | **Patient record and journal assistant** | [`medicus/`](medicus/) | The clinician's web app |
 | **Kalkulator** | [`kalkulator/`](kalkulator/) | Calculator, converters for volume and weight, and clinical scores (BMI, eGFR, CHA₂DS₂-VASc) |
+| **Journal systems** | [`epj/`](epj/), [`journalsystem/`](journalsystem/) | DIPS / Epic over FHIR, and the hospital's own system in a locked-down window |
 | **Branding** | [`branding/`](branding/) | Logo (the Rod of Asclepius), wallpaper, boot screen |
 
 ## Medicus OS
@@ -300,6 +301,13 @@ Without one, the note can still be copied into any other system.
 **Moving from Epic:** under *Overføring*, a patient's Epic export (FHIR R4) is shown for checking and
 then imported into their record. Allergies and medicines come in marked "must be checked". See
 [docs/journalsystemer.md](docs/journalsystemer.md) for DIPS and Epic.
+
+**The hospital's own system next to Medicus:** IT can add the record system the hospital already uses
+(DIPS Arena, Epic, …) as an icon in the Start menu. It opens either as a locked-down remote window or
+as its web version in Nettleser.
+- **Login:** the remote window logs in with the same card, so there is no second login.
+- **Nothing shared:** no disks, clipboard, USB or printers are shared with the server.
+- **Network:** the firewall opens only the servers IT listed.
 
 **Everything runs on the local machine.** No audio or text is sent to any cloud service.
 

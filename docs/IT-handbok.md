@@ -60,6 +60,7 @@ The rules behind this:
 | `epj/` | Journal systems: saving notes, the doctor's patient list, DIPS (FHIR), transfer from Epic | Python |
 | `utstyr/` | Medical USB devices approved by IT (`medicus-utstyr`) | Python, USBGuard |
 | `wlan/` | Machine certificate in the TPM and approved WLANs (`medicus-wlan`) | Python, tpm2-pkcs11, NetworkManager |
+| `journalsystem/` | The hospital's record systems in locked-down windows (`medicus-journalsystem`) | Python, FreeRDP, nftables |
 | `nettleser/` | **Nettleser**, the browser (only approved sites) | Python + GTK 4 + WebKitGTK 6 |
 | `tekst/`, `kalkulator/` | The Text editor and the calculator | Python + GTK 4 |
 | `branding/` | Logo, wallpapers, boot screen; `make_assets.py` builds the images | SVG, Python + Pillow |
@@ -96,6 +97,7 @@ The rules behind this:
 | `medicus-oktvakt` | Locks desktops when the card is out; logs out desktops without a valid card login | Card out no longer locks or logs out |
 | `medicus` | The web app on 127.0.0.1:8000 | Patient record, Post etc. show an error |
 | `medicus-helsenett-sim` | The simulated health network on 127.0.0.1:8100 | No patients (demo only) |
+| `medicus-journalsystem.timer` | Refreshes the record systems' addresses and firewall openings every 30 minutes | The record system windows can't connect after an address change |
 | `nftables`, `usbguard`, `auditd`, `clamav-daemon`, `tinyproxy` | Firewall, USB lock, system log, virus scan, web filter | Sikkerhetssenter turns red |
 
 ---
@@ -262,6 +264,18 @@ clinical VLAN yet.
 
 Set up in `/etc/medicus/integrasjon.toml`. See [journalsystemer.md](journalsystemer.md). If doctors see
 "Medicus er ikke koblet til DIPS ennå", the DIPS address or the token is missing.
+
+### The hospital's record systems
+
+The hospital's own system (DIPS Arena, Epic, …) can run in a locked-down window next to Medicus.
+- **Set up:** list the systems in `/etc/medicus/journalsystemer.toml`, then run
+  `sudo medicus-journalsystem oppdater`.
+- **Check:** `medicus-journalsystem` shows what is set up.
+- **Remote windows log in with the health worker's card.** Nothing is shared with the server: no
+  disks, clipboard, USB or printers.
+
+Details are in [journalsystemer.md](journalsystemer.md#the-hospitals-own-record-system-next-to-medicus).
+Every change is logged in `/var/lib/medicus-journalsystem/audit.jsonl`.
 
 ---
 

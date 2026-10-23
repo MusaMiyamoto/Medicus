@@ -65,7 +65,7 @@ install -m 644 /opt/medicus/deploy/medicus.service /etc/systemd/system/medicus.s
 systemctl enable medicus.service medicus-auth.service medicus-oktvakt.service medicus-helsenett-sim.service
 systemctl enable nftables.service apparmor.service usbguard.service auditd.service \
   clamav-daemon.service clamav-freshclam.service tinyproxy.service
-systemctl enable home.mount var-tmp.mount
+systemctl enable home.mount var-tmp.mount medicus-journalsystem.timer
 
 # --- Hardening: switch off what a clinical workstation doesn't need -------------
 systemctl mask avahi-daemon.service avahi-daemon.socket bluetooth.service \

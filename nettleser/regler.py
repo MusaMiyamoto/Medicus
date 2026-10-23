@@ -3,12 +3,14 @@
 Allowed:
   - the Medicus apps on this machine (http://127.0.0.1 and http://localhost, any port)
   - the approved health websites in medicus/nettsteder.py, over HTTPS only, with subdomains
+  - web versions of the hospital's record system that IT approved (journalsystem/), exact host only
 Everything else is blocked, including unencrypted http:// to the internet and local files.
 The web filter (tinyproxy) enforces the same list again, outside the browser.
 """
 
 from urllib.parse import urlparse
 
+import journalsystem
 from medicus import nettsteder
 
 LOCAL_HOSTS = {"127.0.0.1", "localhost"}
@@ -25,7 +27,10 @@ def is_allowed(url: str) -> bool:
         return True
     if parts.scheme != "https" or not host:
         return False
-    return any(host == domain or host.endswith("." + domain) for domain, _, _ in nettsteder.SITES)
+    if any(host == domain or host.endswith("." + domain) for domain, _, _ in nettsteder.SITES):
+        return True
+    # The hospital's own record system, if IT approved a web version (exact host only).
+    return host in journalsystem.web_hosts()
 
 
 def is_unencrypted(url: str) -> bool:
