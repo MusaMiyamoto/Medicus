@@ -10,6 +10,7 @@ from nettleser import regler, sider
     "https://helsenorge.no/",
     "https://www.legemiddelhandboka.no/",
     "about:blank",
+    "about:srcdoc",                             # a frame's inline content, no network
 ])
 def test_allowed(url):
     assert regler.is_allowed(url)
@@ -27,6 +28,13 @@ def test_allowed(url):
 ])
 def test_blocked(url):
     assert not regler.is_allowed(url)
+
+
+def test_unencrypted_internet_gets_its_own_explanation():
+    assert regler.is_unencrypted("http://felleskatalogen.no/")
+    assert not regler.is_unencrypted("http://127.0.0.1:8000/")
+    assert not regler.is_unencrypted("https://felleskatalogen.no/")
+    assert "ikke kryptert" in sider.blocked("http://felleskatalogen.no/", unencrypted=True)
 
 
 def test_only_medicus_apps_get_the_microphone():

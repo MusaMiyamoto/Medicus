@@ -58,7 +58,8 @@ class CalculatorPage(Gtk.Box):
         self.entry = Gtk.Entry(placeholder_text="For eksempel 2,5 × 4")
         self.entry.add_css_class("display")
         self.entry.connect("activate", lambda *_: self.solve())
-        self.result = Gtk.Label(xalign=1, selectable=True)
+        # Wraps, so a long error message can't make the window wider than the screen.
+        self.result = Gtk.Label(xalign=1, selectable=True, wrap=True, justify=Gtk.Justification.RIGHT)
         self.result.add_css_class("result")
         box.append(self.entry)
         box.append(self.result)
@@ -137,9 +138,9 @@ class UnitPage(Gtk.Box):
     def update(self):
         text = self.entry.get_text()
         try:
-            amount = parse_number(text) if text.strip() else None
+            amount = units.check_amount(parse_number(text)) if text.strip() else None
             self.message.set_text("")
-        except NumberError as e:
+        except (NumberError, units.AmountError) as e:
             amount = None
             self.message.set_text(str(e))
         source = self.table[self.unit.get_selected()]
@@ -223,7 +224,7 @@ class DensityPage(Gtk.Box):
             if not self.amount.get_text().strip():
                 self.show_rows(empty)
                 return
-            amount = parse_number(self.amount.get_text())
+            amount = units.check_amount(parse_number(self.amount.get_text()))
             if substance.density is None:
                 density = parse_number(self.density.get_text())
                 name = "egendefinert tetthet"
@@ -231,7 +232,7 @@ class DensityPage(Gtk.Box):
                 density = substance.density
                 name = substance.name.lower()
             rows = units.across_to_all(amount, source, density)
-        except (NumberError, units.DensityError) as e:
+        except (NumberError, units.AmountError, units.DensityError) as e:
             self.message.set_text(str(e))
             self.show_rows(empty)
             return

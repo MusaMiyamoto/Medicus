@@ -88,7 +88,10 @@ def test_three_wrong_pins_block_the_card(setup):
     replies = [ask(authority, ROOT, cmd="login", username="ingrid-berg", pin="0000") for _ in range(3)]
     assert "2 forsøk igjen" in replies[0]["error"]
     assert "sperret" in replies[2]["error"]
-    assert not ask(authority, ROOT, cmd="login", username="ingrid-berg", pin="1234")["ok"]
+    assert ask(authority, cmd="status")["kort"]["sperret"]
+    right_pin = ask(authority, ROOT, cmd="login", username="ingrid-berg", pin="1234")
+    assert not right_pin["ok"]
+    assert "sperret" in right_pin["error"] and "Feil PIN" not in right_pin["error"]
     assert not ask(authority, ROOT, cmd="emergency", reason="Bevisstløs pasient")["ok"]
 
 

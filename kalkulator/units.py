@@ -66,6 +66,17 @@ SUBSTANCES = [
 MAX_DENSITY = Decimal("25")  # denser than any element; anything above is a typo
 
 
+class AmountError(ValueError):
+    pass
+
+
+def check_amount(amount: Decimal) -> Decimal:
+    """A volume or weight can't be negative."""
+    if amount < 0:
+        raise AmountError("Mengden kan ikke være negativ.")
+    return amount
+
+
 class DensityError(ValueError):
     pass
 

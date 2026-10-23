@@ -62,9 +62,15 @@ NEWS = [
     ("legeforeningen.no", "Legeforeningen", "Nyheter for leger"),
 ]
 
-# Image and script servers the news sites need. They can't be opened as pages; the web filter
-# only lets the news sites load pictures from them.
-SUPPORT = ["vgc.no", "acdn.no"]
+# The news groups' own image and content servers. They can't be opened as pages; the web filter
+# only lets the news sites load pictures and page code from them. Ad, tracking and video
+# services the sites also use (Google, Microsoft, OneTrust, JW Player ...) are not here.
+SUPPORT = [
+    "vgc.no", "sacdn.no", "esm.schibsted.tech", "images.stream.schibsted.media",  # Schibsted
+    "acdn.no", "api.no",                                                         # Amedia
+    "polarismedia.no",                                                           # Polaris Media
+    "dngroup.com", "nhst.tech",                                                  # DN Media
+]
 
 GROUPS = [("Helse", HEALTH), ("Offentlige tjenester", GOVERNMENT), ("Nyheter", NEWS)]
 SITES = HEALTH + GOVERNMENT + NEWS

@@ -55,6 +55,9 @@ button.emergency-go { background: #b3261e; color: #ffffff; border: none; }
 """
 
 
+BLOCKED = "Kortet er sperret etter for mange feil PIN-forsøk. Kontakt IT-avdelingen for å låse det opp."
+
+
 def picture(name: str, size: int) -> Gtk.Image:
     image = Gtk.Image.new_from_file(str(BRANDING / name))
     image.set_pixel_size(size)
@@ -378,8 +381,11 @@ class LoginWindow(Gtk.ApplicationWindow):
             else:
                 self.title.set_text("Sett inn helsepersonellkortet")
                 self.subtitle.set_text("Kortleseren står ved siden av skjermen.")
+        blocked = bool(card and card.get("sperret"))
+        if blocked:
+            self.message.set_text(BLOCKED)
         for widget in (self.pin, self.login_button, self.emergency_button):
-            widget.set_sensitive(card is not None and not self.busy)
+            widget.set_sensitive(card is not None and not blocked and not self.busy)
         return True
 
     def show_emergency(self, visible):

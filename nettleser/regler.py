@@ -16,7 +16,8 @@ HOME = "http://127.0.0.1:8000/nettsteder"
 
 
 def is_allowed(url: str) -> bool:
-    if url in ("about:blank", ""):
+    # about:srcdoc is a frame's inline content, written by the page itself: no network involved.
+    if url in ("about:blank", "about:srcdoc", ""):
         return True
     parts = urlparse(url)
     host = (parts.hostname or "").lower()
@@ -25,6 +26,12 @@ def is_allowed(url: str) -> bool:
     if parts.scheme != "https" or not host:
         return False
     return any(host == domain or host.endswith("." + domain) for domain, _, _ in nettsteder.SITES)
+
+
+def is_unencrypted(url: str) -> bool:
+    """An http:// address on the internet (blocked because nothing would be encrypted)."""
+    parts = urlparse(url)
+    return parts.scheme == "http" and (parts.hostname or "").lower() not in LOCAL_HOSTS
 
 
 def is_medicus_app(url: str) -> bool:

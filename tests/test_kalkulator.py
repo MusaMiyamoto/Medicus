@@ -114,6 +114,12 @@ def test_across_to_all_lists_the_other_kind():
     assert [u.symbol for u, _ in rows] == ["µg", "mg", "g", "hg", "kg"]
 
 
+def test_negative_amounts_are_rejected():
+    with pytest.raises(units.AmountError):
+        units.check_amount(Decimal("-5"))
+    assert units.check_amount(Decimal("0")) == 0
+
+
 def test_across_needs_one_mass_and_one_volume():
     with pytest.raises(ValueError):
         units.across(Decimal("1"), units.ML, units.VOLUME[4], Decimal("1"))

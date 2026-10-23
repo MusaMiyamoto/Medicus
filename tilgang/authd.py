@@ -86,6 +86,7 @@ class Authority:
                  "arbeidssted": self.site.public()}
         if card:
             reply["kort"]["stilling"] = position(card.stillinger, card.rolle, self.site)
+            reply["kort"]["sperret"] = self.reader.is_blocked(card.card_id)
         if self.simulated:
             reply["arbeidssteder"] = [s.public() for s in self.sim_sites]
         return reply

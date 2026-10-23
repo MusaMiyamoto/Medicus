@@ -85,7 +85,7 @@ class BrowserWindow(Gtk.ApplicationWindow):
         self.set_child(box)
         if kiosk:
             self.fullscreen()
-        self.view.load_uri(regler.normalize(url))
+        self.open(regler.normalize(url))
 
     def build_bar(self):
         bar = Gtk.Box(spacing=4)
@@ -101,9 +101,9 @@ class BrowserWindow(Gtk.ApplicationWindow):
         reload.connect("clicked", lambda *_: self.view.reload())
         home = Gtk.Button.new_from_icon_name("go-home-symbolic")
         home.set_tooltip_text("Godkjente nettsteder")
-        home.connect("clicked", lambda *_: self.view.load_uri(regler.HOME))
+        home.connect("clicked", lambda *_: self.open(regler.HOME))
         self.address = Gtk.Entry(hexpand=True)
-        self.address.connect("activate", lambda e: self.view.load_uri(regler.normalize(e.get_text())))
+        self.address.connect("activate", lambda e: self.open(regler.normalize(e.get_text())))
         # The Medicus heartbeat instead of a spinner, while a page loads.
         self.loading = Ekg(width=90, height=26)
         self.loading.set_visible(False)
@@ -112,12 +112,28 @@ class BrowserWindow(Gtk.ApplicationWindow):
         return bar
 
     # --- rules -------------------------------------------------------------
+    def open(self, url):
+        """Open an address the user typed or chose: the page, or our "not allowed" page."""
+        if regler.is_allowed(url):
+            self.view.load_uri(url)
+        else:
+            self.show_blocked(url)
+
+    def show_blocked(self, url):
+        self.view.load_alternate_html(sider.blocked(url, regler.is_unencrypted(url)), url, None)
+
     def on_policy(self, _view, decision, kind):
         if kind in (WebKit.PolicyDecisionType.NAVIGATION_ACTION, WebKit.PolicyDecisionType.NEW_WINDOW_ACTION):
-            url = decision.get_navigation_action().get_request().get_uri()
+            action = decision.get_navigation_action()
+            url = action.get_request().get_uri()
             if not regler.is_allowed(url):
                 decision.ignore()
-                self.view.load_alternate_html(sider.blocked(url), url, None)
+                # The "not allowed" page only when the person clicked or submitted something.
+                # Embedded frames (ads, videos, widgets) loading in the background are just
+                # stopped, so they can't replace the page the person is reading.
+                if action.is_user_gesture() or action.get_navigation_type() in (
+                        WebKit.NavigationType.LINK_CLICKED, WebKit.NavigationType.FORM_SUBMITTED):
+                    self.show_blocked(url)
                 return True
             if kind == WebKit.PolicyDecisionType.NEW_WINDOW_ACTION:
                 decision.ignore()
