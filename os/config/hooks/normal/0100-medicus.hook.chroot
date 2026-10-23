@@ -78,11 +78,16 @@ chmod 700 /etc/wireguard
 sed -i 's/^ImplicitPolicyTarget=.*/ImplicitPolicyTarget=block/; s/^PresentDevicePolicy=.*/PresentDevicePolicy=apply-policy/' \
   /etc/usbguard/usbguard-daemon.conf
 
+# Desktop shortcuts link to these files, so they must be executable (see medicus-skrivebord).
+chmod 755 /usr/share/applications/medicus-*.desktop
+
 # --- Start-up animation: the heartbeat theme, built into the boot image ---------------
-for f in bullet.png entry.png lock.png; do
-  cp -n "/usr/share/plymouth/themes/spinner/$f" /usr/share/plymouth/themes/medicus/ 2>/dev/null || true
+for f in bullet.png capslock.png entry.png keyboard.png keymap-render.png lock.png; do
+  cp -n "/usr/share/plymouth/themes/spinner/$f" /usr/share/plymouth/themes/medicus/
 done
+# Make Medicus the default everywhere Plymouth looks, so it never falls back to Debian's theme.
 plymouth-set-default-theme medicus
+sed -i 's/^Theme=.*/Theme=medicus/' /usr/share/plymouth/plymouthd.defaults
 update-initramfs -u
 
 # --- Look: Medicus wallpapers --------------------------------------------------------

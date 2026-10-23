@@ -14,6 +14,7 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
 from . import EMERGENCY_MINUTES, EMERGENCY_USER  # noqa: E402
+from .ekg import Ekg  # noqa: E402
 
 BRANDING = Path(__file__).parent.parent / "branding"
 REASONS = ["Bevisstløs pasient", "Hjertestans", "Alvorlig allergisk reaksjon", "Alvorlig skade", "Annet"]
@@ -188,9 +189,9 @@ class LoginWindow(Gtk.ApplicationWindow):
         top.append(Gtk.Box(hexpand=True))
         clock_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.START)
         clock_box.add_css_class("glass")
-        self.clock = Gtk.Label(xalign=1)
+        self.clock = Gtk.Label(xalign=0.5)
         self.clock.add_css_class("clock")
-        self.date = Gtk.Label(xalign=1)
+        self.date = Gtk.Label(xalign=0.5)
         self.date.add_css_class("date")
         clock_box.append(self.clock)
         clock_box.append(self.date)
@@ -234,6 +235,14 @@ class LoginWindow(Gtk.ApplicationWindow):
         self.message = Gtk.Label(xalign=0, wrap=True, max_width_chars=40, width_chars=40)
         self.message.add_css_class("error")
         panel.append(self.message)
+
+        # While the PIN is checked and the desktop starts: the Medicus heartbeat animation.
+        self.loading = Gtk.Box(spacing=12, halign=Gtk.Align.CENTER, visible=False)
+        self.loading.append(Ekg(color=(26 / 255, 127 / 255, 75 / 255)))
+        self.loading_text = Gtk.Label(label="Logger inn …")
+        self.loading_text.add_css_class("muted")
+        self.loading.append(self.loading_text)
+        panel.append(self.loading)
 
         panel.append(Gtk.Separator())
         self.emergency_button = Gtk.Button(label="Nødtilgang")
@@ -350,8 +359,11 @@ class LoginWindow(Gtk.ApplicationWindow):
         for widget in (self.emergency_button, self.pin, self.login_button):
             widget.set_visible(not visible)
 
-    def set_busy(self, busy):
+    def set_busy(self, busy, text="Logger inn …"):
         self.busy = busy
+        self.loading_text.set_text(text)
+        self.loading.set_visible(busy)
+        self.message.set_visible(not busy)
         self.refresh()
 
     def finished(self, ok, message):
@@ -375,7 +387,7 @@ class LoginWindow(Gtk.ApplicationWindow):
         detail = self.reason_detail.get_text().strip()
         if detail:
             reason = f"{reason}: {detail}"
-        self.set_busy(True)
+        self.set_busy(True, "Starter nødtilgang …")
         self.lightdm.login(EMERGENCY_USER, reason, "medicus-nod", self.finished)
 
     def sim_toggle(self):

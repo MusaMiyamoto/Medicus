@@ -9,13 +9,6 @@ function setStatus(message, isError = false) {
   statusEl.classList.toggle("error", isError);
 }
 
-async function api(path, options = {}) {
-  const response = await fetch(path, options);
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.detail || `Feil ${response.status}`);
-  return data;
-}
-
 async function sendAudio(blob, filename) {
   setStatus("Transkriberer … dette kan ta noen minutter på en vanlig PC.");
   const form = new FormData();

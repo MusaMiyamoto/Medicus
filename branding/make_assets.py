@@ -95,7 +95,10 @@ def heartbeat_frames(out: Path, width=320, height=90, scale=3):
         ImageDraw.Draw(glow).ellipse([hx - 9 * scale, hy - 9 * scale, hx + 9 * scale, hy + 9 * scale], fill=GREEN_LIGHT + (150,))
         img = Image.alpha_composite(glow.filter(ImageFilter.GaussianBlur(5 * scale)), img)
         ImageDraw.Draw(img).ellipse([hx - 3 * scale, hy - 3 * scale, hx + 3 * scale, hy + 3 * scale], fill=(255, 255, 255, 255))
-        img.resize((width, height), Image.LANCZOS).save(out / f"throbber-{frame + 1:04d}.png")
+        frame_image = img.resize((width, height), Image.LANCZOS)
+        # Same frames under both names, like Plymouth's own two-step themes ("spinner").
+        frame_image.save(out / f"throbber-{frame + 1:04d}.png")
+        frame_image.save(out / f"animation-{frame + 1:04d}.png")
 
 
 PLYMOUTH_THEME = """[Plymouth Theme]
@@ -119,6 +122,18 @@ Transition=none
 TransitionDuration=0.0
 BackgroundStartColor=0x05231a
 BackgroundEndColor=0x11583a
+ProgressBarBackgroundColor=0x0b3b24
+ProgressBarForegroundColor=0x7fe0ad
+MessageBelowAnimation=true
+
+[boot-up]
+UseEndAnimation=false
+
+[shutdown]
+UseEndAnimation=false
+
+[reboot]
+UseEndAnimation=false
 """
 
 
