@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
-  <title>Medicus Post</title>
+  <title>Post</title>
   <!-- An envelope with a check mark: verified messages. Drawn for Medicus. -->
   <defs>
     <linearGradient id="env" x1="0" y1="0" x2="0" y2="1">

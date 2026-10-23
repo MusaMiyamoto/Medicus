@@ -54,7 +54,7 @@ The rules behind this:
 | `epj/` | Journal systems: saving notes, the doctor's patient list, DIPS (FHIR), transfer from Epic | Python |
 | `utstyr/` | Medical USB devices approved by IT (`medicus-utstyr`) | Python, USBGuard |
 | `wlan/` | Machine certificate in the TPM and approved WLANs (`medicus-wlan`) | Python, tpm2-pkcs11, NetworkManager |
-| `nettleser/` | **Medicus Nettleser**, the browser (only approved sites) | Python + GTK 4 + WebKitGTK 6 |
+| `nettleser/` | **Nettleser**, the browser (only approved sites) | Python + GTK 4 + WebKitGTK 6 |
 | `tekst/`, `kalkulator/` | The Text editor and the calculator | Python + GTK 4 |
 | `branding/` | Logo, wallpapers, boot screen; `make_assets.py` builds the images | SVG, Python + Pillow |
 | `os/` | Everything that turns Debian into Medicus | Debian live-build, shell, config files |
@@ -159,11 +159,11 @@ If it won't start, don't leave the machine in use: a missing firewall or USB loc
 3. Copy the logs: `/var/lib/medicus-auth/audit.jsonl`, `/var/lib/medicus/`, `sudo journalctl -b > journal.txt`.
 4. Check that the security log is untouched: `curl -s 127.0.0.1:8000/api/audit/verify` should say `"ok": true`.
 5. Follow the health trust's incident routine (and Normen). Phishing reports from users come from
-   Medicus Post's **Rapporter** button.
+   Post's **Rapporter** button.
 
 ### A website is blocked that should work
 
-Medicus Nettleser and the web filter use the same list: `medicus/nettsteder.py`. Add the site there
+Nettleser and the web filter use the same list: `medicus/nettsteder.py`. Add the site there
 with a comment saying why, run the tests, rebuild. Only Norwegian health, public and Norwegian-owned
 news sites belong there.
 

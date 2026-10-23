@@ -12,7 +12,7 @@ privacy-first AI documentation assistant ("journalassistent") and a clinical cal
 | **Login** | [`tilgang/`](tilgang/) | Card + PIN login, emergency access, and the session rules |
 | **Health network** | [`helsenett/`](helsenett/) | One interface to the national services, plus a local simulator |
 | **Patient record and journal assistant** | [`medicus/`](medicus/) | The clinician's web app |
-| **Medicus Kalkulator** | [`kalkulator/`](kalkulator/) | Calculator plus converters for volume, weight and weight ↔ volume |
+| **Kalkulator** | [`kalkulator/`](kalkulator/) | Calculator plus converters for volume, weight and weight ↔ volume |
 | **Branding** | [`branding/`](branding/) | Logo (the Rod of Asclepius), wallpaper, boot screen |
 
 ## Medicus OS
@@ -94,7 +94,7 @@ in Trondheim or at Aker is shown there. In the demo, pick the workplace on the l
 
   These rules are a careful reading of the law, but they **must be checked by a lawyer** before real use.
 
-### Medicus Post: messages, image sharing and phishing protection
+### Post: messages, image sharing and phishing protection
 
 One app for communication between institutions, used instead of ordinary email:
 
@@ -123,7 +123,7 @@ provider can be connected later through the same interface (with an agreement).
 Medicus OS is a desktop and laptop operating system for ordinary 64-bit PCs (Intel/AMD).
 
 - **Desktop:** Home folder and Trash icons, shortcuts to the Medicus apps, and the **Start** button bottom left.
-  Next to Start, the taskbar has pinned shortcuts to **Medicus Nettleser** (its logo is a light-blue
+  Next to Start, the taskbar has pinned shortcuts to **Nettleser** (its logo is a light-blue
   Earth with a rocket in orbit) and **Files** (documents, pictures and downloads).
 - **Standard programs, with plain names:** **Files**, **Text**, **Pictures**, **Dokumenter** (PDF reader,
   in an AppArmor sandbox), **Skjermbilde** (screenshots) and **Mouse** (mouse settings). Settings
@@ -138,7 +138,7 @@ Medicus OS is a desktop and laptop operating system for ordinary 64-bit PCs (Int
   licensing risk: *Nordlys* (default), *Fjord*, *Skog* and *Fjell*, plus the Medicus wallpaper.
   Choose under Settings → Desktop.
 
-### Medicus Nettleser
+### Nettleser
 
 Our own browser ([`nettleser/`](nettleser/)), built on the open-source WebKit engine with a
 Medicus toolbar and the heartbeat loader. No other brand is visible anywhere.
@@ -156,7 +156,7 @@ Medicus toolbar and the heartbeat loader. No other brand is visible anywhere.
 
 ### Cyber defense
 
-- **Virus scanning (ClamAV):** every attachment in Medicus Post is scanned before it's accepted.
+- **Virus scanning (ClamAV):** every attachment in Post is scanned before it's accepted.
   Infected files are stopped. The virus database is updated automatically.
 - **Security log (auditd):** records changes to logins, Medicus settings, the firewall, USB and VPN
   rules, kernel modules, and anything run as administrator.
@@ -241,7 +241,7 @@ menu lists the components and their licenses; the full license text for each pac
 of the GPL parts. Before selling it for real patient use, Medicus also needs CE marking under
 EU MDR (if classified as a medical device), a Normen/GDPR assessment and an agreement with Norsk helsenett.
 
-## Medicus Kalkulator
+## Kalkulator
 
 A GTK 4 desktop app in the Start menu:
 
@@ -266,7 +266,7 @@ Run it on any Linux desktop with GTK 4 (`sudo apt install python3-gi gir1.2-gtk-
 python3 -m kalkulator
 ```
 
-## Medicus Journalassistent
+## Journalassistent
 
 A clinician records a consultation. Medicus transcribes it and drafts a structured
 journal note in Norwegian. The clinician reviews, edits and approves it.
@@ -375,10 +375,10 @@ pytest
 - [x] Card + PIN login and emergency access (simulated card reader)
 - [x] Helsenorge-ready integration layer with a simulator
 - [x] Request workflow for authorities
-- [x] Medicus Post: verified messages, DICOM image sharing, phishing warnings
+- [x] Post: verified messages, DICOM image sharing, phishing warnings
 - [x] VPN with kill switch, Wi-Fi hardening, firewall rate limits
 - [ ] Connect a radiology/lab provider's image archive (needs an agreement)
-- [x] Medicus Nettleser, virus scanning, security log, Sikkerhetssenter, no-exec home folders
+- [x] Nettleser, virus scanning, security log, Sikkerhetssenter, no-exec home folders
 - [ ] Installation to disk: a separate, protected installer mode for IT (with full-disk encryption)
 - [ ] Real chip cards (PKCS#11) and login with HelseID
 - [ ] Security scanning of each build (Lynis, OpenSCAP)

@@ -25,11 +25,11 @@ def blocked(url: str, unencrypted: bool = False) -> str:
     if unencrypted:
         return _page("blocked", "✕", "Siden er ikke kryptert", (
             f"<p><code>{escape(url)}</code> bruker ikke en kryptert forbindelse (https), så alt du "
-            "sender og leser kunne blitt sett av andre på nettet. Medicus Nettleser åpner den derfor ikke.</p>"
+            "sender og leser kunne blitt sett av andre på nettet. Nettleseren åpner den derfor ikke.</p>"
             "<p>Prøv adressen med <code>https://</code> foran.</p>"
             "<p><a href='http://127.0.0.1:8000/nettsteder'>Gå til godkjente nettsteder</a></p>"))
     return _page("blocked", "✕", "Nettstedet er ikke godkjent", (
-        f"<p>Medicus Nettleser åpner bare godkjente nettsteder for helsepersonell. "
+        f"<p>Nettleseren åpner bare godkjente nettsteder for helsepersonell. "
         f"<code>{escape(url)}</code> er ikke på listen.</p>"
         "<p>Trenger du det i arbeidet? Be IT legge det til.</p>"
         "<p><a href='http://127.0.0.1:8000/nettsteder'>Gå til godkjente nettsteder</a></p>"))

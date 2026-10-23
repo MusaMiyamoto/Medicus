@@ -59,11 +59,11 @@ def test_pages_escape_the_address():
 
 
 @pytest.mark.parametrize("page, window", [
-    ("Pasientjournal – Medicus", "Pasientjournal – Medicus Nettleser"),
-    ("NRK – Nyheter", "NRK – Nyheter – Medicus Nettleser"),
-    ("Medicus Nettleser", "Medicus Nettleser"),
-    ("", "Medicus Nettleser"),
-    (None, "Medicus Nettleser"),
+    ("Pasientjournal – Medicus", "Pasientjournal – Nettleser"),
+    ("NRK – Nyheter", "NRK – Nyheter – Nettleser"),
+    ("Medicus Nettleser", "Nettleser"),
+    ("", "Nettleser"),
+    (None, "Nettleser"),
 ])
 def test_window_title_says_medicus_once(page, window):
     assert regler.window_title(page) == window

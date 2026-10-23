@@ -243,7 +243,7 @@ class DensityPage(Gtk.Box):
 
 class KalkulatorWindow(Gtk.ApplicationWindow):
     def __init__(self, app):
-        super().__init__(application=app, title="Medicus Kalkulator")
+        super().__init__(application=app, title="Kalkulator")
         self.set_default_size(680, 640)
         self.set_icon_name("accessories-calculator")
 

@@ -6,4 +6,4 @@ X-XFCE-Category=WebBrowser
 X-XFCE-Commands=medicus-nettleser
 X-XFCE-CommandsWithParameter=medicus-nettleser "%s"
 Icon=medicus-nettleser
-Name=Medicus Nettleser
+Name=Nettleser

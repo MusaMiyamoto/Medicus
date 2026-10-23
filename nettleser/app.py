@@ -52,7 +52,7 @@ def on_download(_session, download):
 
 class BrowserWindow(Gtk.ApplicationWindow):
     def __init__(self, app, session, url, kiosk=False):
-        super().__init__(application=app, title="Medicus Nettleser")
+        super().__init__(application=app, title="Nettleser")
         self.set_default_size(1200, 800)
         self.set_icon_name("medicus-nettleser")
         self.kiosk = kiosk
@@ -200,7 +200,7 @@ class BrowserApp(Gtk.Application):
 
     def do_startup(self):
         Gtk.Application.do_startup(self)
-        GLib.set_application_name("Medicus Nettleser")
+        GLib.set_application_name("Nettleser")
         provider = Gtk.CssProvider()
         provider.load_from_string(CSS)
         from gi.repository import Gdk

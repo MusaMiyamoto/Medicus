@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Medicus Post
+Name=Post
 Comment=Sikre meldinger og bildedeling (røntgen, CT, MR) i helsenettet, med varsel om svindel-e-post
 Exec=medicus-nettleser http://127.0.0.1:8000/post
 Icon=/usr/share/medicus/post.svg

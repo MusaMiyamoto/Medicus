@@ -53,10 +53,10 @@ def normalize(text: str) -> str:
 
 
 def window_title(page_title: str | None) -> str:
-    """"Pasientjournal – Medicus Nettleser", never "… – Medicus – Medicus Nettleser"."""
+    """"Pasientjournal – Nettleser", never "… – Medicus – Nettleser"."""
     title = (page_title or "").strip()
     for suffix in (" – Medicus", " - Medicus"):
         title = title.removesuffix(suffix)
-    if not title or title in ("Medicus", "Medicus Nettleser"):
-        return "Medicus Nettleser"
-    return f"{title} – Medicus Nettleser"
+    if not title or title in ("Medicus", "Nettleser", "Medicus Nettleser"):
+        return "Nettleser"
+    return f"{title} – Nettleser"
