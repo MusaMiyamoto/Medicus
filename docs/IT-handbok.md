@@ -167,9 +167,38 @@ If it won't start, don't leave the machine in use: a missing firewall or USB loc
 1. Take the machine off the network (unplug the cable) and keep it running, so memory is not lost.
 2. Note the time and what you saw. Don't "clean up" first.
 3. Copy the logs: `/var/lib/medicus-auth/audit.jsonl`, `/var/lib/medicus/`, `sudo journalctl -b > journal.txt`.
-4. Check that the security log is untouched: `curl -s 127.0.0.1:8000/api/audit/verify` should say `"ok": true`.
+4. Check that the logs are untouched, with the anchors from IT security's key vault:
+   `sudo medicus-revisjon sjekk ankre.jsonl`. Every log should say *i orden (med anker)*. Without the
+   anchors only the hash chain is checked, and someone in control of the machine can rebuild that.
 5. Follow the health trust's incident routine (and Normen). Phishing reports from users come from
    Post's **Rapporter** button.
+
+### The audit logs and their anchors
+
+Each Medicus log (`/var/lib/medicus-auth/`, `/var/lib/medicus/`, `-utstyr/`, `-wlan/`, `-journalsystem/`)
+has two protections:
+
+- **A hash chain:** every line contains the hash of the line before it.
+- **A key that changes on every line:** every line is also signed with a key that is replaced by its
+  own hash the moment it is used. Someone who breaks in at 14:00 only finds the 14:00 key, and can't
+  sign anything from before 14:00.
+
+The first key of each log is its **anchor** (`audit.jsonl.anker`). While it is on the PC,
+Sikkerhetssenter shows **Revisjonslogg: Bør sjekkes**. When a PC is set up:
+
+```bash
+sudo medicus-revisjon ankre
+```
+
+1. Store the lines it prints in IT security's key vault, under the PC's name. Never on the PC itself.
+2. Answer `ja`, and the anchors are deleted from the PC.
+
+A **new anchor showing up later** means a log's key file was lost or deleted: by an old Medicus version,
+or by someone covering their tracks. The log says `audit_key_series_started` on that line. Find out why
+before you store the new anchor.
+
+Logs on the machine can still be deleted by someone who controls it. That is why the logs are meant
+to be shipped to a central log server as they are written (see `docs/design.md`).
 
 ### A website is blocked that should work
 

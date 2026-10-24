@@ -1,0 +1,3 @@
+#!/bin/sh
+# The audit logs' anchors and checks (IT mode): medicus-revisjon status | ankre | sjekk [FIL]. Use sudo.
+exec /usr/bin/python3 -I -c "import sys; sys.path.insert(0, '/opt/medicus'); from medicus.revisjon import main; sys.exit(main(sys.argv[1:]))" "$@"

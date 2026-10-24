@@ -397,7 +397,12 @@ Microphone / audio file ──► faster-whisper (local speech-to-text)
 - **The model only drafts:** it's told never to invent findings, diagnoses or doses,
   and a clinician must approve every note.
 
-## Getting started (Windows)
+## Trying the web app on a developer PC (Windows)
+
+This runs **only the web app** (patient record, Post, journal assistant) with the simulator, for
+development and demos. None of the lockdown is there: no card login, firewall, USB lock or session
+rules. Those are part of **Medicus OS**, the hardened Debian system that boots straight into Medicus;
+see [Building the ISO](#building-the-iso).
 
 1. Install the tools:
    ```bash

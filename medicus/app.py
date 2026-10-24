@@ -31,7 +31,7 @@ import utstyr
 from tilgang.client import AuthError
 from tilgang.client import call as auth_call
 
-from . import kilder, nettsteder, notes, sikkerhet
+from . import kilder, nettsteder, notes, revisjon, sikkerhet
 from .audit import AuditLog
 from .config import settings
 
@@ -387,7 +387,7 @@ def security_status(_session: dict = Depends(it_session)):
         late = None
     devices = sikkerhet.medical_devices(utstyr.connected(), utstyr.load())
     return sikkerhet.checks() + [sikkerhet.emergency_reports(late), devices, sikkerhet.machine_certificate(),
-                                 sikkerhet.response_time(list(response_times))]
+                                 sikkerhet.response_time(list(response_times)), revisjon.status_check()]
 
 
 # --- Emergency access ------------------------------------------------------
