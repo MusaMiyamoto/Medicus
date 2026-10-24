@@ -24,6 +24,14 @@ def test_the_names_the_user_asked_for(tmp_path):
     assert menu.RENAME["xfce-mouse-settings.desktop"][0] == "Mouse"
 
 
+def test_every_renamed_entry_has_english(tmp_path):
+    assert set(menu.ENGLISH) == set(menu.RENAME)
+    assert all(menu.ENGLISH[f][1] for f in menu.COMMENTS)  # a description in English wherever there is one
+    menu.main(tmp_path)
+    files = (tmp_path / "usr/local/share/applications/thunar.desktop").read_text(encoding="utf-8")
+    assert "Comment[en]=Folders and files: documents, pictures and downloads\n" in files
+
+
 def test_text_is_our_own_editor():
     desktop = Path(__file__).parent.parent / "os/config/includes.chroot/usr/share/applications/medicus-tekst.desktop"
     assert "Name=Text\n" in desktop.read_text(encoding="utf-8")

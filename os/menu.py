@@ -57,9 +57,31 @@ COMMENTS = {
 }
 
 
-def desktop(name: str, icon: str, command: str, categories: str, comment: str = "") -> str:
-    comment_line = f"Comment={comment}\n" if comment else ""
-    return (f"[Desktop Entry]\nType=Application\nName={name}\n{comment_line}Icon={icon}\nExec={command}\n"
+# The same in an English session (Name[en] and Comment[en]).
+ENGLISH = {
+    "thunar.desktop": ("Files", "Folders and files: documents, pictures and downloads"),
+    "org.xfce.ristretto.desktop": ("Pictures", "View pictures"),
+    "org.gnome.Evince.desktop": ("Documents", "Read PDF documents"),
+    "xfce4-screenshooter.desktop": ("Screenshot", "Take a picture of the screen"),
+    "org.pulseaudio.pavucontrol.desktop": ("Sound", "Volume for headsets and speakers"),
+    "xfce-mouse-settings.desktop": ("Mouse", ""),
+    "xfce-backdrop-settings.desktop": ("Wallpaper", ""),
+    "xfce-display-settings.desktop": ("Display", ""),
+    "xfce-ui-settings.desktop": ("Appearance", ""),
+    "xfce4-accessibility-settings.desktop": ("Accessibility", ""),
+    "xfce4-notifyd-config.desktop": ("Notifications", ""),
+    "xfce4-power-manager-settings.desktop": ("Power", ""),
+    "xfce4-screensaver-preferences.desktop": ("Screen lock", ""),
+    "xfce4-session-logout.desktop": ("Log out", ""),
+}
+
+
+def desktop(name: str, icon: str, command: str, categories: str, comment: str = "", english=("", "")) -> str:
+    lines = f"Name={name}\n"
+    lines += f"Name[en]={english[0]}\n" if english[0] else ""
+    lines += f"Comment={comment}\n" if comment else ""
+    lines += f"Comment[en]={english[1]}\n" if english[1] else ""
+    return (f"[Desktop Entry]\nType=Application\n{lines}Icon={icon}\nExec={command}\n"
             f"Terminal=false\nCategories={categories}\n")
 
 
@@ -78,8 +100,8 @@ def main(out: str):
     folder.mkdir(parents=True, exist_ok=True)
     for file, (name, icon, command) in RENAME.items():
         categories = CATEGORIES.get(file, "Settings;DesktopSettings;")
-        (folder / file).write_text(desktop(name, icon, command, categories, COMMENTS.get(file, "")),
-                                   encoding="utf-8")
+        (folder / file).write_text(desktop(name, icon, command, categories, COMMENTS.get(file, ""),
+                                           ENGLISH.get(file, ("", ""))), encoding="utf-8")
     for file in HIDE:
         (folder / file).write_text("[Desktop Entry]\nType=Application\nName=Skjult\nNoDisplay=true\nHidden=true\n",
                                    encoding="utf-8")
