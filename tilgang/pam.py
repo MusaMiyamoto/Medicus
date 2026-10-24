@@ -24,7 +24,11 @@ def main() -> int:
             call("verify", username=user, pin=secret)
         elif os.getenv("PAM_SERVICE") == "xfce4-screensaver":
             # The lock screen runs as the user themself, so it asks for "unlock", not "login".
-            call("unlock", username=user, pin=secret)
+            # An empty PIN with the card back in: tap-in, if this PC allows it (authd decides).
+            if secret == "":
+                call("tap")
+            else:
+                call("unlock", username=user, pin=secret)
         else:
             call("login", username=user, pin=secret)
     except AuthError as e:

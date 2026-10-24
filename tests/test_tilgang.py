@@ -419,3 +419,94 @@ def test_it_lifts_a_pin_block_and_it_is_logged(setup):
     assert ask(authority, ROOT, cmd="login", username="ingrid-berg", pin="1234")["ok"]
     unblocked = [json.loads(line) for line in audit.path.read_text().splitlines() if "card_unblocked" in line]
     assert unblocked[0]["user"] == "eirik-strand" and unblocked[0]["details"] == {"card": "lege"}
+
+
+def tap_site(authority, minutes):
+    authority.site = Arbeidssted(ULLEVAL.id, ULLEVAL.navn, (), minutes)
+
+
+def test_tap_in_resumes_a_held_session_without_pin_within_the_limit(setup):
+    authority, clock, audit, _ = setup
+    tap_site(authority, 240)
+    login(authority)
+    ask(authority, cmd="remove")
+    assert not ask(authority, ROOT, cmd="tap")["ok"]  # card still out
+    clock.now += 5 * 60
+    ask(authority, cmd="insert", card_id="lege")
+    assert ask(authority, ROOT, cmd="tap")["ok"]
+    assert "holdt_sekunder_igjen" not in ask(authority, cmd="status")["okt"]
+    assert '"uten_pin": true' in audit.path.read_text()
+    assert not ask(authority, ROOT, cmd="tap")["ok"]  # nothing held any more
+
+
+def test_tap_in_is_off_by_default_and_never_for_it_mode(setup):
+    authority, *_ = setup
+    login(authority)
+    ask(authority, cmd="remove")
+    ask(authority, cmd="insert", card_id="lege")
+    reply = ask(authority, ROOT, cmd="tap")
+    assert not reply["ok"] and "PIN" in reply["error"]
+    tap_site(authority, 240)
+    login(authority, "it", "eirik-strand", "4401")  # the IT card takes over the PC
+    ask(authority, cmd="remove")
+    ask(authority, cmd="insert", card_id="it")
+    assert not ask(authority, ROOT, cmd="tap")["ok"]
+
+
+def test_tap_in_needs_the_pin_again_after_the_limit_and_the_pin_restarts_it(setup, monkeypatch):
+    import tilgang.authd
+    authority, clock, *_ = setup
+    monkeypatch.setattr(tilgang.authd, "_uid_of", lambda name: 1001 if name == "ingrid-berg" else None)
+    tap_site(authority, 60)
+    login(authority)
+    clock.now += 50 * 60
+    ask(authority, cmd="remove")
+    clock.now += 11 * 60  # 61 minutes since the PIN
+    ask(authority, cmd="insert", card_id="lege")
+    assert not ask(authority, ROOT, cmd="tap")["ok"]
+    assert ask(authority, 1001, cmd="unlock", username="ingrid-berg", pin="1234")["ok"]  # PIN: clock restarts
+    clock.now += 30 * 60
+    ask(authority, cmd="remove")
+    ask(authority, cmd="insert", card_id="lege")
+    assert ask(authority, 1001, cmd="tap")["ok"]  # the lock screen (own user) may ask too
+    assert not ask(authority, STRANGER, cmd="tap")["ok"]
+
+
+def test_tap_in_only_with_the_same_card_and_not_off_the_clinical_network(setup):
+    authority, *_ = setup
+    tap_site(authority, 240)
+    login(authority)
+    ask(authority, cmd="remove")
+    ask(authority, cmd="insert", card_id="spl")
+    assert not ask(authority, ROOT, cmd="tap")["ok"]
+    ask(authority, cmd="remove")
+    authority.site = Arbeidssted(ULLEVAL.id, ULLEVAL.navn, ("10.20.0.0/16",), 240)
+    from tilgang.nett import Network
+    authority.network = lambda: Network(("192.168.1.20",), certified=False)  # carried home
+    ask(authority, cmd="insert", card_id="lege")
+    reply = ask(authority, ROOT, cmd="tap")
+    assert not reply["ok"] and "kliniske nett" in reply["error"]
+
+
+def test_tap_in_limit_from_the_workplace_file(tmp_path):
+    f = tmp_path / "a.toml"
+    for value, expected in (("240", 240), ("0", 0), ("721", 0), ("-5", 0), ('"240"', 0), ("true", 0), ("2.5", 0)):
+        f.write_text(f'id = "x"\nnavn = "X"\nkort_uten_pin_minutter = {value}\n')
+        assert load(f).kort_uten_pin_minutter == expected, value
+    f.write_text('id = "x"\nnavn = "X"\n')
+    assert load(f).kort_uten_pin_minutter == 0
+
+
+def test_guard_taps_only_for_the_held_logins_own_card():
+    from tilgang.sessionguard import should_tap
+    held = {"username": "ingrid-berg", "modus": "normal", "holdt_sekunder_igjen": 500}
+    card = {"username": "ingrid-berg", "sperret": False}
+    site = {"kort_uten_pin_minutter": 240}
+    assert should_tap({"okt": held, "kort": card, "arbeidssted": site})
+    assert not should_tap({"okt": held, "kort": card, "arbeidssted": {"kort_uten_pin_minutter": 0}})
+    assert not should_tap({"okt": held, "kort": {**card, "username": "jonas-lie"}, "arbeidssted": site})
+    assert not should_tap({"okt": held, "kort": {**card, "sperret": True}, "arbeidssted": site})
+    assert not should_tap({"okt": {**held, "modus": "it"}, "kort": card, "arbeidssted": site})
+    not_held = {k: v for k, v in held.items() if k != "holdt_sekunder_igjen"}
+    assert not should_tap({"okt": not_held, "kort": card, "arbeidssted": site})  # card left in: PIN needed
+    assert not should_tap({"okt": None, "kort": card, "arbeidssted": site})

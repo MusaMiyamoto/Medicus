@@ -258,6 +258,30 @@ How each part works:
 | Emergency access | Always works: lives first. Marked `utenfor_klinisk_nett` in the log. |
 | IT mode | Works, so IT can repair the network. No patient data anyway. Marked `utenfor_klinisk_nett`. |
 
+### Tap-in: card back without the PIN
+
+Typing the PIN every time the card comes back is one of the biggest annoyances on shared ward PCs. Each
+PC can allow **tap-in** in `/etc/medicus/arbeidssted.toml`:
+
+```toml
+kort_uten_pin_minutter = 240   # 0 or unset = off (the default)
+```
+
+Then, when someone takes the card out and puts **the same card** back, `medicus-oktvakt` resumes the
+held session and unlocks the screen without the PIN, if the PIN was typed less than 240 minutes ago.
+After that the PIN is asked for again, and typing it starts the 240 minutes over. Pressing Enter on the
+lock screen with an empty PIN field does the same thing, as a fallback.
+
+| Rule | Why |
+|---|---|
+| Off unless IT sets it; maximum 720 (one shift); anything invalid means off | A typo never weakens a PC |
+| Only after card-out (a held session) | A screen locked with the card still in the reader always needs the PIN, so a forgotten card doesn't open the PC |
+| Only normal mode, never IT mode | IT mode has admin rights |
+| Only the same card, not blocked, on the clinical network | Same rules as the PIN unlock |
+| Logged as `session_resumed` with `"uten_pin": true` | You can see how often it is used |
+
+Suggested: allow it on ward PCs in locked staff areas, not on PCs in reception or patient rooms.
+
 A `nett` line IT mistyped closes access; it never opens it. Leave `nett` out on PCs that aren't on a
 clinical VLAN yet.
 

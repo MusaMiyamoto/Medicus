@@ -4,7 +4,7 @@ Runs as root, outside the user's session, so a user can't stop it. Every second:
   - a desktop session for a Medicus user without a matching login (card not returned in time,
     emergency time is up, or logged out elsewhere) is terminated at once;
   - a login held because the card was taken out has its desktop locked (the lock screen needs
-    the same card and PIN back);
+    the same card and PIN back, or only the card if this PC allows tap-in: then it is unlocked here);
   - a login with no desktop session left (the user logged out) is ended after a grace period.
 """
 
@@ -57,18 +57,39 @@ def to_lock(login: dict | None, sessions: list[dict]) -> list[str]:
     return [s["session"] for s in sessions if s.get("user") == login["linux_bruker"]]
 
 
+def should_tap(status: dict) -> bool:
+    """The held login's own card is back and this PC allows tap-in. authd checks everything again."""
+    login, card = status.get("okt"), status.get("kort")
+    return bool(login and card and "holdt_sekunder_igjen" in login and login["modus"] == "normal"
+                and card["username"] == login["username"] and not card.get("sperret")
+                and status.get("arbeidssted", {}).get("kort_uten_pin_minutter", 0) > 0)
+
+
 def main() -> int:
     alone_since = None
     locked: set[str] = set()
+    tap_tried = False  # once per time the card goes in, so a refusal isn't repeated every second
     while True:
         time.sleep(1)
         try:
-            login = call("status")["okt"]
+            status = call("status")
         except AuthError:
             continue
+        login = status["okt"]
         sessions = desktop_sessions()
         if sessions is None:
             continue
+        if not status.get("kort"):
+            tap_tried = False
+        elif should_tap(status) and not tap_tried:
+            tap_tried = True
+            try:
+                call("tap")
+                for session_id in to_lock(login, sessions):
+                    subprocess.run(["loginctl", "unlock-session", session_id], check=False)
+                continue
+            except AuthError:
+                pass
         terminate, has_desktop = decide(login, sessions, medicus_users())
         for session_id in terminate:
             subprocess.run(["loginctl", "terminate-session", session_id], check=False)

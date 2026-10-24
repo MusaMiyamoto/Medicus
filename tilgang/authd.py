@@ -9,6 +9,8 @@ The caller's user id comes from the kernel (SO_PEERCRED), so it can't be faked.
     login           root (PAM)    card + PIN → normal session (IT cards: IT session)
     unlock          the session's user (lock screen): own card + PIN. Also resumes a session held
                     after the card was taken out (HOLD_MINUTES).
+    tap             root (medicus-oktvakt) or the session's user: own card back in, no PIN, resumes a
+                    held normal session if this PC allows it (kort_uten_pin_minutter) and the PIN is recent
     emergency       root (PAM)    card + situation → 30-minute emergency session + a report to write
     report          the session's user or the Medicus service: write an emergency report
     verify          root (PAM)    IT card + PIN confirms an admin action (sudo)
@@ -73,11 +75,15 @@ class Authority:
             self.session = None
         return self.session
 
-    def _release(self, card):
-        """The same card and PIN came back: the held session continues where it was."""
+    def _release(self, card, pin=True):
+        """The same card (and PIN) came back: the held session continues where it was."""
         held = self.session.pop("holdt_til")
-        self.audit.record(card.hpr, "session_resumed",
-                          {"user": card.username, "held_seconds": int(self.clock() - (held - HOLD_MINUTES * 60))})
+        details = {"user": card.username, "held_seconds": int(self.clock() - (held - HOLD_MINUTES * 60))}
+        if pin:
+            self.session["pin_tid"] = self.clock()
+        else:
+            details["uten_pin"] = True
+        self.audit.record(card.hpr, "session_resumed", details)
 
     def _flag_late_reports(self):
         for item in self.reports.newly_overdue():
@@ -188,6 +194,7 @@ class Authority:
         elif current.get("holdt_til"):
             self._release(card)
         else:
+            current["pin_tid"] = self.clock()
             self.audit.record(card.hpr, "unlock", {"user": card.username})
 
     def cmd_unlock(self, req, uid):
@@ -209,7 +216,28 @@ class Authority:
         if session.get("holdt_til"):
             self._release(card)
         else:
+            session["pin_tid"] = self.clock()
             self.audit.record(card.hpr, "unlock", {"user": card.username})
+
+    def cmd_tap(self, _req, uid):
+        """Tap-in: the card that was taken out goes back in, and the held session resumes without the PIN.
+        Only if IT allows it on this PC, only within kort_uten_pin_minutter of the last PIN, only normal
+        mode (IT mode has admin rights), and only a held session: a screen locked while the card stayed
+        in the reader still needs the PIN, so a forgotten card doesn't open the PC for the next person."""
+        session = self._session()
+        if session is None or not session.get("holdt_til"):
+            raise PermissionError("Ingen økt venter på kortet.")
+        if not (uid == 0 or _uid_of(session["linux_bruker"]) == uid):
+            raise PermissionError("Ikke tillatt.")
+        card = self.reader.inserted()
+        if card is None or card.username != session["username"]:
+            raise CardError("Sett inn kortet ditt.")
+        limit = self.site.kort_uten_pin_minutter
+        if (session["modus"] != "normal" or limit <= 0 or self.reader.is_blocked(card.card_id)
+                or self.clock() - session.get("pin_tid", 0) > limit * 60):
+            raise PermissionError("Skriv PIN-koden din.")
+        self._require_clinical_network(card, "unlock")
+        self._release(card, pin=False)
 
     def cmd_verify(self, req, uid):
         """An IT person confirms an admin action (sudo) with the card PIN. Logged every time."""
@@ -282,7 +310,7 @@ class Authority:
         session = {**person, "modus": mode, "startet": datetime.fromtimestamp(start).isoformat(timespec="seconds"),
                    # Where the person is working right now: this PC's workplace.
                    "virksomhet": self.site.navn, "arbeidssted_id": self.site.id,
-                   "stilling": position(card.stillinger, card.rolle, self.site)}
+                   "stilling": position(card.stillinger, card.rolle, self.site), "pin_tid": start}
         session["linux_bruker"] = EMERGENCY_USER if mode == "nød" else card.username
         if mode == "nød":
             session["rapport_id"] = report_id

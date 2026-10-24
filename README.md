@@ -50,6 +50,9 @@ There are no passwords. Three ways in, all with a card:
 - **Log in once:** every Medicus app knows who you are from the card login. No separate logins.
 - **Card out = locked, nothing lost.** The screen locks at once and the session is **held for 15 minutes**.
   - **Same card and PIN back:** work continues exactly where it was, with open notes and unsaved text intact.
+  - **Tap-in (if IT allows it on that PC):** the same card back is enough, without the PIN, for a set time
+    after the PIN was last typed (`kort_uten_pin_minutter`, at most one shift). Never in IT mode, and never
+    when the screen locked with the card still in the reader.
   - **Card not back in time:** the session ends.
   - **Another person logs in:** the held session ends.
   - **While held:** no app can use the session; the journal service refuses it.
