@@ -416,6 +416,20 @@ Microphone / audio file ──► faster-whisper (local speech-to-text)
 - **The model only drafts:** it's told never to invent findings, diagnoses or doses,
   and a clinician must approve every note.
 
+## The demo site
+
+`site/` is a small static page for testers: how to start the ISO in a virtual machine, the demo cards
+(PIN 1234), a checklist of what to try, a screenshot tour and where to send feedback. It is in Norwegian
+and English and has no server code. `wrangler.jsonc` publishes it as the Cloudflare Worker
+`medicus-demo` (`medicus-demo.<account>.workers.dev`):
+
+- **From the dashboard:** Workers & Pages → Create → Import a repository → this repository. Name the
+  Worker `medicus-demo` (or change `name` in `wrangler.jsonc` to match), leave the build command empty
+  and the deploy command `npx wrangler deploy`. Each push to the chosen branch then updates the site.
+- **From a PC:** `npx wrangler login`, then `npx wrangler deploy` in the repository.
+
+The ISO itself is too big for Cloudflare: the page links to the GitHub release.
+
 ## Trying the web app on a developer PC (Windows)
 
 This runs **only the web app** (patient record, Post, journal assistant) with the simulator, for
