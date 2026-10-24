@@ -574,3 +574,62 @@ def test_a_workplace_that_does_not_match_the_certificate_closes_records_but_not_
     ask(authority, cmd="remove")
     ask(authority, cmd="insert", card_id="lege")
     assert not ask(authority, 1001, cmd="unlock", username="ingrid-berg", pin="1234")["ok"]
+
+
+# --- Lost, stolen and expired cards -------------------------------------------
+
+def test_a_revoked_card_is_refused_everywhere_and_ends_its_open_session(setup):
+    authority, _clock, audit, _ = setup
+    login(authority)
+    assert not ask(authority, STRANGER, cmd="revoke", card_id="lege", grunn="tapt")["ok"]  # root only (sudo)
+    assert not ask(authority, ROOT, cmd="revoke", card_id="lege", grunn="borte")["ok"]  # only known reasons
+    assert ask(authority, ROOT, cmd="revoke", card_id="lege", grunn="tapt", it_bruker="eirik-strand")["ok"]
+    assert ask(authority, cmd="status")["okt"] is None  # the session on that card is over
+    status = ask(authority, cmd="status")["kort"]
+    assert status["tilbakekalt"] == "tapt"
+    reply = ask(authority, ROOT, cmd="login", username="ingrid-berg", pin="1234")
+    assert not reply["ok"] and "meldt tapt" in reply["error"]
+    assert not ask(authority, ROOT, cmd="emergency", situasjon="Hjertestans")["ok"]  # not even emergency
+    log = audit.path.read_text()
+    assert "card_revoked" in log and "revoked_card_used" in log and '"reason": "card_revoked"' in log
+    assert ask(authority, ROOT, cmd="restore", card_id="lege", it_bruker="eirik-strand")["ok"]
+    assert ask(authority, ROOT, cmd="login", username="ingrid-berg", pin="1234")["ok"]
+    assert not ask(authority, ROOT, cmd="restore", card_id="lege")["ok"]  # nothing to restore
+
+
+def test_revocation_survives_a_restart(setup, tmp_path):
+    authority, *_ = setup
+    ask(authority, ROOT, cmd="revoke", card_id="spl", grunn="stjålet")
+    again = SimulatedReader(authority.reader.state_file.parent / "simkort.json", authority.reader.state_file)
+    assert again.revoked_reason("spl") == "stjålet"
+
+
+def test_an_expired_card_opens_emergency_access_but_nothing_else(tmp_path):
+    from datetime import date
+    demo = tmp_path / "demo.json"
+    demo.write_text(json.dumps([{**DEMO[1], "gyldig_til": "2020-01-31"}]))
+    build_cards_file(demo, tmp_path / "kort.json")
+    audit = AuditLog(tmp_path / "audit.jsonl")
+    authority = Authority(SimulatedReader(tmp_path / "kort.json", tmp_path / "t.json"), audit, set(), clock=Clock(),
+                          site=ULLEVAL)
+    ask(authority, cmd="insert", card_id="spl")
+    assert ask(authority, cmd="status")["kort"]["utlopt"]
+    reply = ask(authority, ROOT, cmd="login", username="jonas-lie", pin="2345")
+    assert not reply["ok"] and "2020-01-31" in reply["error"]
+    assert ask(authority, ROOT, cmd="emergency", situasjon="Hjertestans")["ok"]
+    assert '"utlopt_kort": true' in audit.path.read_text()
+    from tilgang.cards import Card
+    card = Card("x", "X", "Lege", "1", "x", gyldig_til="2026-10-24")
+    assert not card.expired(date(2026, 10, 24)) and card.expired(date(2026, 10, 25))  # valid all of its last day
+    assert Card("x", "X", "Lege", "1", "x", gyldig_til="snart").expired(date(2026, 1, 1))  # unreadable = passed
+    assert not Card("x", "X", "Lege", "1", "x").expired(date(2099, 1, 1))
+
+
+def test_login_screen_explains_each_card_problem():
+    from tilgang.greeter import card_problem
+    assert card_problem(None) == ("", False, False)
+    assert card_problem({"sperret": False}) == ("", True, True)
+    assert card_problem({"sperret": True})[1:] == (False, False)
+    assert card_problem({"tilbakekalt": "tapt", "sperret": True})[0].startswith("Dette kortet er meldt tapt")
+    message, normal, emergency = card_problem({"utlopt": True})
+    assert "utløpt" in message and not normal and emergency

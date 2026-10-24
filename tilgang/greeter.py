@@ -11,6 +11,7 @@ from pathlib import Path
 import gi
 
 gi.require_version("Gtk", "4.0")
+gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
 from . import EMERGENCY_MINUTES, EMERGENCY_USER, IT_ROLE, SITUATIONS  # noqa: E402
@@ -59,6 +60,21 @@ button.emergency-go:hover { background: #8f1d17; }
 
 
 BLOCKED = "Kortet er sperret etter for mange feil PIN-forsøk. Kontakt IT-avdelingen for å låse det opp."
+REVOKED = "Dette kortet er meldt tapt eller erstattet og virker ikke lenger. Kontakt IT-avdelingen."
+EXPIRED = "Kortet er utløpt. Hent nytt kort. Nødtilgang virker fortsatt."
+
+
+def card_problem(card: dict | None) -> tuple[str, bool, bool]:
+    """(message, normal login possible, emergency access possible) for the card in the reader."""
+    if not card:
+        return "", False, False
+    if card.get("tilbakekalt"):
+        return REVOKED, False, False  # someone else may be holding it
+    if card.get("sperret"):
+        return BLOCKED, False, False
+    if card.get("utlopt"):
+        return EXPIRED, False, True
+    return "", True, True
 
 
 def picture(name: str, size: int) -> Gtk.Image:
@@ -397,11 +413,12 @@ class LoginWindow(Gtk.ApplicationWindow):
             else:
                 self.title.set_text("Sett inn helsepersonellkortet")
                 self.subtitle.set_text("Kortleseren står ved siden av skjermen.")
-        blocked = bool(card and card.get("sperret"))
-        if blocked:
-            self.message.set_text(BLOCKED)
-        for widget in (self.pin, self.login_button, self.emergency_button):
-            widget.set_sensitive(card is not None and not blocked and not self.busy)
+        problem, normal, emergency = card_problem(card)
+        if problem:
+            self.message.set_text(problem)
+        for widget in (self.pin, self.login_button):
+            widget.set_sensitive(normal and not self.busy)
+        self.emergency_button.set_sensitive(emergency and not self.busy)
         return True
 
     def show_emergency(self, visible):

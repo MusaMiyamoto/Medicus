@@ -24,14 +24,14 @@ import socket
 import struct
 import threading
 import time
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from medicus.audit import AuditLog
 
 from . import EMERGENCY_MINUTES, EMERGENCY_USER, HOLD_MINUTES, IT_ROLE, SITUATIONS, nett
 from .arbeidssted import MISMATCH, UNKNOWN, Arbeidssted, certificate_site, confirmation, load_sim_sites, position
 from .arbeidssted import load as load_site
-from .cards import CardError, SimulatedReader
+from .cards import REVOKE_REASONS, CardError, SimulatedReader
 from .nodrapport import Reports
 
 MAX_REQUEST = 8192
@@ -102,6 +102,20 @@ class Authority:
             details["uten_pin"] = True
         self.audit.record(card.hpr, "session_resumed", details)
 
+    def _check_card(self, card, action, emergency=False):
+        """A lost or stolen card is refused everywhere: someone else may be holding it. An expired card is
+        refused for normal use, but still opens emergency access (the person is known; lives first)."""
+        reason = self.reader.revoked_reason(card.card_id)
+        if reason:
+            self.audit.record(card.hpr, "revoked_card_used", {"card": card.card_id, "grunn": reason, "action": action})
+            raise CardError(f"Dette kortet er {REVOKE_REASONS[reason]} og virker ikke lenger. Kontakt IT.")
+        if card.expired(date.fromtimestamp(self.clock())):
+            if not emergency:
+                self.audit.record(card.hpr, f"{action}_refused_expired", {"user": card.username})
+                raise CardError(f"Kortet gikk ut {card.gyldig_til}. Hent nytt kort. Nødtilgang virker fortsatt.")
+            return {"utlopt_kort": True}
+        return {}
+
     def _flag_late_reports(self):
         for item in self.reports.newly_overdue():
             self.audit.record(item["hpr"], "emergency_report_overdue", {"report": item["id"]})
@@ -144,6 +158,8 @@ class Authority:
         if card:
             reply["kort"]["stilling"] = position(card.stillinger, card.rolle, self.site)
             reply["kort"]["sperret"] = self.reader.is_blocked(card.card_id)
+            reply["kort"]["tilbakekalt"] = self.reader.revoked_reason(card.card_id)
+            reply["kort"]["utlopt"] = card.expired(date.fromtimestamp(self.clock()))
             reply["kort"]["rapporter"] = self.reports.missing(card.hpr)
         if self.simulated:
             reply["arbeidssteder"] = [s.public() for s in self.sim_sites]
@@ -189,6 +205,7 @@ class Authority:
             raise CardError("Sett inn helsepersonellkortet ditt.")
         if card.username != req.get("username"):
             raise CardError("Kortet tilhører en annen bruker.")
+        self._check_card(card, "login")
         if not self.reader.verify_pin(str(req.get("pin", ""))):
             self.audit.record(card.hpr, "login_failed", {"user": card.username})
             raise CardError(f"Feil PIN. {self.reader.tries_left()} forsøk igjen.")
@@ -226,6 +243,7 @@ class Authority:
         card = self.reader.inserted()
         if card is None or card.username != session["username"] or req.get("username") != card.username:
             raise CardError("Sett inn kortet ditt.")
+        self._check_card(card, "unlock")
         if not self.reader.verify_pin(str(req.get("pin", ""))):
             self.audit.record(card.hpr, "unlock_failed", {"user": card.username})
             raise CardError(f"Feil PIN. {self.reader.tries_left()} forsøk igjen.")
@@ -251,6 +269,7 @@ class Authority:
         card = self.reader.inserted()
         if card is None or card.username != session["username"]:
             raise CardError("Sett inn kortet ditt.")
+        self._check_card(card, "unlock")
         limit = self.site.kort_uten_pin_minutter
         if (session["modus"] != "normal" or limit <= 0 or self.reader.is_blocked(card.card_id)
                 or self.clock() - session.get("pin_tid", 0) > limit * 60):
@@ -267,6 +286,7 @@ class Authority:
             raise CardError("Sett inn IT-kortet ditt.")
         if card.rolle != IT_ROLE:
             raise PermissionError("Bare IT-personell kan gjøre endringer på systemet.")
+        self._check_card(card, "admin")
         if not self.reader.verify_pin(str(req.get("pin", ""))):
             self.audit.record(card.hpr, "admin_failed", {"user": card.username})
             raise CardError(f"Feil PIN. {self.reader.tries_left()} forsøk igjen.")
@@ -282,6 +302,27 @@ class Authority:
         self.reader.unblock(card_id)
         self.audit.record(str(req.get("it_bruker", "root"))[:64], "card_unblocked", {"card": card_id[:64]})
 
+    def cmd_revoke(self, req, uid):
+        """IT revokes a lost, stolen or replaced card (medicus-kort tilbakekall, via sudo). A session open on
+        that card ends at once (medicus-oktvakt closes its desktop)."""
+        self._require_root(uid)
+        card_id, reason = str(req.get("card_id", "")), str(req.get("grunn", ""))
+        by = str(req.get("it_bruker", "root"))[:64]
+        self.reader.revoke(card_id, reason, datetime.fromtimestamp(self.clock()).isoformat(timespec="seconds"), by)
+        self.audit.record(by, "card_revoked", {"card": card_id[:64], "grunn": reason})
+        owner = self.reader.cards[card_id]["username"]
+        session = self._session()
+        if session and session["username"] == owner:
+            self.audit.record(session["hpr"], "session_ended", {"reason": "card_revoked", "mode": session["modus"]})
+            self.session = None
+
+    def cmd_restore(self, req, uid):
+        """A card reported lost turned up again, and IT has checked the person's ID."""
+        self._require_root(uid)
+        card_id = str(req.get("card_id", ""))
+        self.reader.restore(card_id)
+        self.audit.record(str(req.get("it_bruker", "root"))[:64], "card_restored", {"card": card_id[:64]})
+
     def cmd_emergency(self, req, uid):
         self._require_root(uid)
         card = self.reader.inserted()
@@ -291,6 +332,7 @@ class Authority:
             raise PermissionError("Nødtilgang er bare for helsepersonell.")
         if self.reader.is_blocked(card.card_id):
             raise CardError("Kortet er sperret.")
+        marks = self._check_card(card, "emergency", emergency=True)
         # No questions first: in an emergency every second counts. The why comes afterwards.
         situation = str(req.get("situasjon", ""))
         if situation not in SITUATIONS:
@@ -298,7 +340,7 @@ class Authority:
         report = self.reports.open(card.hpr, card.navn, situation)
         self.session = self._new_session(card, "nød", report["id"])
         self.session["situasjon"] = situation
-        details = {"user": card.username, "situasjon": situation, "report": report["id"]}
+        details = {"user": card.username, "situasjon": situation, "report": report["id"], **marks}
         if not self._on_clinical_network():
             details["utenfor_klinisk_nett"] = True  # never blocked: lives first, but the report will show it
         self.audit.record(card.hpr, "emergency_start", details)

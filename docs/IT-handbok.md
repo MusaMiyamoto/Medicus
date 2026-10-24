@@ -141,7 +141,28 @@ hide the package's own menu entry in `os/menu.py` (`HIDE`).
 | *Får ikke kontakt med innloggingstjenesten* | `sudo systemctl status medicus-auth`, then `sudo journalctl -u medicus-auth -n 50`. |
 | *Kortet tilhører en annen bruker* | The card in the reader isn't the one the screen shows. Take it out and put it back in. |
 | *PC-en er ikke koblet til sykehusets kliniske nett* | Check the cable / Wi-Fi and `medicus-wlan` (certificate valid?). See "Network ports and the clinical VLAN". |
+| *Kortet gikk ut …* (expired) | The card's end date (`gyldig_til`) has passed. The person needs a new card from the card issuer. Emergency access still works meanwhile, marked `utlopt_kort` in the log. |
+| *Dette kortet er meldt tapt …* | IT revoked it. If the person found it again: **check their ID**, then `medicus-kort gjenopprett <kort-id>`. |
+| *PC-en er ikke koblet til helsenettet med VPN* | Mobile PC: see "Mobile PCs". |
+| *Arbeidsstedet på denne PC-en stemmer ikke med maskinsertifikatet* | See "Wi-Fi with a machine certificate": the file and the certificate name different workplaces. |
 | Nothing happens after the PIN | Look in `sudo journalctl -b | grep -i pam`. |
+
+### A card is lost, stolen or replaced
+
+```bash
+medicus-kort tilbakekall <kort-id> tapt        # or: stjålet, erstattet
+```
+
+It asks for your IT card PIN. From that second the card is refused **everywhere, emergency access
+included**, because someone else may be holding it. A session open on that card is ended, and its
+desktop is closed. Every later attempt to use the card is logged as `revoked_card_used`: treat that as an
+alarm. Also tell the card issuer, so the card is revoked nationally.
+
+`medicus-kort liste` shows *TILBAKEKALT (tapt)* next to the card. If the card turns up again:
+`medicus-kort gjenopprett <kort-id>`, after checking the person's ID.
+
+Forgotten cards and broken card readers are routines more than software: see `docs/pilot.md`.
+Never let staff share a card or log in for each other. Everything done is logged in the card owner's name.
 
 ### Someone used emergency access
 
