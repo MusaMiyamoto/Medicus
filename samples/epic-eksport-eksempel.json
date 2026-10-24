@@ -1,0 +1,338 @@
+{
+ "resourceType": "Bundle",
+ "type": "collection",
+ "meta": {
+  "tag": [
+   {
+    "display": "Syntetiske testdata – ikke en ekte pasient"
+   }
+  ]
+ },
+ "entry": [
+  {
+   "fullUrl": "Patient/eK1",
+   "resource": {
+    "resourceType": "Patient",
+    "id": "eK1",
+    "identifier": [
+     {
+      "system": "urn:oid:2.16.578.1.12.4.1.4.1",
+      "value": "04875821283"
+     }
+    ],
+    "name": [
+     {
+      "family": "Nordmann",
+      "given": [
+       "Kari"
+      ]
+     }
+    ],
+    "gender": "female",
+    "birthDate": "1958-07-04"
+   }
+  },
+  {
+   "fullUrl": "AllergyIntolerance/a1",
+   "resource": {
+    "resourceType": "AllergyIntolerance",
+    "id": "a1",
+    "patient": {
+     "reference": "Patient/eK1"
+    },
+    "criticality": "high",
+    "verificationStatus": {
+     "text": "Confirmed",
+     "coding": [
+      {
+       "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-verification",
+       "code": "confirmed",
+       "display": "Confirmed"
+      }
+     ]
+    },
+    "code": {
+     "text": "Jodholdig kontrastmiddel"
+    },
+    "reaction": [
+     {
+      "manifestation": [
+       {
+        "text": "Urtikaria"
+       },
+       {
+        "text": "Bronkospasme"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "fullUrl": "AllergyIntolerance/a2",
+   "resource": {
+    "resourceType": "AllergyIntolerance",
+    "id": "a2",
+    "patient": {
+     "reference": "Patient/eK1"
+    },
+    "criticality": "low",
+    "code": {
+     "text": "Lateks"
+    },
+    "reaction": [
+     {
+      "manifestation": [
+       {
+        "text": "Kontakteksem"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "fullUrl": "AllergyIntolerance/a3",
+   "resource": {
+    "resourceType": "AllergyIntolerance",
+    "id": "a3",
+    "patient": {
+     "reference": "Patient/eK1"
+    },
+    "verificationStatus": {
+     "text": "Entered in error",
+     "coding": [
+      {
+       "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-verification",
+       "code": "entered-in-error",
+       "display": "Entered in error"
+      }
+     ]
+    },
+    "code": {
+     "text": "Penicillin (feilregistrert)"
+    }
+   }
+  },
+  {
+   "fullUrl": "Condition/c1",
+   "resource": {
+    "resourceType": "Condition",
+    "id": "c1",
+    "subject": {
+     "reference": "Patient/eK1"
+    },
+    "onsetDateTime": "2019-05-02",
+    "clinicalStatus": {
+     "text": "Active",
+     "coding": [
+      {
+       "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+       "code": "active",
+       "display": "Active"
+      }
+     ]
+    },
+    "code": {
+     "text": "Atrieflimmer",
+     "coding": [
+      {
+       "system": "http://hl7.org/fhir/sid/icd-10",
+       "code": "I48",
+       "display": "Atrieflimmer"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "fullUrl": "Condition/c2",
+   "resource": {
+    "resourceType": "Condition",
+    "id": "c2",
+    "subject": {
+     "reference": "Patient/eK1"
+    },
+    "onsetDateTime": "2015-01-20",
+    "clinicalStatus": {
+     "text": "Active",
+     "coding": [
+      {
+       "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+       "code": "active",
+       "display": "Active"
+      }
+     ]
+    },
+    "code": {
+     "text": "Essensiell hypertensjon",
+     "coding": [
+      {
+       "system": "http://hl7.org/fhir/sid/icd-10",
+       "code": "I10",
+       "display": "Essensiell hypertensjon"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "fullUrl": "Condition/c3",
+   "resource": {
+    "resourceType": "Condition",
+    "id": "c3",
+    "subject": {
+     "reference": "Patient/eK1"
+    },
+    "onsetDateTime": "2022-09-01",
+    "clinicalStatus": {
+     "text": "Resolved",
+     "coding": [
+      {
+       "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+       "code": "resolved",
+       "display": "Resolved"
+      }
+     ]
+    },
+    "code": {
+     "text": "Artrose høyre kne, protese 2023"
+    }
+   }
+  },
+  {
+   "fullUrl": "Medication/m1",
+   "resource": {
+    "resourceType": "Medication",
+    "id": "m1",
+    "code": {
+     "text": "Metoprolol depottablett 50 mg"
+    }
+   }
+  },
+  {
+   "fullUrl": "MedicationRequest/r1",
+   "resource": {
+    "resourceType": "MedicationRequest",
+    "id": "r1",
+    "status": "active",
+    "intent": "order",
+    "subject": {
+     "reference": "Patient/eK1"
+    },
+    "medicationCodeableConcept": {
+     "text": "Warfarin 2,5 mg tablett"
+    },
+    "dosageInstruction": [
+     {
+      "text": "Etter INR-skjema"
+     }
+    ]
+   }
+  },
+  {
+   "fullUrl": "MedicationRequest/r2",
+   "resource": {
+    "resourceType": "MedicationRequest",
+    "id": "r2",
+    "status": "active",
+    "intent": "order",
+    "subject": {
+     "reference": "Patient/eK1"
+    },
+    "medicationReference": {
+     "reference": "Medication/m1"
+    },
+    "dosageInstruction": [
+     {
+      "text": "1 tablett om morgenen"
+     }
+    ]
+   }
+  },
+  {
+   "fullUrl": "DocumentReference/d1",
+   "resource": {
+    "resourceType": "DocumentReference",
+    "id": "d1",
+    "status": "current",
+    "subject": {
+     "reference": "Patient/eK1"
+    },
+    "date": "2026-03-15T10:00:00+01:00",
+    "description": "Epikrise kardiologisk avdeling",
+    "author": [
+     {
+      "display": "Lege Per Aas, Sykehuset Midtby (simulert)"
+     }
+    ],
+    "content": [
+     {
+      "attachment": {
+       "contentType": "text/plain",
+       "data": "SW5ubGFndCAxMi4wMy4yMDI2IG1lZCBodXJ0aWcgYXRyaWVmbGltbWVyLCBmcmVrdmVucyAxNTAuIEZyZWt2ZW5zcmVndWxlcnQgbWVkIG1ldG9wcm9sb2wuIEVra29rYXJkaW9ncmFmaTogbm9ybWFsIHZlbnN0cmUgdmVudHJpa2tlbGZ1bmtzam9uLiBGb3J0c2V0dGVyIHdhcmZhcmluLCBJTlItbcOlbCAy4oCTMy4KCktvbnRyb2xsIGhvcyBmYXN0bGVnZSBvbSAyIHVrZXIgbWVkIElOUiBvZyBibG9kdHJ5a2su"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "fullUrl": "DocumentReference/d2",
+   "resource": {
+    "resourceType": "DocumentReference",
+    "id": "d2",
+    "status": "current",
+    "subject": {
+     "reference": "Patient/eK1"
+    },
+    "date": "2026-06-02T09:30:00+02:00",
+    "type": {
+     "text": "Poliklinisk notat"
+    },
+    "author": [
+     {
+      "display": "Lege Per Aas, Sykehuset Midtby (simulert)"
+     }
+    ],
+    "content": [
+     {
+      "attachment": {
+       "contentType": "text/plain",
+       "url": "Binary/b1"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "fullUrl": "Binary/b1",
+   "resource": {
+    "resourceType": "Binary",
+    "id": "b1",
+    "contentType": "text/plain",
+    "data": "UGFjZW1ha2Vya29udHJvbGwuIE5vcm1hbCBmdW5rc2pvbiwgYmF0dGVyaSA4IMOlci4gSW5nZW4gYXJ5dG1pZXIgcmVnaXN0cmVydCBzaWRlbiBmb3JyaWdlIGtvbnRyb2xsLiBOeSBrb250cm9sbCBvbSAxMiBtw6VuZWRlci4="
+   }
+  },
+  {
+   "fullUrl": "DocumentReference/d3",
+   "resource": {
+    "resourceType": "DocumentReference",
+    "id": "d3",
+    "status": "current",
+    "subject": {
+     "reference": "Patient/eK1"
+    },
+    "date": "2026-03-13T08:00:00+01:00",
+    "description": "EKG (PDF)",
+    "content": [
+     {
+      "attachment": {
+       "contentType": "application/pdf",
+       "url": "Binary/b2"
+      }
+     }
+    ]
+   }
+  }
+ ]
+}

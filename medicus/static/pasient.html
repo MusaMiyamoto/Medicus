@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pasientjournal – Medicus</title>
   <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/i18n.js"></script>
 </head>
 <body>
   <header class="topbar">
@@ -14,7 +15,7 @@
       <a href="/pasient" aria-current="page">Pasientjournal</a>
       <a href="/post">Post</a>
       <a href="/">Journalassistent</a>
-      <a href="/sikkerhet">Sikkerhet</a>
+      <a href="/overforing">Overføring</a>
     </nav>
     <div class="who" id="who"></div>
   </header>
@@ -67,6 +68,24 @@
     </div>
     <p id="status" class="status" role="status" aria-live="polite"></p>
   </main>
+
+  <!-- A patient who is not on the clinician's own list: the reason is logged and shown to the patient. -->
+  <dialog id="why" class="consent">
+    <form id="why-form" method="dialog">
+      <h2>Hvorfor åpner du journalen?</h2>
+      <p>Pasienten er ikke på listen din. Begrunnelsen lagres i tilgangsloggen, og pasienten kan se den på
+        Helsenorge sammen med navnet ditt.</p>
+      <label for="why-choice">Begrunnelse</label>
+      <select id="why-choice" required></select>
+      <label for="why-text">Forklaring <span class="muted" id="why-hint">(valgfri)</span></label>
+      <input id="why-text" maxlength="300" autocomplete="off">
+      <p id="why-error" class="status error" role="alert"></p>
+      <div class="row">
+        <button type="button" id="why-cancel" class="secondary">Avbryt</button>
+        <button type="submit" id="why-open">Åpne journal</button>
+      </div>
+    </form>
+  </dialog>
   <script src="/static/common.js"></script>
   <script src="/static/pasient.js"></script>
 </body>

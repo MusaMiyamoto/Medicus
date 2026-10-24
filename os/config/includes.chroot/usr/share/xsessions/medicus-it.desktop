@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=Medicus IT-modus
+Comment=Skrivebordet med IT-verktøy, bare for IT-personell
+Exec=medicus-it-session
+Type=Application

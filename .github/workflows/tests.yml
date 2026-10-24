@@ -1,0 +1,29 @@
+# Runs the tests on every push and pull request, on Debian 13 like Medicus OS itself, with exactly
+# the packages in the lock file (hashes checked).
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    container: debian:trixie
+    steps:
+      - name: System packages (Python 3.13, GTK 4 and its virtual display for the window tests)
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git python3 python3-venv \
+            python3-gi gir1.2-gtk-4.0 libgtk-4-bin
+      - uses: actions/checkout@v4
+      - name: Python packages from the lock file
+        run: |
+          python3 -m venv --system-site-packages /opt/venv
+          /opt/venv/bin/pip install --require-hashes -r requirements.txt
+          /opt/venv/bin/pip install "pytest==8.3.5"
+      - name: Tests
+        run: /opt/venv/bin/python -m pytest -q -p no:cacheprovider

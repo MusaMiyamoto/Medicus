@@ -1,7 +1,9 @@
 [Desktop Entry]
 Type=Application
-Name=Medicus Journalassistent
+Name=Journalassistent
+Name[en]=Journal assistant
 Comment=Lag journalnotat fra en konsultasjon – alt kjører lokalt
+Comment[en]=Make a journal note from a consultation – everything runs locally
 Exec=medicus-nettleser http://127.0.0.1:8000
 Icon=medicus-journal
 Terminal=false

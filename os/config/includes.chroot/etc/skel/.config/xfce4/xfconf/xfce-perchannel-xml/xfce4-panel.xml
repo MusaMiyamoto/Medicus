@@ -24,6 +24,7 @@
         <value type="int" value="9"/>
         <value type="int" value="2"/>
         <value type="int" value="3"/>
+        <value type="int" value="10"/>
         <value type="int" value="4"/>
         <value type="int" value="5"/>
         <value type="int" value="6"/>
@@ -52,7 +53,6 @@
         <value type="string" value="medicus-nettleser.desktop"/>
         <value type="string" value="medicus-journal.desktop"/>
         <value type="string" value="medicus-kalkulator.desktop"/>
-        <value type="string" value="medicus-sikkerhet.desktop"/>
         <value type="string" value="medicus-innbygger.desktop"/>
         <value type="string" value="medicus-utlevering.desktop"/>
         <value type="string" value="thunar.desktop"/>
@@ -82,6 +82,15 @@
     <property name="plugin-3" type="string" value="separator">
       <property name="expand" type="bool" value="true"/>
       <property name="style" type="uint" value="0"/>
+    </property>
+    <!-- Keyboard layout: Norwegian or Northern Sámi (Alt+Shift), shown as text: "no" for Norwegian,
+         "no" with a small dot for Northern Sámi (a variant of the Norwegian layout). display-scale keeps
+         the text about the size of the clock instead of filling the whole panel height. -->
+    <property name="plugin-10" type="string" value="xkb">
+      <property name="display-type" type="uint" value="1"/>
+      <property name="display-name" type="uint" value="1"/>
+      <property name="display-scale" type="uint" value="45"/>
+      <property name="group-policy" type="uint" value="0"/>
     </property>
     <property name="plugin-4" type="string" value="systray">
       <property name="square-icons" type="bool" value="true"/>

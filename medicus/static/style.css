@@ -1,4 +1,9 @@
 /* Medicus green. --topbar stays dark green in both themes. */
+
+/* `hidden` must win over any display rule below (.recording-bar, .patient-chosen … are flex),
+   or a hidden recording bar or empty patient box shows. */
+[hidden] { display: none !important; }
+
 :root {
   --bg: #f2f6f3;
   --card: #ffffff;
@@ -87,7 +92,7 @@ main.wide { max-width: 1280px; }
   display: block; width: 100%; text-align: left; background: transparent; color: var(--text);
   border: 0; border-top: 1px solid var(--border); border-radius: 0; padding: 10px 6px; font-weight: normal;
 }
-.message-list button.active { background: var(--ok-bg); }
+.message-list button.active { background: var(--ok-bg); box-shadow: inset 4px 0 0 var(--accent); }
 .message-list button.unread .subject { font-weight: 700; }
 .message-list .from, .message-list .subject { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .badge { display: inline-block; font-size: 0.78rem; font-weight: 700; padding: 1px 8px; border-radius: 99px; }
@@ -142,6 +147,9 @@ h3.group { margin: 22px 0 10px; font-size: 1rem; color: var(--muted); text-trans
 .check.advarsel .icon { background: #c98a00; }
 .check.feil .icon { background: var(--danger); }
 .check.info .icon { background: #6b7a8f; }
+.check .state { font-size: 0.8rem; font-weight: 700; padding: 1px 8px; border-radius: 99px; border: 1px solid currentColor; }
+.check.advarsel .state { color: var(--warn-text); }
+.check.feil .state { color: var(--danger); }
 .scan { font-size: 0.85rem; font-weight: 600; }
 .scan.ok { color: var(--ok-text); }
 .scan.warn { color: var(--warn-text); }
@@ -194,6 +202,7 @@ button, .button {
   font-weight: 600;
   margin: 0;
   padding: 10px 16px;
+  min-height: 44px;  /* big enough to hit with gloves on a touch screen */
   border-radius: 8px;
   border: 1px solid var(--accent);
   background: var(--accent);
@@ -208,6 +217,30 @@ button:focus-visible, .button:focus-within { outline: 3px solid var(--accent); o
 .status { min-height: 1.5em; color: var(--muted); }
 .status.error { color: var(--danger); }
 
+/* Source check: each sentence of the draft, with where it comes from. Every status has a symbol and
+   a word as well as a colour, so it reads the same without colour vision. */
+.source-list { list-style: none; padding: 0; margin: -6px 0 14px; display: grid; gap: 4px; }
+.source-chip {
+  display: inline-block; text-align: left; font-weight: 500; min-height: 0;
+  padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--text); white-space: normal;
+}
+button.source-chip { width: 100%; cursor: pointer; min-height: 36px; }
+.source-chip.støttet { background: var(--ok-bg); color: var(--ok-text); border-color: transparent; }
+.source-chip.svak { background: var(--warn-bg); color: var(--warn-text); border-color: transparent; }
+.source-chip.ukjent { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); font-weight: 700; }
+.source-chip.mangler { color: var(--muted); border-style: dashed; }
+.source-chip.active { outline: 3px solid var(--accent); outline-offset: 1px; }
+.source-legend { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.source-lines {
+  max-height: 260px; overflow: auto; margin: 0; padding: 8px 8px 8px 36px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+}
+.source-lines li { padding: 2px 4px; border-radius: 4px; }
+.source-lines li.hit { background: var(--ok-bg); color: var(--ok-text); font-weight: 600; }
+.source-summary { font-weight: 600; }
+.source-summary.warning { margin: 8px 0; }
+
 /* "Om Medicus": list of open-source components */
 .licenses { width: 100%; border-collapse: collapse; margin: 12px 0; }
 .licenses th, .licenses td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #d2ddd5; vertical-align: top; }
@@ -215,3 +248,47 @@ button:focus-visible, .button:focus-within { outline: 3px solid var(--accent); o
 
 /* Paperclip on messages with attachments */
 .clip { vertical-align: -2px; color: #5b6b63; margin-left: 2px; }
+
+/* Emergency access report */
+form.report { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
+form.report button { margin-top: 8px; }
+
+/* Recording a consultation: consent first, then a clear "recording" bar */
+dialog.consent { max-width: 560px; border: none; border-radius: 14px; padding: 22px 24px; }
+dialog.consent::backdrop { background: rgba(0, 0, 0, 0.45); }
+dialog.consent blockquote { margin: 10px 0; padding: 10px 14px; border-left: 4px solid var(--accent, #1a7f4b);
+  background: var(--ok-bg); border-radius: 6px; }
+label.check { display: flex; gap: 8px; align-items: center; font-weight: 600; margin: 14px 0; }
+.recording-bar { display: flex; gap: 12px; align-items: center; margin: 10px 0; font-weight: 700; color: var(--danger); }
+.recording-bar .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--danger); animation: blink 1s infinite; }
+.recording-bar button { margin-left: auto; }
+@keyframes blink { 50% { opacity: 0.3; } }
+
+/* Patient picker in the journal assistant: a search field that drops down the doctor's patients */
+.picker { position: relative; }
+.picker-list { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5; list-style: none; margin: 0;
+  padding: 4px; max-height: 320px; overflow-y: auto; background: var(--card, #fff); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18); }
+.picker-list li { display: flex; justify-content: space-between; gap: 12px; padding: 9px 12px; border-radius: 8px; cursor: pointer; }
+.picker-list li[aria-selected="true"], .picker-list li:hover { background: var(--ok-bg); }
+.picker-list li.empty { cursor: default; color: var(--muted); background: none; }
+.picker-list .meta { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.patient-chosen { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px;
+  border-radius: 10px; background: var(--ok-bg); border-left: 5px solid var(--accent); }
+.small { font-size: 0.85rem; margin: 8px 0 0; }
+
+/* Transfer from Epic */
+.transfer-list { margin: 4px 0 12px; padding-left: 20px; }
+.transfer-doc { border-top: 1px solid var(--border); padding: 10px 0; }
+.drop { display: block; border: 2px dashed var(--border); border-radius: 12px; padding: 22px; text-align: center; cursor: pointer; }
+.drop:hover, .drop.over { border-color: var(--accent); background: var(--ok-bg); }
+
+/* Glove-friendly: everything you tap is at least 44 × 44 px (WCAG 2.5.5), with room between targets,
+   so it works with nitrile gloves on a touch screen and with a shaky hand on a mouse. */
+.topbar nav a { display: inline-flex; align-items: center; min-height: 44px; padding: 6px 14px; }
+input, select { min-height: 44px; }
+.picker-list li { min-height: 44px; align-items: center; }
+button.source-chip { min-height: 44px; }
+input[type="checkbox"], input[type="radio"] { width: 24px; height: 24px; min-height: 0; flex: none; }
+label.check { min-height: 44px; }
+.message-list button, .patients button { min-height: 44px; }

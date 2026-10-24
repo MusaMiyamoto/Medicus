@@ -1,0 +1,4 @@
+#!/bin/sh
+# Task Manager (IT mode): see oppgaver/__main__.py. -I: the environment can't make this load other
+# code, which matters because `stopp` runs as root through sudo.
+exec /usr/bin/python3 -I -c "import sys; sys.path.insert(0, '/opt/medicus'); from oppgaver.__main__ import main; sys.exit(main())" "$@"

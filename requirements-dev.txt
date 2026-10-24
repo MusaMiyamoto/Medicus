@@ -1,2 +1,4 @@
--r requirements.txt
+# For developers on any OS: the version ranges, without hashes. The OS build and CI use the exact
+# lock file requirements.txt instead (see requirements.in for how to update it).
+-r requirements.in
 pytest>=8.0

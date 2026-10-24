@@ -8,6 +8,9 @@ import subprocess
 import time
 from pathlib import Path
 
+import utstyr
+import wlan
+
 OK, WARN, FAIL, INFO = "ok", "advarsel", "feil", "info"
 
 
@@ -84,3 +87,78 @@ def checks(active=unit_active, read=read, now=time.time) -> list[dict]:
                    "forklaring": "All trafikk går kryptert til helsenettet. Annen trafikk er blokkert."
                    if vpn else "Ikke satt opp ennå. Krever avtale med Norsk helsenett eller IT-avdelingen."})
     return result
+
+
+def medical_devices(devices: list, entries: list[dict]) -> dict:
+    """Approved medical USB devices, and anything plugged in that the USB lock is blocking."""
+    blocked = [d for d in devices if utstyr.status(d, entries) == "blokkert"]
+    text = f"{len(entries)} godkjent(e). Endres med «Medisinsk utstyr (USB)» i IT-menyen."
+    if not blocked:
+        return {"navn": "Medisinsk USB-utstyr", "status": OK, "forklaring": text}
+    names = ", ".join(f"{d.name or 'ukjent enhet'} ({d.vendor}:{d.product}, port {d.port})" for d in blocked[:5])
+    return {"navn": "Medisinsk USB-utstyr", "status": INFO,
+            "forklaring": f"Blokkert nå: {names}. Godkjenn bare utstyr virksomheten har kjøpt inn. {text}"}
+
+
+def machine_certificate() -> dict:
+    """The Wi-Fi machine certificate (key in the TPM) and how long it is valid."""
+    end = None
+    if wlan.CERT.exists():
+        try:
+            out = subprocess.run(["openssl", "x509", "-in", str(wlan.CERT), "-noout", "-enddate"],
+                                 capture_output=True, text=True, timeout=5).stdout
+            end = wlan.parse_enddate(out)
+        except (OSError, ValueError, subprocess.TimeoutExpired):
+            pass
+    return wlan.certificate_status(wlan.TPM_DEVICE.exists(), end, len(wlan.load()))
+
+
+SLOW_SECONDS, VERY_SLOW_SECONDS = 1.0, 3.0
+
+
+def response_time(seconds: list[float]) -> dict:
+    """How long the record system takes to answer (the survey's second biggest complaint: waiting).
+    Durations only, no people or patients, so this measures the system, not the staff."""
+    name = "Svartid journalsystem"
+    if not seconds:
+        return {"navn": name, "status": INFO, "forklaring": "Ingen kall til journalsystemet siden start ennå."}
+    ordered = sorted(seconds)
+    median = ordered[len(ordered) // 2]
+    slowest = ordered[min(len(ordered) - 1, int(len(ordered) * 0.9))]  # 9 of 10 calls are at most this
+
+    def s(value):
+        return f"{value:.1f}".replace(".", ",")
+    text = f"Median {s(median)} s. 9 av 10 kall tar høyst {s(slowest)} s ({len(ordered)} kall)."
+    if median >= VERY_SLOW_SECONDS:
+        return {"navn": name, "status": FAIL, "forklaring": f"{text} Svært tregt: meld fra til leverandøren."}
+    if median >= SLOW_SECONDS or slowest >= VERY_SLOW_SECONDS:
+        return {"navn": name, "status": WARN, "forklaring": f"{text} Tregt: følg med."}
+    return {"navn": name, "status": OK, "forklaring": text}
+
+
+def emergency_reports(late: list[dict] | None) -> dict:
+    """Emergency access must be explained before the shift ends. Late reports go to the security officer."""
+    if late is None:
+        return {"navn": "Nødtilgangsrapporter", "status": WARN, "forklaring": "Får ikke kontakt med innloggingstjenesten."}
+    if not late:
+        return {"navn": "Nødtilgangsrapporter", "status": OK, "forklaring": "Alle nødtilganger er forklart innen fristen."}
+    who = ", ".join(f"{r['navn']} ({r['startet'].replace('T', ' ')})" for r in late[:5])
+    return {"navn": "Nødtilgangsrapporter", "status": FAIL,
+            "forklaring": f"{len(late)} rapport(er) mangler etter fristen: {who}. Gi beskjed til personvernombudet."}
+
+
+def workplace(site_id: str, site_name: str, cert_site: str | None) -> dict:
+    """Is the workplace in arbeidssted.toml the one the hospital's CA signed into the machine certificate?"""
+    from tilgang.arbeidssted import CONFIRMED, MISMATCH, confirmation
+    name = "Arbeidssted"
+    state = confirmation(site_id, cert_site)
+    if state == CONFIRMED:
+        return {"navn": name, "status": OK, "forklaring": f"{site_name}. Bekreftet av maskinsertifikatet."}
+    if state == MISMATCH:
+        signed = f"«{cert_site}»" if cert_site else "et sertifikat som ikke kan leses"
+        return {"navn": name, "status": FAIL,
+                "forklaring": f"PC-en sier «{site_id}», men maskinsertifikatet sier {signed}. Pasientjournaler er "
+                              "stengt til dette er rettet. Sjekk /etc/medicus/arbeidssted.toml og sertifikatet."}
+    return {"navn": name, "status": INFO,
+            "forklaring": f"{site_name}. Ikke bekreftet ennå: maskinsertifikatet mangler eller er fra før "
+                          "arbeidsstedet ble signert inn (lag et nytt med «medicus-wlan foresporsel»)."}

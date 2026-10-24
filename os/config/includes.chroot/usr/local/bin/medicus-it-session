@@ -1,0 +1,8 @@
+#!/bin/sh
+# IT mode: the normal desktop plus the IT tools in /usr/share/medicus-it/applications
+# (Sikkerhetssenter, terminal, all settings, task manager, network, IT handbook).
+# The tools themselves are also locked to the medicus-it group (see the build hook), so this
+# folder only decides what is *shown*; it is not what keeps others out.
+id -nG | tr " " "\n" | grep -qx medicus-it || exit 1
+export XDG_DATA_DIRS=/usr/share/medicus-it:/usr/local/share:/usr/share
+exec startxfce4

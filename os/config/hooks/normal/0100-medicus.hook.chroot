@@ -8,11 +8,13 @@ for account in medicus medicus-auth medicus-sim; do
 done
 groupadd -f medicus-personell
 groupadd -f medicus-nod
+groupadd -f medicus-it   # IT staff: IT mode, admin rights with the IT card
 
 # --- Python environment for the web services -----------------------------------
 python3 -m venv /opt/medicus/.venv
-/opt/medicus/.venv/bin/pip install --no-cache-dir -r /opt/medicus/requirements.txt
-python3 -m compileall -q /opt/medicus/medicus /opt/medicus/helsenett /opt/medicus/tilgang /opt/medicus/kalkulator /opt/medicus/tekst
+# Exact versions with hashes (requirements.txt is the lock file): a changed package on PyPI stops the build.
+/opt/medicus/.venv/bin/pip install --no-cache-dir --require-hashes -r /opt/medicus/requirements.txt
+python3 -m compileall -q /opt/medicus/medicus /opt/medicus/helsenett /opt/medicus/tilgang /opt/medicus/kalkulator /opt/medicus/tekst /opt/medicus/oppgaver
 
 # Synthetic X-ray and MR images in every user's "Bilder" folder, for trying image sharing.
 mkdir -p /etc/skel/Bilder
@@ -29,6 +31,7 @@ EOF
 
 # --- Simulated health-personnel cards ------------------------------------------
 # Hash the demo PINs, delete the plain-text file, and create one account per card.
+# IT cards go in medicus-it (IT mode), everyone else in medicus-personell.
 PYTHONPATH=/opt/medicus python3 - <<'EOF'
 import json, subprocess
 from tilgang.cards import build_cards_file
@@ -36,7 +39,8 @@ from tilgang.cards import build_cards_file
 build_cards_file("/etc/medicus/simkort-demo.json", "/etc/medicus/simkort.json")
 for card in json.load(open("/etc/medicus/simkort.json", encoding="utf-8")):
     subprocess.run(["adduser", "--disabled-password", "--comment", card["navn"], card["username"]], check=True)
-    subprocess.run(["usermod", "-aG", "medicus-personell,audio,video", card["username"]], check=True)
+    group = "medicus-it" if card["rolle"] == "IT" else "medicus-personell"
+    subprocess.run(["usermod", "-aG", f"{group},audio,video", card["username"]], check=True)
 EOF
 rm /etc/medicus/simkort-demo.json
 chown medicus-auth:medicus-auth /etc/medicus/simkort.json
@@ -62,20 +66,43 @@ install -m 644 /opt/medicus/deploy/medicus.service /etc/systemd/system/medicus.s
 systemctl enable medicus.service medicus-auth.service medicus-oktvakt.service medicus-helsenett-sim.service
 systemctl enable nftables.service apparmor.service usbguard.service auditd.service \
   clamav-daemon.service clamav-freshclam.service tinyproxy.service
-systemctl enable home.mount var-tmp.mount
+systemctl enable home.mount var-tmp.mount medicus-journalsystem.timer medicus-rydd-hjem.service
 
 # --- Hardening: switch off what a clinical workstation doesn't need -------------
 systemctl mask avahi-daemon.service avahi-daemon.socket bluetooth.service \
   ctrl-alt-del.target getty@.service autovt@.service serial-getty@.service \
-  debug-shell.service 2>/dev/null || true
+  debug-shell.service hibernate.target hybrid-sleep.target suspend-then-hibernate.target 2>/dev/null || true
 chmod 700 /root
 chmod 600 /etc/usbguard/rules.conf
 chmod 700 /etc/wireguard
 sed -i 's/^ImplicitPolicyTarget=.*/ImplicitPolicyTarget=block/; s/^PresentDevicePolicy=.*/PresentDevicePolicy=apply-policy/' \
   /etc/usbguard/usbguard-daemon.conf
+# Medical USB devices approved by IT (medicus-utstyr) get their rules in rules.d.
+mkdir -p /etc/usbguard/rules.d
+chmod 700 /etc/usbguard/rules.d
+sed -i '/^#\?RuleFolder=/d' /etc/usbguard/usbguard-daemon.conf
+echo "RuleFolder=/etc/usbguard/rules.d/" >> /etc/usbguard/usbguard-daemon.conf
+[ -f /etc/medicus/medisinsk-utstyr.json ] || echo "[]" > /etc/medicus/medisinsk-utstyr.json
+chmod 644 /etc/medicus/medisinsk-utstyr.json
+# Machine certificate: the TPM token store and its PIN are root only (medicus-wlan).
+mkdir -p /etc/medicus/tpm
+chmod 700 /etc/medicus/tpm
+[ -f /etc/medicus/wlan.json ] || echo "[]" > /etc/medicus/wlan.json
 
 # Desktop shortcuts link to these files, so they must be executable (see medicus-skrivebord).
-chmod 755 /usr/share/applications/medicus-*.desktop
+chmod 755 /usr/share/applications/medicus-*.desktop /usr/share/medicus-it/applications/*.desktop
+
+# --- IT mode: tools only IT staff can start -------------------------------------------
+# Hiding them from the menu is not enough, so the programs themselves belong to medicus-it.
+for tool in /usr/bin/xfce4-terminal /usr/local/bin/medicus-oppgaver /usr/bin/xfce4-settings-manager \
+            /usr/bin/nm-connection-editor; do
+  dpkg-statoverride --update --add root medicus-it 0750 "$tool"
+done
+# sudo: only IT staff can even start it, and it asks for the IT card PIN (etc/pam.d/sudo).
+dpkg-statoverride --update --add root medicus-it 4750 /usr/bin/sudo
+chmod 440 /etc/sudoers.d/medicus-it
+# IT users get an amber taskbar (so you see at once that this is IT mode) and IT favourites.
+python3 /usr/local/lib/medicus/it-panel
 
 # --- Our own identity: no terminals, no other brands in what users see ----------------
 # xterm and vim come in as dependencies; a terminal would undo the "no command line" rule.
@@ -121,3 +148,28 @@ cp /usr/share/medicus/wallpapers/nordlys.svg /usr/share/backgrounds/xfce/xfce-x.
 for w in /usr/share/medicus/wallpapers/*.svg /usr/share/medicus/wallpaper.svg; do
   cp "$w" "/usr/share/backgrounds/xfce/medicus-$(basename "$w")"
 done
+# Debian's own theme (desktop-base) is what the lock screen and other programs fall back to. Give
+# it a Medicus theme with the same layout and make that the active one, so Debian's art never shows.
+theme=/usr/share/desktop-base/medicus-theme
+mkdir -p "$theme/wallpaper/contents/images" "$theme/lockscreen/contents/images" "$theme/login"
+for part in wallpaper lockscreen; do
+  files=""
+  for size in 1280x800 1280x1024 1920x1080 1920x1200 2520x1080 1080x2160; do
+    cp /usr/share/medicus/wallpapers/nordlys.svg "$theme/$part/contents/images/$size.svg"
+    files="$files<size width=\"${size%x*}\" height=\"${size#*x}\">$theme/$part/contents/images/$size.svg</size>"
+  done
+  printf '<background><static><duration>8640000.0</duration><file>%s</file></static></background>\n' \
+    "$files" > "$theme/$part/gnome-background.xml"
+done
+cp /usr/share/medicus/wallpapers/nordlys.svg "$theme/login/background.svg"
+cp /usr/share/medicus/wallpapers/nordlys.svg "$theme/login/background-nologo.svg"
+update-alternatives --install /usr/share/desktop-base/active-theme desktop-theme "$theme" 100
+update-alternatives --set desktop-theme "$theme"
+
+# --- Software bill of materials (SBOM): every Debian and Python package, exact versions --------
+# Last, so it lists what is really in the image. build.sh copies it next to the ISO too.
+dpkg-query -W -f '${Package}\t${Version}\t${Architecture}\n' > /tmp/sbom-deb.tsv
+/opt/medicus/.venv/bin/pip list --format=json > /tmp/sbom-pip.json
+python3 /opt/medicus/deploy/sbom.py /tmp/sbom-deb.tsv /tmp/sbom-pip.json "$(cat /etc/medicus/versjon)" \
+  > /usr/share/doc/medicus/sbom.cdx.json
+rm /tmp/sbom-deb.tsv /tmp/sbom-pip.json

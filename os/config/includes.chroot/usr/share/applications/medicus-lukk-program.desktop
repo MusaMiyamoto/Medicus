@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Lukk program som henger
+Name[en]=Close a frozen program
+Comment=Lukk et av programmene du jobber i hvis det har hengt seg opp (Ctrl+Shift+Esc)
+Comment[en]=Close one of the programs you work in if it has frozen (Ctrl+Shift+Esc)
+Exec=medicus-lukk-program
+Icon=process-stop
+Terminal=false
+Categories=System;
+Keywords=henger;frosset;lukk;svarer ikke;oppgavebehandling;

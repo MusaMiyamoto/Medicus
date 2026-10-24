@@ -2,3 +2,19 @@
 # The login screen and every Medicus app show this as the workplace of whoever logs in here.
 id = "ous-ulleval"
 navn = "Oslo universitetssykehus, Ullevål"
+
+# The site's clinical networks (VLANs), as subnets. When set, normal logins only work while the PC
+# is connected with its TPM machine certificate (medicus-wlan) AND has an address in one of these.
+# Emergency access and IT mode still work elsewhere, marked in the audit log. See the IT handbook.
+# nett = ["10.20.0.0/16"]
+
+# Tap-in: after taking the card out, putting the same card back resumes the session without the PIN,
+# for up to this many minutes after the PIN was last typed (max 720, one shift). 0 or unset = off,
+# so the PIN is always asked for. Only normal mode, and only after card-out: a screen locked with
+# the card still in the reader always needs the PIN.
+# kort_uten_pin_minutter = 240
+
+# A PC that goes out with home nurses, ambulances or on-call doctors. Then the always-on VPN to the
+# health network (medicus-vpn, with its kill switch) counts as the clinical network: put the
+# hospital's VPN address range in `nett`. Tap-in is always off on mobile PCs.
+# profil = "mobil"

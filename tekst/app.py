@@ -3,22 +3,39 @@
 Medicus has its own editor so no other product's name shows in the window title.
 """
 
+import os
 import sys
 from pathlib import Path
 
 import gi
 
 gi.require_version("Gtk", "4.0")
+gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, Gio, GLib, Gtk  # noqa: E402
 
 from . import dokument  # noqa: E402
 
 APP_ID = "no.medicus.Tekst"
 ICON = "medicus-tekst"
+# English when the session was started in English on the login screen.
+EN = {"Nytt dokument (Ctrl+N)": "New document (Ctrl+N)", "Lagre (Ctrl+S)": "Save (Ctrl+S)",
+      "Lagre som (Ctrl+Shift+S)": "Save as (Ctrl+Shift+S)", "Angre (Ctrl+Z)": "Undo (Ctrl+Z)",
+      "Gjør om (Ctrl+Y)": "Redo (Ctrl+Y)", "Kunne ikke åpne {}.": "Could not open {}.",
+      "Kunne ikke lagre {}. Er disken full, eller mangler du tilgang?":
+          "Could not save {}. Is the disk full, or do you lack access?",
+      "Lagre som": "Save as", "Vil du lagre endringene i «{}»?": "Save the changes to \"{}\"?",
+      "Endringene går tapt hvis du ikke lagrer.": "The changes are lost if you don't save.",
+      "Avbryt": "Cancel", "Ikke lagre": "Don't save", "Lagre": "Save",
+      "Filen er for stor til å åpnes i Text.": "The file is too large to open in Text.",
+      "Dette er ikke en tekstfil.": "This is not a text file."}
+
+
+def _(text: str) -> str:
+    return EN.get(text, text) if os.environ.get("LANG", "").startswith("en") else text
 
 CSS = """
 .tekst-bar { padding: 4px 6px; }
-.tekst-bar button { min-height: 32px; }
+.tekst-bar button { min-height: 44px; min-width: 44px; }  /* glove-friendly */
 textview.tekst { font-size: 12pt; }
 textview.tekst text { padding: 6px; }
 .error { color: #b3261e; padding: 6px 0; }
@@ -81,12 +98,12 @@ class TekstWindow(Gtk.ApplicationWindow):
         bar = Gtk.Box(spacing=4)
         bar.add_css_class("tekst-bar")
         for icon, tooltip, action in (
-            ("document-new-symbolic", "Nytt dokument (Ctrl+N)", "win.ny"),
+            ("document-new-symbolic", _("Nytt dokument (Ctrl+N)"), "win.ny"),
             ("document-open-symbolic", "Åpne (Ctrl+O)", "win.apne"),
-            ("document-save-symbolic", "Lagre (Ctrl+S)", "win.lagre"),
-            ("document-save-as-symbolic", "Lagre som (Ctrl+Shift+S)", "win.lagre-som"),
-            ("edit-undo-symbolic", "Angre (Ctrl+Z)", "win.angre"),
-            ("edit-redo-symbolic", "Gjør om (Ctrl+Y)", "win.gjor-om"),
+            ("document-save-symbolic", _("Lagre (Ctrl+S)"), "win.lagre"),
+            ("document-save-as-symbolic", _("Lagre som (Ctrl+Shift+S)"), "win.lagre-som"),
+            ("edit-undo-symbolic", _("Angre (Ctrl+Z)"), "win.angre"),
+            ("edit-redo-symbolic", _("Gjør om (Ctrl+Y)"), "win.gjor-om"),
         ):
             button = Gtk.Button.new_from_icon_name(icon)
             button.set_tooltip_text(tooltip)
@@ -100,7 +117,7 @@ class TekstWindow(Gtk.ApplicationWindow):
         try:
             text = dokument.read_text(path)
         except (OSError, dokument.OpenError) as e:
-            self.show_message(str(e) if isinstance(e, dokument.OpenError) else f"Kunne ikke åpne {path.name}.")
+            self.show_message(_(str(e)) if isinstance(e, dokument.OpenError) else _("Kunne ikke åpne {}.").format(path.name))
             return
         self.buffer.begin_irreversible_action()
         self.buffer.set_text(text)
@@ -115,7 +132,7 @@ class TekstWindow(Gtk.ApplicationWindow):
         try:
             dokument.write_text(path, self.buffer.get_text(start, end, False))
         except OSError:
-            self.show_message(f"Kunne ikke lagre {path.name}. Er disken full, eller mangler du tilgang?")
+            self.show_message(_("Kunne ikke lagre {}. Er disken full, eller mangler du tilgang?").format(path.name))
             return False
         self.path = path
         self.buffer.set_modified(False)
@@ -158,7 +175,7 @@ class TekstWindow(Gtk.ApplicationWindow):
             self.on_save_as()
 
     def on_save_as(self, *_, then_close=False):
-        dialog = Gtk.FileDialog(title="Lagre som", initial_folder=documents_folder(),
+        dialog = Gtk.FileDialog(title=_("Lagre som"), initial_folder=documents_folder(),
                                 initial_name=self.path.name if self.path else f"{dokument.UNTITLED}.txt")
         dialog.save(self, None, self.saved, then_close)
 
@@ -175,9 +192,9 @@ class TekstWindow(Gtk.ApplicationWindow):
         if self.closing or not self.buffer.get_modified():
             return False
         name = self.path.name if self.path else dokument.UNTITLED
-        alert = Gtk.AlertDialog(message=f"Vil du lagre endringene i «{name}»?",
-                                detail="Endringene går tapt hvis du ikke lagrer.",
-                                buttons=["Avbryt", "Ikke lagre", "Lagre"], cancel_button=0, default_button=2)
+        alert = Gtk.AlertDialog(message=_("Vil du lagre endringene i «{}»?").format(name),
+                                detail=_("Endringene går tapt hvis du ikke lagrer."),
+                                buttons=[_("Avbryt"), _("Ikke lagre"), _("Lagre")], cancel_button=0, default_button=2)
         alert.choose(self, None, self.answered)
         return True
 

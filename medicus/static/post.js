@@ -3,7 +3,7 @@
 
 const BADGE = {
   verifisert: '<span class="badge verifisert">✓ Verifisert</span>',
-  ekstern: '<span class="badge ekstern">Ekstern</span>',
+  ekstern: '<span class="badge ekstern">↗ Ekstern</span>',
   mistenkelig: '<span class="badge mistenkelig">⚠ Mistenkelig</span>',
 };
 const statusEl = document.getElementById("status");
@@ -29,7 +29,7 @@ async function loadList() {
   try {
     const items = await api(`/api/post/${box}`);
     list.innerHTML = items.map((m) => `
-      <li><button type="button" data-id="${m.id}" class="${m.lest ? "" : "unread"} ${current === m.id ? "active" : ""}">
+      <li><button type="button" data-id="${m.id}" class="${m.lest ? "" : "unread"} ${current === m.id ? "active" : ""}" ${current === m.id ? 'aria-current="true"' : ""}>
         ${BADGE[m.nivå]} ${m.vedlegg ? CLIP : ""}
         <span class="from">${esc(sender(m))}</span>
         <span class="subject">${esc(m.emne)}</span>

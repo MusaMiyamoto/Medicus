@@ -6,6 +6,7 @@ from pathlib import Path
 import gi
 
 gi.require_version("Gtk", "4.0")
+gi.require_version("Gdk", "4.0")
 gi.require_version("WebKit", "6.0")
 from gi.repository import Gio, GLib, Gtk, WebKit  # noqa: E402
 
@@ -16,10 +17,17 @@ from . import regler, sider  # noqa: E402
 APP_ID = "no.medicus.Nettleser"
 PROXY = "http://127.0.0.1:8888"
 ICON = Path(__file__).parent.parent / "branding" / "nettleser.svg"
+# English when the session was started in English on the login screen.
+EN = {"Nettleser": "Browser", "Tilbake": "Back", "Fremover": "Forward", "Last inn på nytt": "Reload",
+      "Godkjente nettsteder": "Approved websites"}
+
+
+def _(text: str) -> str:
+    return EN.get(text, text) if sider.english() else text
 
 CSS = """
 .medicus-bar { background: #0f4f2f; color: #ffffff; padding: 4px 8px; }
-.medicus-bar button { color: #ffffff; background: transparent; border: none; min-width: 34px; min-height: 34px; border-radius: 8px; }
+.medicus-bar button { color: #ffffff; background: transparent; border: none; min-width: 44px; min-height: 44px; border-radius: 8px; }  /* glove-friendly */
 .medicus-bar button:hover { background: rgba(255, 255, 255, 0.14); }
 .medicus-bar button:disabled { opacity: 0.35; }
 .medicus-bar entry { min-height: 34px; border-radius: 10px; background: rgba(255, 255, 255, 0.12);
@@ -52,7 +60,7 @@ def on_download(_session, download):
 
 class BrowserWindow(Gtk.ApplicationWindow):
     def __init__(self, app, session, url, kiosk=False):
-        super().__init__(application=app, title="Medicus Nettleser")
+        super().__init__(application=app, title=_("Nettleser"))
         self.set_default_size(1200, 800)
         self.set_icon_name("medicus-nettleser")
         self.kiosk = kiosk
@@ -91,16 +99,16 @@ class BrowserWindow(Gtk.ApplicationWindow):
         bar = Gtk.Box(spacing=4)
         bar.add_css_class("medicus-bar")
         self.back = Gtk.Button.new_from_icon_name("go-previous-symbolic")
-        self.back.set_tooltip_text("Tilbake")
+        self.back.set_tooltip_text(_("Tilbake"))
         self.back.connect("clicked", lambda *_: self.view.go_back())
         self.forward = Gtk.Button.new_from_icon_name("go-next-symbolic")
-        self.forward.set_tooltip_text("Fremover")
+        self.forward.set_tooltip_text(_("Fremover"))
         self.forward.connect("clicked", lambda *_: self.view.go_forward())
         reload = Gtk.Button.new_from_icon_name("view-refresh-symbolic")
-        reload.set_tooltip_text("Last inn på nytt")
+        reload.set_tooltip_text(_("Last inn på nytt"))
         reload.connect("clicked", lambda *_: self.view.reload())
         home = Gtk.Button.new_from_icon_name("go-home-symbolic")
-        home.set_tooltip_text("Godkjente nettsteder")
+        home.set_tooltip_text(_("Godkjente nettsteder"))
         home.connect("clicked", lambda *_: self.open(regler.HOME))
         self.address = Gtk.Entry(hexpand=True)
         self.address.connect("activate", lambda e: self.open(regler.normalize(e.get_text())))
@@ -200,7 +208,7 @@ class BrowserApp(Gtk.Application):
 
     def do_startup(self):
         Gtk.Application.do_startup(self)
-        GLib.set_application_name("Medicus Nettleser")
+        GLib.set_application_name(_("Nettleser"))
         provider = Gtk.CssProvider()
         provider.load_from_string(CSS)
         from gi.repository import Gdk

@@ -1,0 +1,9 @@
+#%PAM-1.0
+# Medicus IT mode: admin commands (sudo) are confirmed with the IT card + PIN. No passwords.
+# seteuid: run the check as root, so medicus-authd trusts it (sudo is setuid root).
+auth      requisite  pam_succeed_if.so quiet user ingroup medicus-it
+auth      [success=done ignore=ignore default=die]  pam_exec.so quiet seteuid expose_authtok stdout /usr/local/lib/medicus/pam-medicus
+auth      required   pam_permit.so
+@include common-account
+session   required   pam_limits.so
+@include common-session-noninteractive

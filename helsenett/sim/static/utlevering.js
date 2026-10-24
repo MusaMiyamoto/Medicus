@@ -50,7 +50,7 @@ function showBases() {
 }
 
 async function load() {
-  const data = await api("/api/utlevering");
+  const data = await api("api/utlevering");
   document.getElementById("queue").innerHTML = data["forespørsler"].map(requestCard).join("")
     || "<p class='muted'>Ingen forespørsler.</p>";
   document.querySelectorAll("form.decision").forEach((form) => form.addEventListener("submit", decide));
@@ -70,7 +70,7 @@ async function decide(event) {
   const form = event.target;
   const status = form.querySelector(".status");
   try {
-    await api(`/api/utlevering/${form.dataset.id}/vedtak`, {
+    await api(`api/utlevering/${form.dataset.id}/vedtak`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -93,7 +93,7 @@ document.getElementById("form").addEventListener("submit", async (event) => {
   const status = document.getElementById("form-status");
   const data = [...document.querySelectorAll("#categories input:checked")].map((c) => c.value);
   try {
-    const r = await api("/api/utlevering", {
+    const r = await api("api/utlevering", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

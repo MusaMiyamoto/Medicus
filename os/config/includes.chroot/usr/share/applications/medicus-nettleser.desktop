@@ -1,7 +1,9 @@
 [Desktop Entry]
 Type=Application
-Name=Medicus Nettleser
+Name=Nettleser
+Name[en]=Browser
 Comment=Sikker nettleser for godkjente helsenettsteder
+Comment[en]=Secure browser for approved health websites
 Exec=medicus-nettleser %u
 Icon=medicus-nettleser
 Terminal=false

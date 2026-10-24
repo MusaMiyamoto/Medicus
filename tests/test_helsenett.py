@@ -167,3 +167,11 @@ def test_nhn_mode_explains_what_is_missing():
 def test_unknown_mode_is_rejected():
     with pytest.raises(HelsenettError):
         get_client({"modus": "internett"})
+
+
+def test_the_simulator_service_only_answers_this_machine(tmp_path, monkeypatch):
+    from helsenett.sim.app import make_app
+    monkeypatch.setenv("MEDICUS_SIM_STATE", str(tmp_path / "state.json"))
+    app = make_app()
+    assert TestClient(app, base_url="http://127.0.0.1:8100").get("/api/pasienter").status_code == 200
+    assert TestClient(app, base_url="http://evil.example:8100").get("/api/pasienter").status_code == 400

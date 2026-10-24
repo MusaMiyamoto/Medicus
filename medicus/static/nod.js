@@ -55,7 +55,7 @@ document.getElementById("end").addEventListener("click", async () => {
 whoReady.then(async (me) => {
   if (!me) return;
   secondsLeft = me.sekunder_igjen ?? null;
-  if (me.begrunnelse) document.getElementById("reason").textContent = `Begrunnelse: ${me.begrunnelse}`;
+  if (me.situasjon) document.getElementById("reason").textContent = `Situasjon: ${me.situasjon}. `;
   tick();
   setInterval(tick, 1000);
   try {

@@ -15,14 +15,16 @@ if [ "$(id -u)" -ne 0 ]; then
   echo "Må kjøres som root: sudo sh os/build.sh" >&2
   exit 1
 fi
-for tool in lb rsvg-convert rsync; do
-  command -v "$tool" >/dev/null || { echo "Mangler $tool. Installer: apt install live-build librsvg2-bin rsync python3-pil" >&2; exit 1; }
+for tool in lb rsvg-convert rsync git; do
+  command -v "$tool" >/dev/null || { echo "Mangler $tool. Installer: apt install live-build librsvg2-bin rsync git python3-pil" >&2; exit 1; }
 done
 python3 -c "import PIL" 2>/dev/null || { echo "Mangler Pillow. Installer: apt install python3-pil" >&2; exit 1; }
 
 # Kernel hardening (Kernel Self Protection Project recommendations that Debian supports).
+# mem_encrypt=on: RAM is encrypted on CPUs with AMD SME (Intel TME is switched on in the firmware),
+# so a session held after the card is taken out is not readable from the memory chips.
 HARDENING="slab_nomerge init_on_alloc=1 init_on_free=1 page_alloc.shuffle=1 randomize_kstack_offset=on \
-vsyscall=none debugfs=off lockdown=integrity"
+vsyscall=none debugfs=off lockdown=integrity mem_encrypt=on"
 
 mkdir -p "$WORK" "$OUT"
 cd "$WORK"
@@ -45,7 +47,7 @@ lb config \
   --bootappend-live "boot=live components quiet splash $HARDENING \
 live-config.noautologin live-config.noroot \
 live-config.username=bruker live-config.hostname=medicus \
-live-config.locales=nb_NO.UTF-8 live-config.keyboard-layouts=no live-config.timezone=Europe/Oslo"
+live-config.locales=nb_NO.UTF-8,en_GB.UTF-8 live-config.keyboard-layouts=no,no live-config.keyboard-variants=,smi live-config.keyboard-options=grp:alt_shift_toggle live-config.timezone=Europe/Oslo"
 
 # Our files: package list, hooks, desktop settings, firewall. Files on a Windows
 # drive look world-writable, so reset permissions to sane values while copying.
@@ -70,10 +72,15 @@ cp -r "$ASSETS/plymouth" config/includes.chroot/usr/share/plymouth/themes/medicu
 cp "$ASSETS/avatar.png" config/includes.chroot/etc/skel/.face
 rm -rf "$ASSETS"
 
+# Which source this build is made from, for the SBOM. (The build runs as root on the user's checkout,
+# so git must be told the folder is safe.)
+git -C "$REPO" -c safe.directory="$REPO" describe --always --dirty > config/includes.chroot/etc/medicus/versjon \
+  2>/dev/null || echo ukjent > config/includes.chroot/etc/medicus/versjon
+
 APP=config/includes.chroot/opt/medicus
 mkdir -p "$APP" config/includes.chroot/usr/share/medicus
 rsync -rt --chmod=D755,F644 --exclude __pycache__ \
-  "$REPO/medicus" "$REPO/kalkulator" "$REPO/helsenett" "$REPO/tilgang" "$REPO/nettleser" "$REPO/tekst" "$REPO/branding" \
+  "$REPO/medicus" "$REPO/kalkulator" "$REPO/helsenett" "$REPO/tilgang" "$REPO/epj" "$REPO/utstyr" "$REPO/wlan" "$REPO/journalsystem" "$REPO/nettleser" "$REPO/tekst" "$REPO/oppgaver" "$REPO/branding" \
   "$REPO/samples" "$REPO/deploy" "$REPO/requirements.txt" "$APP/"
 cp "$REPO/branding/medicus-logo.svg" "$REPO/branding/wallpaper.svg" "$REPO/branding/nettleser.svg" "$REPO/branding/post.svg" \
   config/includes.chroot/usr/share/medicus/
@@ -81,6 +88,9 @@ cp -r "$REPO/branding/wallpapers" config/includes.chroot/usr/share/medicus/
 # Medicus Nettleser's icon, so windows and the taskbar show it.
 mkdir -p config/includes.chroot/usr/share/icons/hicolor/scalable/apps
 cp "$REPO/branding/nettleser.svg" config/includes.chroot/usr/share/icons/hicolor/scalable/apps/medicus-nettleser.svg
+# The IT handbook, opened from IT mode (IT-håndbok).
+mkdir -p config/includes.chroot/usr/share/doc/medicus
+cp "$REPO/docs/IT-handbok.md" config/includes.chroot/usr/share/doc/medicus/
 # Menu: Medicus names and neutral icons, other brands and command tools hidden.
 python3 "$REPO/os/menu.py" config/includes.chroot
 
@@ -90,7 +100,10 @@ chmod 755 config/hooks/normal/*.hook.chroot config/includes.chroot/usr/local/bin
 lb build 2>&1 | tee build.log
 
 ISO=$(ls -t "$WORK"/*.iso | head -1)
+# The SBOM made inside the image (see the end of the build hook), next to the ISO.
+SBOM="${ISO%.hybrid.iso}"; SBOM="${SBOM%.iso}.sbom.cdx.json"
+cp "$WORK/chroot/usr/share/doc/medicus/sbom.cdx.json" "$SBOM"
 if [ "$OUT" != "$WORK" ]; then
-  cp "$ISO" "$OUT/"
+  cp "$ISO" "$SBOM" "$OUT/"
 fi
 echo "Ferdig: $OUT/$(basename "$ISO")"

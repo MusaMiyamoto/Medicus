@@ -47,8 +47,12 @@ async function api(path, options = {}) {
     const response = await fetch(path, options);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const detail = Array.isArray(data.detail) ? data.detail.map((d) => d.msg).join(", ") : data.detail;
-      throw new Error(detail || `Feil ${response.status}`);
+      const d = data.detail;
+      const detail = Array.isArray(d) ? d.map((x) => x.msg).join(", ") : d && typeof d === "object" ? d.melding : d;
+      const error = new Error(detail || `Feil ${response.status}`);
+      error.status = response.status;
+      error.detail = d;
+      throw error;
     }
     return data;
   } finally {
@@ -58,14 +62,40 @@ async function api(path, options = {}) {
 
 async function showWho() {
   const box = document.getElementById("who");
+  if (!box) return null;  // pages without the "who is logged in" header (Om, Nettleser, the demo's card picker)
   try {
     const me = await api("/api/meg");
     box.innerHTML = `<b>${esc(me.navn)}</b><br>${esc(me.stilling || me.rolle)} · ${esc(me.virksomhet)}`;
+    if (me.demo) demoBanner();
+    reportReminder(me);
     return me;
   } catch (e) {
     box.textContent = e.message;
     return null;
   }
+}
+
+// After emergency access, a red reminder on every page until the report is written.
+// Not on the emergency page itself (no distractions there) or on the report page.
+function reportReminder(me) {
+  const reports = me.rapporter || [];
+  if (!reports.length || me.modus === "nød" || location.pathname === "/rapport") return;
+  const banner = document.createElement("div");
+  banner.className = "banner danger";
+  banner.innerHTML = `<b>Du har ${reports.length === 1 ? "en nødtilgangsrapport" : `${reports.length} nødtilgangsrapporter`}
+    å skrive</b> – frist kl. ${esc(reports[0].frist.slice(11, 16))}. <a href="/rapport">Skriv rapporten nå</a>`;
+  document.querySelector("main").prepend(banner);
+}
+
+// The public web demo: a bar on every page, with the way back to the demo cards.
+function demoBanner() {
+  const bar = document.createElement("div");
+  bar.className = "banner warn";
+  bar.innerHTML = `<b>Nettdemo</b> – bare syntetiske data. <a href="/demo">Tilbake til demoen / bytt kort</a>`;
+  if (location.pathname === "/sikkerhet") {
+    bar.innerHTML += "<br>Sikkerhetssenteret viser serveren nettdemoen kjører på, ikke en Medicus-PC. Det er derfor mye her er rødt.";
+  }
+  document.querySelector("main").prepend(bar);
 }
 
 const whoReady = showWho();

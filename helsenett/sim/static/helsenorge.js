@@ -3,7 +3,7 @@ let currentTab = "varsler";
 
 const TABS = {
   async varsler(fnr) {
-    const events = await api(`/api/innsyn/${fnr}`);
+    const events = await api(`api/innsyn/${fnr}`);
     if (!events.length) return "<p class='muted'>Ingen har åpnet journalen din.</p>";
     return "<h2>Hvem har sett journalen min</h2>" + events.map((e) => `
       <div class="item">
@@ -14,7 +14,7 @@ const TABS = {
       </div>`).join("");
   },
   async resepter(fnr) {
-    const list = await api(`/api/resepter/${fnr}`);
+    const list = await api(`api/resepter/${fnr}`);
     if (!list.length) return "<p class='muted'>Du har ingen resepter.</p>";
     return "<h2>Resepter</h2>" + list.map((r) => `
       <div class="item">
@@ -24,7 +24,7 @@ const TABS = {
       </div>`).join("");
   },
   async kontakter(fnr) {
-    const list = await api(`/api/journal/${fnr}`);
+    const list = await api(`api/journal/${fnr}`);
     if (!list.length) return "<p class='muted'>Ingen registrerte besøk.</p>";
     return "<h2>Besøk og notater</h2>" + list.map((k) => `
       <div class="item">
@@ -34,7 +34,7 @@ const TABS = {
       </div>`).join("");
   },
   async utleveringer(fnr) {
-    const list = await api(`/api/utleveringer/${fnr}`);
+    const list = await api(`api/utleveringer/${fnr}`);
     const intro = "<h2>Utleveringer til myndigheter</h2><p class='muted'>Opplysninger utlevert med lovhjemmel, etter vurdering hos virksomheten.</p>";
     if (!list.length) return intro + "<p class='muted'>Ingen opplysninger er utlevert.</p>";
     return intro + list.map((u) => `
@@ -68,7 +68,7 @@ async function login(person) {
 }
 
 async function init() {
-  const people = await api("/api/pasienter");
+  const people = await api("api/pasienter");
   const box = document.getElementById("people");
   for (const p of people) {
     const button = document.createElement("button");

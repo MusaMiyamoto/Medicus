@@ -34,6 +34,9 @@ class HelsenettClient(Protocol):
     def list_patients(self) -> list[dict]:
         """Simulator only: the synthetic test patients, for demos."""
 
+    def my_patients(self, actor: Actor) -> list[dict]:
+        """The doctor's own patients: fastlegens liste (Fastlegeregisteret) and recent visits."""
+
     def critical_info(self, fnr: str) -> dict:
         """Kjernejournal: kritisk informasjon, legemidler (PLL), implantater, pårørende."""
 
@@ -98,6 +101,9 @@ class SimulatedClient:
 
     def list_patients(self):
         return self._call("GET", "/api/pasienter")
+
+    def my_patients(self, actor):
+        return self._call("GET", "/api/mine-pasienter", headers=self._as(actor))
 
     def critical_info(self, fnr):
         return self._call("GET", f"/api/kjernejournal/{fnr}")
@@ -178,6 +184,7 @@ class NhnClient:
     SERVICES = {
         "find_patient": "Folkeregisteret (via NHN)",
         "list_patients": "testpasienter (finnes bare i simulator)",
+        "my_patients": "Fastlegeregisteret",
         "critical_info": "Kjernejournal",
         "encounters": "pasientens journaldokumenter",
         "add_note": "dokumentdeling",

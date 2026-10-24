@@ -1,7 +1,9 @@
 [Desktop Entry]
 Type=Application
-Name=Medicus Pasientjournal
+Name=Pasientjournal
+Name[en]=Patient record
 Comment=Kritisk informasjon, besøk, notater og resepter fra alle virksomheter
+Comment[en]=Critical information, visits, notes and prescriptions from all providers
 Exec=medicus-nettleser http://127.0.0.1:8000/pasient
 Icon=/usr/share/medicus/medicus-logo.svg
 Terminal=false

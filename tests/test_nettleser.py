@@ -34,7 +34,7 @@ def test_unencrypted_internet_gets_its_own_explanation():
     assert regler.is_unencrypted("http://felleskatalogen.no/")
     assert not regler.is_unencrypted("http://127.0.0.1:8000/")
     assert not regler.is_unencrypted("https://felleskatalogen.no/")
-    assert "ikke kryptert" in sider.blocked("http://felleskatalogen.no/", unencrypted=True)
+    assert "ikke kryptert" in sider.blocked("http://felleskatalogen.no/", unencrypted=True, en=False)
 
 
 def test_only_medicus_apps_get_the_microphone():
@@ -59,11 +59,11 @@ def test_pages_escape_the_address():
 
 
 @pytest.mark.parametrize("page, window", [
-    ("Pasientjournal – Medicus", "Pasientjournal – Medicus Nettleser"),
-    ("NRK – Nyheter", "NRK – Nyheter – Medicus Nettleser"),
-    ("Medicus Nettleser", "Medicus Nettleser"),
-    ("", "Medicus Nettleser"),
-    (None, "Medicus Nettleser"),
+    ("Pasientjournal – Medicus", "Pasientjournal – Nettleser"),
+    ("NRK – Nyheter", "NRK – Nyheter – Nettleser"),
+    ("Medicus Nettleser", "Nettleser"),
+    ("", "Nettleser"),
+    (None, "Nettleser"),
 ])
 def test_window_title_says_medicus_once(page, window):
     assert regler.window_title(page) == window

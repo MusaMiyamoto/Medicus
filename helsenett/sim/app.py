@@ -10,17 +10,20 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .. import fnr as fnrlib
 from .. import hjemler
 from . import seed
+from .fhir import make_fhir_router
 from .post import make_router
 
 STATIC = Path(__file__).parent / "static"
+I18N = Path(__file__).parent.parent.parent / "medicus" / "static" / "i18n.js"
 
 CATEGORIES = ["Kritisk informasjon", "Legemidler", "Kontakter og notater"]
 
@@ -118,8 +121,15 @@ def critical(p: dict) -> dict:
 def create_app(state_path: Path) -> FastAPI:
     store = Store(state_path)
     app = FastAPI(title="Helsenett-simulator", docs_url=None, redoc_url=None)
+
+    @app.get("/static/i18n.js")
+    def english():
+        # The same Norwegian/English switch as the Medicus pages (before the mount, so it wins).
+        return FileResponse(I18N, media_type="text/javascript")
+
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     app.include_router(make_router(store, state_path.parent / f"{state_path.stem}-vedlegg"))
+    app.include_router(make_fhir_router(store, now))
 
     @app.get("/")
     def root():
@@ -136,6 +146,13 @@ def create_app(state_path: Path) -> FastAPI:
     @app.get("/api/pasienter")
     def list_patients():
         return [summary(p) for p in store.data["pasienter"].values()]
+
+    @app.get("/api/mine-pasienter")
+    def my_patients(x_medicus_hpr: str = Header("")):
+        """Patients with this doctor as fastlege, or that this person has seen."""
+        return [summary(p) for p in store.data["pasienter"].values()
+                if p["fastlege"]["hpr"] == x_medicus_hpr
+                or any(k["aktor"].get("hpr") == x_medicus_hpr for k in p["kontakter"])]
 
     @app.get("/api/pasient/{fnr}")
     def get_patient(fnr: str):
@@ -259,4 +276,9 @@ def released_data(p: dict, request: dict) -> dict:
 
 
 def make_app() -> FastAPI:
-    return create_app(Path(os.getenv("MEDICUS_SIM_STATE", "data/helsenett-sim.json")))
+    """The simulator as its own service in Medicus OS. It only answers requests addressed to this
+    machine, so a web page can't read it through DNS rebinding. (The web demo mounts create_app()
+    behind its own address instead.)"""
+    app = create_app(Path(os.getenv("MEDICUS_SIM_STATE", "data/helsenett-sim.json")))
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "::1"])
+    return app

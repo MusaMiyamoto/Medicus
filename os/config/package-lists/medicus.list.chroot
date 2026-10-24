@@ -1,5 +1,5 @@
-# Desktop: XFCE parts listed one by one, so the "run command" box (xfce4-appfinder) and the
-# terminal are left out. Users start programs from the Start menu only.
+# Desktop: XFCE parts listed one by one, so the "run command" box (xfce4-appfinder) is left
+# out. Users start programs from the Start menu only.
 xorg
 libxfce4ui-utils
 thunar
@@ -13,6 +13,7 @@ xfdesktop4
 xfwm4
 xfce4-whiskermenu-plugin
 xfce4-pulseaudio-plugin
+xfce4-xkb-plugin
 xfce4-notifyd
 xfce4-screensaver
 xfce4-power-manager
@@ -68,6 +69,17 @@ tinyproxy
 lynis
 cryptsetup
 
+# IT mode only: these programs belong to the medicus-it group (see the build hook)
+sudo
+xfce4-terminal
+
 # Start-up animation (heartbeat)
 plymouth
 plymouth-themes
+# Machine certificate in the TPM for Wi-Fi (802.1X EAP-TLS), see wlan/
+tpm2-tools
+libtpm2-pkcs11-1
+libtpm2-pkcs11-tools
+pkcs11-provider
+libengine-pkcs11-openssl
+freerdp3-x11

@@ -1,31 +1,97 @@
-"""GTK 4 window: calculator, volume, weight and weight ↔ volume."""
+"""GTK 4 window: calculator, volume, weight, weight ↔ volume and clinical scores."""
 
+import subprocess
 import sys
+from decimal import Decimal
+from pathlib import Path
 
 import gi
 
 gi.require_version("Gtk", "4.0")
+gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
-from . import units  # noqa: E402
+from . import klinisk, units  # noqa: E402
 from .calc import CalcError, calculate  # noqa: E402
 from .numfmt import NumberError, format_number, parse_number  # noqa: E402
+from .sprak import _, english  # noqa: E402
 
 APP_ID = "no.medicus.Kalkulator"
 
 CSS = """
-.result { font-size: 26px; font-weight: bold; }
-.display { font-size: 24px; }
-.unit-value { font-size: 18px; font-weight: bold; }
-.error { color: #c0392b; }
-.warning { background: #fff4d6; color: #6b4e00; padding: 10px; border-radius: 8px; }
-.keypad button { min-height: 48px; font-size: 18px; }
+/* Medicus green on a soft light background. The colours are all set here, so the app looks the same
+   whatever the GTK theme is. */
+window.kalkulator { background: #f2f6f3; color: #1d2b22; }
+
+/* Sidebar: the logo on top, the open page as a green pill. */
+.sidebar { background: #ffffff; border-right: 1px solid #dde7e0; }
+.brand { padding: 18px 16px 12px 16px; }
+.brand-name { font-size: 17px; font-weight: 800; color: #0b6b30; }
+.brand-sub { font-size: 12px; color: #5f7366; }
+stacksidebar, stacksidebar list { background: transparent; border: none; }
+stacksidebar row { margin: 2px 10px; padding: 8px 12px; border-radius: 10px; color: #33463a; }
+stacksidebar row:hover { background: #eef5f0; }
+stacksidebar row:selected { background: #dff1e4; color: #0b6b30; font-weight: bold; }
+
+/* Forms on every page: white rounded fields with a green focus ring. */
+.page { background: #f2f6f3; }
+.page entry, .page dropdown > button, .page button { border-radius: 10px; }
+.page entry, .page dropdown > button { background: #ffffff; border: 1px solid #cfdcd3; box-shadow: none; }
+.page entry:focus-within { border-color: #2e9e44; outline: 2px solid rgba(46, 158, 68, 0.25); }
+.heading { font-size: 17px; font-weight: 800; color: #0b6b30; }
+.unit-value { font-size: 18px; font-weight: bold; color: #0b6b30; }
+.error { color: #b42318; }
+.warning { background: #fff6dc; color: #6b4e00; padding: 12px 14px; border-radius: 12px;
+           border-left: 4px solid #e0a800; }
+.source { font-size: 12px; color: #5f7366; }
+.hint { color: #5f7366; font-weight: normal; }
+
+/* The calculator's display, as a card. */
+.display-card { background: #ffffff; border-radius: 18px; padding: 10px 18px 14px 18px;
+                box-shadow: 0 1px 3px rgba(16, 60, 32, 0.10), 0 6px 18px rgba(16, 60, 32, 0.06); }
+.page .display-card entry.display { font-size: 24px; background: transparent; border: none; outline: none;
+                                    color: #3b4d41; }
+.result { font-size: 36px; font-weight: 800; color: #0b6b30; }
+.result.error { font-size: 18px; font-weight: bold; color: #b42318; }
+
+/* The keypad: digits white, ( ) ⌫ grey, operators soft green, = solid green, C soft red. */
+.keypad button { min-height: 56px; font-size: 21px; border-radius: 14px; border: none; background: #ffffff;
+                 color: #1d2b22; box-shadow: 0 1px 2px rgba(16, 60, 32, 0.14); }
+.keypad button:hover { background: #f4faf6; }
+.keypad button:active { background: #e3efe7; box-shadow: none; }
+.keypad button.function { background: #e9eeeb; color: #33463a; }
+.keypad button.function:hover { background: #dfe6e2; }
+.keypad button.operator { background: #e2f3e7; color: #0b6b30; font-weight: bold; font-size: 24px; }
+.keypad button.operator:hover { background: #d3ecda; }
+.keypad button.clear { background: #fdecea; color: #b42318; font-weight: bold; }
+.keypad button.clear:hover { background: #fadad6; }
+.keypad button.equals { background: linear-gradient(135deg, #3aa83c, #0b6b30); color: #ffffff;
+                        font-weight: bold; font-size: 26px; }
+.keypad button.equals:hover { background: linear-gradient(135deg, #46b648, #0f7a37); }
+
+/* Glove-friendly: everything you tap is at least 44 px tall. */
+button, entry, dropdown > button, spinbutton { min-height: 44px; }
+checkbutton > check { min-width: 24px; min-height: 24px; }
 """
+
+# The logo for the sidebar: installed on Medicus OS, or from the source tree when run from it.
+LOGO = ("/usr/share/medicus/medicus-logo.svg",
+        str(Path(__file__).resolve().parent.parent / "branding" / "medicus-logo.svg"))
+KEY_STYLE = {"C": "clear", "=": "equals", "⌫": "function", "(": "function", ")": "function",
+             "÷": "operator", "×": "operator", "−": "operator", "+": "operator"}
 
 DOSING_WARNING = (
     "Ikke bruk til legemiddeldosering. Bruk alltid preparatomtalen (SPC) "
     "og gjeldende rutiner.\nOmregningen gjelder bare når tettheten er riktig."
 )
+
+
+def example(text: str) -> str:
+    """A placeholder such as "For eksempel 2,5", with a decimal point in English."""
+    number = text.removeprefix("For eksempel ")
+    if number == text or not english():
+        return _(text)
+    return "For example " + number.replace(",", ".")
 
 
 def page_box() -> Gtk.Box:
@@ -37,7 +103,8 @@ def page_box() -> Gtk.Box:
 
 def heading(text: str) -> Gtk.Label:
     label = Gtk.Label(xalign=0)
-    label.set_markup(f"<b>{text}</b>")
+    label.set_markup(f"<b>{GLib.markup_escape_text(_(text))}</b>")
+    label.add_css_class("heading")
     return label
 
 
@@ -49,29 +116,37 @@ class CalculatorPage(Gtk.Box):
         ["1", "2", "3", "−"],
         ["0", ",", "=", "+"],
     ]
+    # English uses a decimal point and the calculator refuses commas there, so the key types a point.
+    DECIMAL = {",": "."}
 
     def __init__(self):
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         box = page_box()
         self.append(box)
 
-        self.entry = Gtk.Entry(placeholder_text="For eksempel 2,5 × 4")
+        self.entry = Gtk.Entry(placeholder_text=example("For eksempel 2,5 × 4"), xalign=1)
         self.entry.add_css_class("display")
         self.entry.connect("activate", lambda *_: self.solve())
         # Wraps, so a long error message can't make the window wider than the screen.
         self.result = Gtk.Label(xalign=1, selectable=True, wrap=True, justify=Gtk.Justification.RIGHT)
         self.result.add_css_class("result")
-        box.append(self.entry)
-        box.append(self.result)
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        card.add_css_class("display-card")
+        card.append(self.entry)
+        card.append(self.result)
+        box.append(card)
 
-        grid = Gtk.Grid(row_spacing=6, column_spacing=6, row_homogeneous=True, column_homogeneous=True)
+        grid = Gtk.Grid(row_spacing=10, column_spacing=10, row_homogeneous=True, column_homogeneous=True)
         grid.add_css_class("keypad")
         grid.set_vexpand(True)
+        grid.set_margin_top(6)
         for row, keys in enumerate(self.KEYS):
             for col, key in enumerate(keys):
+                if english():
+                    key = self.DECIMAL.get(key, key)
                 button = Gtk.Button(label=key)
-                if key == "=":
-                    button.add_css_class("suggested-action")
+                if key in KEY_STYLE:
+                    button.add_css_class(KEY_STYLE[key])
                 button.connect("clicked", self.on_key, key)
                 grid.attach(button, col, row, 1, 1)
         box.append(grid)
@@ -104,7 +179,7 @@ class CalculatorPage(Gtk.Box):
 class UnitPage(Gtk.Box):
     """Type an amount in one unit; see it in every unit of the table at once."""
 
-    def __init__(self, table: list[units.Unit], title: str, example: str):
+    def __init__(self, table: list[units.Unit], title: str, placeholder: str):
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self.table = table
         box = page_box()
@@ -112,9 +187,9 @@ class UnitPage(Gtk.Box):
         box.append(heading(title))
 
         row = Gtk.Box(spacing=8)
-        self.entry = Gtk.Entry(placeholder_text=example, hexpand=True)
+        self.entry = Gtk.Entry(placeholder_text=example(placeholder), hexpand=True)
         self.entry.connect("changed", lambda *_: self.update())
-        self.unit = Gtk.DropDown.new_from_strings([f"{u.name} ({u.symbol})" for u in table])
+        self.unit = Gtk.DropDown.new_from_strings([unit_name(u) for u in table])
         self.unit.connect("notify::selected", lambda *_: self.update())
         row.append(self.entry)
         row.append(self.unit)
@@ -130,7 +205,7 @@ class UnitPage(Gtk.Box):
             value = Gtk.Label(xalign=1, selectable=True, hexpand=True)
             value.add_css_class("unit-value")
             results.attach(value, 0, i, 1, 1)
-            results.attach(Gtk.Label(label=f"{unit.name} ({unit.symbol})", xalign=0), 1, i, 1, 1)
+            results.attach(Gtk.Label(label=unit_name(unit), xalign=0), 1, i, 1, 1)
             self.values.append(value)
         box.append(results)
         self.update()
@@ -162,28 +237,28 @@ class DensityPage(Gtk.Box):
         self.append(box)
         box.append(heading("Vekt ↔ volum"))
 
-        warning = Gtk.Label(label=DOSING_WARNING, xalign=0, wrap=True)
+        warning = Gtk.Label(label=_(DOSING_WARNING), xalign=0, wrap=True)
         warning.add_css_class("warning")
         box.append(warning)
 
         form = Gtk.Grid(row_spacing=10, column_spacing=12)
         amount_row = Gtk.Box(spacing=8)
-        self.amount = Gtk.Entry(placeholder_text="For eksempel 250", hexpand=True)
-        self.unit = Gtk.DropDown.new_from_strings([f"{u.name} ({u.symbol})" for u in self.UNITS])
+        self.amount = Gtk.Entry(placeholder_text=example("For eksempel 250"), hexpand=True)
+        self.unit = Gtk.DropDown.new_from_strings([unit_name(u) for u in self.UNITS])
         self.unit.set_selected(self.UNITS.index(units.GRAM))
         amount_row.append(self.amount)
         amount_row.append(self.unit)
         self.substance = Gtk.DropDown.new_from_strings(
-            [s.name if s.density is None else f"{s.name} (ca. {format_number(s.density)} g/ml)"
+            [_(s.name) if s.density is None else _("{} (ca. {} g/ml)").format(_(s.name), format_number(s.density))
              for s in units.SUBSTANCES]
         )
-        self.density = Gtk.Entry(placeholder_text="g/ml, for eksempel 1,2", sensitive=False)
+        self.density = Gtk.Entry(placeholder_text=_("g/ml, for eksempel 1,2"), sensitive=False)
         for i, (label, widget) in enumerate([
             ("Mengde", amount_row),
             ("Stoff", self.substance),
             ("Tetthet (g/ml)", self.density),
         ]):
-            form.attach(Gtk.Label(label=label, xalign=0), 0, i, 1, 1)
+            form.attach(Gtk.Label(label=_(label), xalign=0), 0, i, 1, 1)
             form.attach(widget, 1, i, 1, 1)
         box.append(form)
 
@@ -211,7 +286,7 @@ class DensityPage(Gtk.Box):
             value = Gtk.Label(label=text, xalign=1, selectable=True, hexpand=True)
             value.add_css_class("unit-value")
             self.results.attach(value, 0, i, 1, 1)
-            self.results.attach(Gtk.Label(label=f"{unit.name} ({unit.symbol})", xalign=0), 1, i, 1, 1)
+            self.results.attach(Gtk.Label(label=unit_name(unit), xalign=0), 1, i, 1, 1)
 
     def update(self):
         substance = units.SUBSTANCES[self.substance.get_selected()]
@@ -227,39 +302,390 @@ class DensityPage(Gtk.Box):
             amount = units.check_amount(parse_number(self.amount.get_text()))
             if substance.density is None:
                 density = parse_number(self.density.get_text())
-                name = "egendefinert tetthet"
+                name = _("egendefinert tetthet")
             else:
                 density = substance.density
-                name = substance.name.lower()
+                name = _(substance.name).lower()
             rows = units.across_to_all(amount, source, density)
         except (NumberError, units.AmountError, units.DensityError) as e:
             self.message.set_text(str(e))
             self.show_rows(empty)
             return
         self.show_rows([(u, format_number(v)) for u, v in rows])
-        self.detail.set_text(f"{format_number(amount)} {source.symbol}, beregnet med tetthet "
-                             f"{format_number(density)} g/ml ({name}).")
+        self.detail.set_text(_("{} {}, beregnet med tetthet {} g/ml ({}).").format(
+            format_number(amount), symbol(source), format_number(density), name))
+
+
+def symbol(unit: units.Unit) -> str:
+    """ts and ss are the Norwegian spoon abbreviations (teskje, spiseskje)."""
+    return _(unit.symbol)
+
+
+def unit_name(unit: units.Unit) -> str:
+    return f"{_(unit.name)} ({symbol(unit)})"
+
+
+def open_link(url: str):
+    """Felleskatalogen opens in Nettleser, which allows felleskatalogen.no."""
+    subprocess.Popen(["medicus-nettleser", url], start_new_session=True)
+
+
+def number_entry(grid, row, label, placeholder) -> Gtk.Entry:
+    grid.attach(Gtk.Label(label=_(label), xalign=0), 0, row, 1, 1)
+    entry = Gtk.Entry(placeholder_text=example(placeholder), hexpand=True)
+    grid.attach(entry, 1, row, 1, 1)
+    return entry
+
+
+CHOOSE = "Velg …"
+
+
+def choice(grid, row, label, options) -> Gtk.DropDown:
+    """A dropdown that starts on "Velg …": nothing is assumed until the clinician picks."""
+    grid.attach(Gtk.Label(label=_(label), xalign=0), 0, row, 1, 1)
+    dropdown = Gtk.DropDown.new_from_strings([_(CHOOSE), *map(_, options)])
+    grid.attach(dropdown, 1, row, 1, 1)
+    return dropdown
+
+
+def picked(dropdown) -> int | None:
+    """0-based index of the chosen option, or None while it still says "Velg …"."""
+    selected = dropdown.get_selected()
+    return None if selected in (0, Gtk.INVALID_LIST_POSITION) else selected - 1
+
+
+class Missing(Exception):
+    """Something isn't filled in yet: show the hint, not an error."""
+
+
+class ScorePage(Gtk.Box):
+    """Shared by the clinical pages: every calculation is shown with its formula and source, and
+    updates as you type. Nothing is filled in for you."""
+
+    def __init__(self):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL)
+        scroller = Gtk.ScrolledWindow(vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
+        self.box = page_box()
+        scroller.set_child(self.box)
+        self.append(scroller)
+        warning = Gtk.Label(label=_(klinisk.DECISION_SUPPORT), xalign=0, wrap=True)
+        warning.add_css_class("warning")
+        self.box.append(warning)
+
+    def section(self, title, source_key) -> Gtk.Grid:
+        self.box.append(heading(title))
+        source = Gtk.Label(label=_(klinisk.SOURCES[source_key]), xalign=0, wrap=True, selectable=True)
+        source.add_css_class("source")
+        self.box.append(source)
+        grid = Gtk.Grid(row_spacing=8, column_spacing=12)
+        self.box.append(grid)
+        return grid
+
+    def result_label(self) -> Gtk.Label:
+        label = Gtk.Label(xalign=0, wrap=True, selectable=True)
+        label.add_css_class("unit-value")
+        self.box.append(label)
+        return label
+
+    def watch(self, *widgets):
+        for widget in widgets:
+            if isinstance(widget, Gtk.Entry):
+                widget.connect("changed", lambda *_: self.update())
+            elif isinstance(widget, Gtk.DropDown):
+                widget.connect("notify::selected", lambda *_: self.update())
+            else:
+                widget.connect("toggled", lambda *_: self.update())
+
+    @staticmethod
+    def number(entry, what) -> float:
+        text = entry.get_text()
+        if not text.strip():
+            raise Missing(_("Fyll inn {}.").format(_(what)))
+        return float(parse_number(text))
+
+    @staticmethod
+    def chosen(dropdown, what) -> int:
+        index = picked(dropdown)
+        if index is None:
+            raise Missing(_("Velg {}.").format(_(what)))
+        return index
+
+    @staticmethod
+    def show(label, compute):
+        """Run one calculation; show its result, what is missing, or the error, without stopping the others."""
+        label.remove_css_class("error")
+        label.remove_css_class("hint")
+        try:
+            label.set_text(compute())
+        except Missing as e:
+            label.set_text(str(e))
+            label.add_css_class("hint")
+        except (NumberError, klinisk.ScoreError) as e:
+            label.set_text(f"✗ {e}")
+            label.add_css_class("error")
+
+    def update(self):
+        raise NotImplementedError
+
+
+def comma(value) -> str:
+    return format_number(Decimal(str(value)))
+
+
+class ClinicalPage(ScorePage):
+    """BMI, eGFR and CHA₂DS₂-VASc, with a Felleskatalogen search."""
+
+    RISKS = [("heart_failure", "Hjertesvikt (C)"), ("hypertension", "Hypertensjon (H)"), ("diabetes", "Diabetes (D)"),
+             ("stroke_tia", "Hjerneslag, TIA eller tromboemboli (S₂, 2 poeng)"),
+             ("vascular", "Karsykdom: hjerteinfarkt, perifer arteriesykdom, aortaplakk (V)")]
+
+    def __init__(self):
+        super().__init__()
+        self.box.append(heading("Pasient"))
+        grid = Gtk.Grid(row_spacing=8, column_spacing=12)
+        self.box.append(grid)
+        self.age = number_entry(grid, 0, "Alder (år)", "For eksempel 72")
+        self.sex = choice(grid, 1, "Kjønn", ["Kvinne", "Mann"])
+        self.box.append(Gtk.Label(label=_("Alder og kjønn brukes av alle skårene på denne siden."), xalign=0))
+
+        grid = self.section("BMI", "bmi")
+        self.weight = number_entry(grid, 0, "Vekt (kg)", "For eksempel 80")
+        self.height = number_entry(grid, 1, "Høyde (cm)", "For eksempel 175")
+        self.bmi = self.result_label()
+
+        grid = self.section("eGFR (CKD-EPI 2021)", "egfr")
+        self.creatinine = number_entry(grid, 0, "Kreatinin (µmol/L)", "For eksempel 95")
+        self.egfr = self.result_label()
+
+        self.section("CHA₂DS₂-VASc (hjerneslagrisiko ved atrieflimmer)", "cha2ds2")
+        self.checks = {}
+        for key, text in self.RISKS:
+            self.checks[key] = Gtk.CheckButton(label=_(text))
+            self.box.append(self.checks[key])
+        # An unticked box could mean "no" or "not checked yet": the clinician confirms they went through all.
+        self.reviewed = Gtk.CheckButton(label=_("Jeg har vurdert alle punktene over for denne pasienten"))
+        self.box.append(self.reviewed)
+        self.stroke = self.result_label()
+
+        self.box.append(heading("Felleskatalogen"))
+        row = Gtk.Box(spacing=8)
+        self.drug = Gtk.Entry(placeholder_text=_("Legemiddel, for eksempel apixaban"), hexpand=True)
+        self.drug.connect("activate", lambda *_: self.look_up())
+        button = Gtk.Button(label=_("Slå opp"))
+        button.connect("clicked", lambda *_: self.look_up())
+        row.append(self.drug)
+        row.append(button)
+        self.box.append(row)
+        self.lookup_message = self.result_label()
+
+        self.watch(self.age, self.sex, self.weight, self.height, self.creatinine, self.reviewed, *self.checks.values())
+        self.update()
+
+    def female(self) -> bool:
+        return self.chosen(self.sex, "kjønn") == 0
+
+    def update(self):
+        def bmi():
+            value, group = klinisk.bmi(self.number(self.weight, "vekt"), self.number(self.height, "høyde"))
+            return _("BMI {} kg/m² · {}").format(comma(value), _(group))
+
+        def egfr():
+            creatinine = self.number(self.creatinine, "kreatinin")
+            value, stage = klinisk.egfr(creatinine, int(self.number(self.age, "alder")), self.female())
+            return _("eGFR {} ml/min/1,73 m² · {}").format(value, _(stage))
+
+        def stroke():
+            age = int(self.number(self.age, "alder"))
+            female = self.female()
+            if not self.reviewed.get_active():
+                raise Missing(_("Gå gjennom alle punktene, og kryss av for at du har vurdert dem."))
+            risk = klinisk.StrokeRisk(age=age, female=female,
+                                      **{key: check.get_active() for key, check in self.checks.items()})
+            return _("CHA₂DS₂-VASc {} poeng · CHA₂DS₂-VA {} poeng (ESC 2024 bruker CHA₂DS₂-VA, uten kjønn)").format(
+                klinisk.cha2ds2_vasc(risk), klinisk.cha2ds2_va(risk))
+
+        self.show(self.bmi, bmi)
+        self.show(self.egfr, egfr)
+        self.show(self.stroke, stroke)
+
+    def look_up(self):
+        def url():
+            open_link(klinisk.felleskatalogen(self.drug.get_text()))
+            return _("Åpnet i Nettleser.")
+        self.show(self.lookup_message, url)
+
+
+class AcutePage(ScorePage):
+    """NEWS2, GCS and CURB-65: for the ward and the emergency room."""
+
+    def __init__(self):
+        super().__init__()
+        grid = self.section("NEWS2 (tidlig varsling ved forverring)", "news2")
+        self.rr = number_entry(grid, 0, "Respirasjonsfrekvens (/min)", "For eksempel 16")
+        self.spo2 = number_entry(grid, 1, "SpO₂ (%)", "For eksempel 96")
+        self.scale = choice(grid, 2, "SpO₂-skala", ["Skala 1 (vanlig)", "Skala 2 (mål 88–92 %, bestemt av lege)"])
+        self.air = choice(grid, 3, "Luft eller oksygen", ["Romluft", "Får oksygen"])
+        self.sbp = number_entry(grid, 4, "Systolisk blodtrykk (mmHg)", "For eksempel 125")
+        self.pulse = number_entry(grid, 5, "Puls (/min)", "For eksempel 80")
+        self.alert = choice(grid, 6, "Bevissthet", ["Våken (A)", "Ny forvirring, reagerer bare på tiltale, smerte, "
+                                                   "eller ingen respons (CVPU)"])
+        self.temp = number_entry(grid, 7, "Temperatur (°C)", "For eksempel 37,2")
+        self.news = self.result_label()
+
+        grid = self.section("Glasgow Coma Scale", "gcs")
+        self.eyes = choice(grid, 0, "Øyeåpning", klinisk.GCS_EYES)
+        self.verbal = choice(grid, 1, "Verbal respons", klinisk.GCS_VERBAL)
+        self.motor = choice(grid, 2, "Motorisk respons", klinisk.GCS_MOTOR)
+        self.gcs = self.result_label()
+
+        grid = self.section("CURB-65 (alvorlighet ved lungebetennelse)", "curb65")
+        self.confusion = choice(grid, 0, "Ny forvirring", ["Nei", "Ja"])
+        self.urea = number_entry(grid, 1, "Urea (mmol/L)", "For eksempel 6,5")
+        self.c_rr = number_entry(grid, 2, "Respirasjonsfrekvens (/min)", "For eksempel 22")
+        self.c_sbp = number_entry(grid, 3, "Systolisk blodtrykk", "For eksempel 110")
+        self.c_dbp = number_entry(grid, 4, "Diastolisk blodtrykk", "For eksempel 70")
+        self.c_age = number_entry(grid, 5, "Alder (år)", "For eksempel 70")
+        self.curb = self.result_label()
+
+        self.watch(self.rr, self.spo2, self.scale, self.air, self.sbp, self.pulse, self.alert, self.temp,
+                   self.eyes, self.verbal, self.motor,
+                   self.confusion, self.urea, self.c_rr, self.c_sbp, self.c_dbp, self.c_age)
+        self.update()
+
+    def update(self):
+        def news():
+            total, points, risk = klinisk.news2(
+                self.number(self.rr, "respirasjonsfrekvens"), self.number(self.spo2, "SpO₂"),
+                self.chosen(self.scale, "SpO₂-skala") == 1, self.chosen(self.air, "luft eller oksygen") == 1,
+                self.number(self.sbp, "systolisk blodtrykk"), self.number(self.pulse, "puls"),
+                self.chosen(self.alert, "bevissthet") == 0, self.number(self.temp, "temperatur"))
+            details = ", ".join(f"{_(name)} {p}" for name, p in points.items() if p)
+            return _("NEWS2 {} poeng · {}").format(total, _(risk)) + (f"\n({details})" if details else "")
+
+        def gcs():
+            total, severity = klinisk.gcs(self.chosen(self.eyes, "øyeåpning") + 1,
+                                          self.chosen(self.verbal, "verbal respons") + 1,
+                                          self.chosen(self.motor, "motorisk respons") + 1)
+            return _("GCS {} · {}").format(total, _(severity))
+
+        def curb():
+            points, risk = klinisk.curb65(
+                self.chosen(self.confusion, "om pasienten er forvirret") == 1, self.number(self.urea, "urea"),
+                self.number(self.c_rr, "respirasjonsfrekvens"), self.number(self.c_sbp, "systolisk blodtrykk"),
+                self.number(self.c_dbp, "diastolisk blodtrykk"), int(self.number(self.c_age, "alder")))
+            return _("CURB-65 {} poeng · {}").format(points, _(risk))
+
+        self.show(self.news, news)
+        self.show(self.gcs, gcs)
+        self.show(self.curb, curb)
+
+
+class LabPage(ScorePage):
+    """Cockcroft-Gault, corrected calcium and QTc."""
+
+    def __init__(self):
+        super().__init__()
+        grid = self.section("Kreatininclearance (Cockcroft-Gault), for dosegrenser", "cg")
+        self.creatinine = number_entry(grid, 0, "Kreatinin (µmol/L)", "For eksempel 110")
+        self.age = number_entry(grid, 1, "Alder (år)", "For eksempel 80")
+        self.weight = number_entry(grid, 2, "Vekt (kg)", "For eksempel 65")
+        self.sex = choice(grid, 3, "Kjønn", ["Kvinne", "Mann"])
+        self.cg = self.result_label()
+
+        grid = self.section("Albuminkorrigert kalsium", "ca")
+        self.calcium = number_entry(grid, 0, "Kalsium (mmol/L)", "For eksempel 2,15")
+        self.albumin = number_entry(grid, 1, "Albumin (g/L)", "For eksempel 32")
+        self.ca = self.result_label()
+
+        grid = self.section("QTc", "qtc")
+        self.qt = number_entry(grid, 0, "QT (ms)", "For eksempel 420")
+        self.hr = number_entry(grid, 1, "Puls (/min)", "For eksempel 75")
+        self.qtc_sex = choice(grid, 2, "Kjønn (for grenseverdien)", ["Kvinne", "Mann"])
+        self.qtc = self.result_label()
+
+        self.watch(self.creatinine, self.age, self.weight, self.sex, self.calcium, self.albumin,
+                   self.qt, self.hr, self.qtc_sex)
+        self.update()
+
+    def update(self):
+        def cg():
+            value = klinisk.cockcroft_gault(self.number(self.creatinine, "kreatinin"),
+                                            int(self.number(self.age, "alder")), self.number(self.weight, "vekt"),
+                                            self.chosen(self.sex, "kjønn") == 0)
+            return _("Kreatininclearance {} ml/min (ikke justert til 1,73 m²)").format(value)
+
+        def ca():
+            value = klinisk.corrected_calcium(self.number(self.calcium, "kalsium"), self.number(self.albumin, "albumin"))
+            return _("Korrigert kalsium {} mmol/L").format(comma(value))
+
+        def qtc():
+            bazett, fridericia = klinisk.qtc(self.number(self.qt, "QT"), self.number(self.hr, "puls"))
+            index = picked(self.qtc_sex)
+            female = None if index is None else index == 0
+            # Judged on Fridericia, which is more accurate than Bazett at high and low heart rates.
+            return (f"QTc Bazett {bazett} ms · Fridericia {fridericia} ms\n"
+                    + _("{} (vurdert med Fridericia)").format(qtc_text(fridericia, female)))
+
+        self.show(self.cg, cg)
+        self.show(self.ca, ca)
+        self.show(self.qtc, qtc)
+
+
+def qtc_text(value: int, female: bool | None) -> str:
+    """klinisk.qtc_text in the session's language; "Forlenget (> 450 ms)" carries the limit."""
+    text = klinisk.qtc_text(value, female)
+    if text.startswith("Forlenget (> "):
+        return _("Forlenget (> {} ms)").format(text.removeprefix("Forlenget (> ").removesuffix(" ms)"))
+    return _(text)
 
 
 class KalkulatorWindow(Gtk.ApplicationWindow):
     def __init__(self, app):
-        super().__init__(application=app, title="Medicus Kalkulator")
-        self.set_default_size(680, 640)
+        super().__init__(application=app, title=_("Kalkulator"))
+        self.set_default_size(760, 660)
         self.set_icon_name("accessories-calculator")
 
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE, hexpand=True)
-        self.stack.add_titled(CalculatorPage(), "kalkulator", "Kalkulator")
-        self.stack.add_titled(UnitPage(units.VOLUME, "Volum", "For eksempel 250"), "volum", "Volum (µl – l)")
-        self.stack.add_titled(UnitPage(units.MASS, "Vekt", "For eksempel 500"), "vekt", "Vekt (µg – kg)")
-        self.stack.add_titled(DensityPage(), "tetthet", "Vekt ↔ volum")
+        self.stack.add_titled(CalculatorPage(), "kalkulator", _("Kalkulator"))
+        self.stack.add_titled(UnitPage(units.VOLUME, "Volum", "For eksempel 250"), "volum", _("Volum (µl – l)"))
+        self.stack.add_titled(UnitPage(units.MASS, "Vekt", "For eksempel 500"), "vekt", _("Vekt (µg – kg)"))
+        self.stack.add_titled(DensityPage(), "tetthet", _("Vekt ↔ volum"))
+        self.stack.add_titled(ClinicalPage(), "klinisk", _("Kliniske skårer"))
+        self.stack.add_titled(AcutePage(), "akutt", _("Akutt: NEWS2, GCS, CURB-65"))
+        self.stack.add_titled(LabPage(), "lab", _("Lab og EKG"))
 
-        sidebar = Gtk.StackSidebar(stack=self.stack)
-        sidebar.set_size_request(190, -1)
+        self.add_css_class("kalkulator")
+        self.stack.add_css_class("page")
+        sidebar = Gtk.StackSidebar(stack=self.stack, vexpand=True)
+        side = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        side.add_css_class("sidebar")
+        side.set_size_request(220, -1)
+        side.append(brand())
+        side.append(sidebar)
         layout = Gtk.Box()
-        layout.append(sidebar)
-        layout.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+        layout.append(side)
         layout.append(self.stack)
         self.set_child(layout)
+
+
+def brand() -> Gtk.Box:
+    """The Medicus logo and the app's name, at the top of the sidebar."""
+    box = Gtk.Box(spacing=10)
+    box.add_css_class("brand")
+    logo = next((path for path in LOGO if Path(path).is_file()), None)
+    if logo:
+        image = Gtk.Image.new_from_file(logo)
+        image.set_pixel_size(36)
+        box.append(image)
+    names = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
+    name = Gtk.Label(label=_("Kalkulator"), xalign=0)
+    name.add_css_class("brand-name")
+    sub = Gtk.Label(label="Medicus", xalign=0)
+    sub.add_css_class("brand-sub")
+    names.append(name)
+    names.append(sub)
+    box.append(names)
+    return box
 
 
 class KalkulatorApp(Gtk.Application):
