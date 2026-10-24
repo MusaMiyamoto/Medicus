@@ -2,13 +2,14 @@
 
     python3 branding/make_logo.py
 
-Source: branding/medicus-icon-source.png (the green rounded square with the Rod of Asclepius).
+Source: branding/medicus-icon-source.png (the green round badge with the Rod of Asclepius, on a dark
+background). The badge is found in the image by its white ring, so a new source image just works.
 Writes:
-    medicus-logo.png    the icon, 512x512, transparent outside the rounded corners
+    medicus-logo.png    the badge, 512x512, transparent outside the circle
     medicus-logo.svg    the same image inside an SVG, which is what the system uses everywhere
-    wallpaper.svg       its faint rod-and-snake mark is replaced with the white parts of the icon
+    wallpaper.svg       its faint rod-and-snake mark is replaced with the white parts of the badge
 
-To change the logo: replace medicus-icon-source.png, check BOX below, and run this again.
+To change the logo: replace medicus-icon-source.png and run this again.
 """
 import base64
 import io
@@ -18,32 +19,42 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 HERE = Path(__file__).parent
-BOX = (271, 45, 753, 527)  # the rounded square (with its white border) in the source image
-RADIUS = 101               # its corner radius, in source pixels
-BORDER = 14                # the white border; left out of the wallpaper mark
 SIZE = 512
+RING = 0.06  # the white ring, as a share of the radius; left out of the wallpaper mark
+WALLPAPER_MARK = re.compile(r'<g transform="translate\(1180 120\) scale\(6\.6\)".*?\n  </g>', re.S)
 
 
-def rounded_icon(src: Image.Image) -> Image.Image:
-    icon = src.crop(BOX).convert("RGBA")
-    # Draw the corner mask four times larger and shrink it, for smooth edges.
-    big = Image.new("L", (icon.width * 4, icon.height * 4), 0)
-    ImageDraw.Draw(big).rounded_rectangle((0, 0, big.width - 1, big.height - 1), RADIUS * 4, fill=255)
-    icon.putalpha(big.resize(icon.size, Image.LANCZOS))
-    return icon.resize((SIZE, SIZE), Image.LANCZOS)
+def badge_box(src: Image.Image) -> tuple[int, int, int, int]:
+    """The square around the white ring: the bright pixels' bounding box."""
+    bright = src.convert("L").point(lambda v: 255 if v > 200 else 0)
+    x0, y0, x1, y1 = bright.getbbox()
+    side = max(x1 - x0, y1 - y0)
+    cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
+    return cx - side // 2, cy - side // 2, cx + side // 2, cy + side // 2
 
 
-def white_mark(src: Image.Image) -> Image.Image:
+def circle_mask(size: int, inset: float = 0) -> Image.Image:
+    # Drawn four times larger and shrunk, for a smooth edge.
+    big = Image.new("L", (size * 4, size * 4), 0)
+    pad = inset * size * 4
+    ImageDraw.Draw(big).ellipse((pad, pad, size * 4 - 1 - pad, size * 4 - 1 - pad), fill=255)
+    return big.resize((size, size), Image.LANCZOS)
+
+
+def round_icon(src: Image.Image) -> Image.Image:
+    icon = src.crop(badge_box(src)).convert("RGBA").resize((SIZE, SIZE), Image.LANCZOS)
+    icon.putalpha(circle_mask(SIZE))
+    return icon
+
+
+def white_mark(icon: Image.Image) -> Image.Image:
     """Only the light parts (rod and snake), as white with transparency, for the wallpaper."""
-    x0, y0, x1, y1 = BOX
-    inside = src.crop((x0 + BORDER, y0 + BORDER, x1 - BORDER, y1 - BORDER)).convert("RGB")
-    alpha = Image.new("L", inside.size)
-    alpha.putdata([max(0, min(255, (min(p) - 110) * 2)) for p in inside.getdata()])
-    # Keep only what is well inside the rounded border, so no bit of the white corners shows.
-    keep = Image.new("L", inside.size, 0)
-    ImageDraw.Draw(keep).rounded_rectangle((12, 12, inside.width - 12, inside.height - 12), RADIUS - BORDER, fill=255)
-    alpha = Image.composite(alpha, keep, keep)
-    mark = Image.new("RGBA", inside.size, (255, 255, 255, 0))
+    rgb = icon.convert("RGB")
+    alpha = Image.new("L", rgb.size)
+    alpha.putdata([max(0, min(255, (min(p) - 110) * 2)) for p in rgb.getdata()])
+    # Keep only what is well inside the white ring.
+    alpha = Image.composite(alpha, Image.new("L", rgb.size, 0), circle_mask(SIZE, RING))
+    mark = Image.new("RGBA", rgb.size, (255, 255, 255, 0))
     mark.putalpha(alpha)
     return mark
 
@@ -55,8 +66,7 @@ def data_uri(image: Image.Image) -> str:
 
 
 if __name__ == "__main__":
-    source = Image.open(HERE / "medicus-icon-source.png")
-    icon = rounded_icon(source)
+    icon = round_icon(Image.open(HERE / "medicus-icon-source.png"))
     icon.save(HERE / "medicus-logo.png", optimize=True)
     (HERE / "medicus-logo.svg").write_text(
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">\n'
@@ -65,11 +75,13 @@ if __name__ == "__main__":
         f'  <image width="128" height="128" href="{data_uri(icon)}"/>\n'
         "</svg>\n", encoding="utf-8")
 
-    mark = white_mark(source)
+    mark = white_mark(icon)
     wallpaper = HERE / "wallpaper.svg"
     text = wallpaper.read_text(encoding="utf-8")
     group = (f'<g transform="translate(1180 120) scale(6.6)" opacity="0.13">\n'
-             f'    <image x="6" y="6" width="116" height="116" href="{data_uri(mark.resize((464, 464), Image.LANCZOS))}"/>\n'
+             f'    <image x="0" y="0" width="128" height="128" href="{data_uri(mark.resize((464, 464), Image.LANCZOS))}"/>\n'
              f'  </g>')
-    text = re.sub(r'<g transform="translate\(1180 120\) scale\(6\.6\)".*?\n  </g>', lambda _m: group, text, count=1, flags=re.S)
+    text, count = WALLPAPER_MARK.subn(lambda _m: group, text, count=1)
+    if count != 1:
+        raise SystemExit("Fant ikke merket i wallpaper.svg")
     wallpaper.write_text(text, encoding="utf-8")
