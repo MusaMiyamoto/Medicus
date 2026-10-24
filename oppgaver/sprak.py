@@ -74,6 +74,7 @@ EN = {
         "Only the programs you work in are shown here. Close a program that has frozen. Drafts in the record are saved automatically.",
     "Søk etter program": "Search for a program",
     "{} programmer åpne": "{} programs open",
+    "1 program åpent": "1 program open",
     "Lukker …": "Closing …",
     "Kalkulator": "Calculator",
     # Confirmation

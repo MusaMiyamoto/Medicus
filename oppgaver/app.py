@@ -249,7 +249,8 @@ class OppgaverWindow(Gtk.ApplicationWindow):
             if self.personal:
                 uid = os.getuid()
                 self.procs = [p for p in everything if prosesser.user_may_close(p, uid)]
-                self.summary.set_text(_("{} programmer åpne").format(len(self.procs)))
+                self.summary.set_text(_("1 program åpent") if len(self.procs) == 1
+                                      else _("{} programmer åpne").format(len(self.procs)))
             else:
                 self.procs = everything
                 used, total = prosesser.memory()
