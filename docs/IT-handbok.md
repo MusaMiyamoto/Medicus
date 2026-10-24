@@ -64,6 +64,7 @@ The rules behind this:
 | `journalsystem/` | The hospital's record systems in locked-down windows (`medicus-journalsystem`) | Python, FreeRDP, nftables |
 | `nettleser/` | **Nettleser**, the browser (only approved sites) | Python + GTK 4 + WebKitGTK 6 |
 | `tekst/`, `kalkulator/` | The Text editor and the calculator | Python + GTK 4 |
+| `oppgaver/` | **Oppgavebehandling**, the Task Manager (`medicus-oppgaver`, IT mode) | Python + GTK 4 |
 | `branding/` | Logo, wallpapers, boot screen; `make_assets.py` builds the images | SVG, Python + Pillow |
 | `os/` | Everything that turns Debian into Medicus | Debian live-build, shell, config files |
 | `os/build.sh` | Builds the ISO | Shell |
@@ -113,6 +114,25 @@ The rules behind this:
 **Admin commands:** in the terminal, put `sudo` in front. It asks for the **PIN of your IT card**,
 every time, and the command is logged in the security log (`admin_confirmed`). Without the IT card
 in the reader, `sudo` does not work.
+
+**Oppgavebehandling (Task Manager)** shows every program: name, PID, user, status, CPU and memory.
+Search by name, user or PID, and sort by CPU, memory or name.
+
+- **Avslutt** asks the program to close, so it can save first. If it hasn't closed after 5 seconds,
+  you're told, and can use **Tving avslutning**, which stops it at once (anything unsaved is lost).
+- **Every stop asks for the IT card PIN.** The window runs `sudo medicus-oppgaver stopp PID START`;
+  the same command works in the terminal.
+- **Protected, greyed out with a lock:** the kernel, PID 1, every system service (logins, card watch,
+  firewall, virus protection, the record service), the desktop itself and the Task Manager. The
+  root command checks this again, so it can't be got round by calling it directly. To restart a
+  service, use `sudo systemctl restart NAME` in the terminal.
+- **Programs that can hold unsaved notes** (Nettleser, the record systems, Text) get a warning first.
+  Drafts in the record are saved automatically, but the last few seconds of typing may be lost.
+- **Logged:** every stop, and every refused attempt, goes to `/var/lib/medicus-oppgaver/audit.jsonl`
+  with the program's name, PID, user and whether it was forced. Never the command line, which can
+  contain file names with patient names.
+- A PID that now belongs to another program (PIDs are reused) is never stopped: the command checks
+  the process's start time as well.
 
 **How the lock works** (so you can change it safely):
 
@@ -196,7 +216,7 @@ If it won't start, don't leave the machine in use: a missing firewall or USB loc
 
 ### The audit logs and their anchors
 
-Each Medicus log (`/var/lib/medicus-auth/`, `/var/lib/medicus/`, `-utstyr/`, `-wlan/`, `-journalsystem/`)
+Each Medicus log (`/var/lib/medicus-auth/`, `/var/lib/medicus/`, `-utstyr/`, `-wlan/`, `-journalsystem/`, `-oppgaver/`)
 has two protections:
 
 - **A hash chain:** every line contains the hash of the line before it.

@@ -189,6 +189,9 @@ Medicus toolbar and the heartbeat loader. No other brand is visible anywhere.
 - **Sikkerhetssenter (IT mode only):** a page that shows *live* whether the firewall, USB lock, virus scanner,
   session guard, security log, updates, kernel lockdown, AppArmor and VPN are working, and whether any
   emergency access reports are late, in plain Norwegian.
+- **Oppgavebehandling (Task Manager, IT mode):** our own. It shows every program and closes it gracefully
+  or by force, each time confirmed with the IT card PIN and written to an audit log. The kernel, system
+  services and the desktop are protected and can't be stopped from it.
 - **IT tools are locked, not just hidden:** the terminal, settings, task manager, network editor and
   `sudo` belong to the `medicus-it` group. See [docs/IT-handbok.md](docs/IT-handbok.md), the handbook for IT staff.
 - **Lynis** is installed for IT to run full security audits.
