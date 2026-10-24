@@ -4,6 +4,7 @@
     medicus-oppgaver liste                   running processes as text
     medicus-oppgaver stopp PID START         ask the program to close (SIGTERM)
     medicus-oppgaver stopp PID START --tving stop it at once (SIGKILL); unsaved work is lost
+    medicus-oppgaver omstart TJENESTE        restart one of the services in oppgaver/tjenester.py
     medicus-lukk-program                     "Lukk program som henger" for health personnel (close_own)
 
 `stopp` only runs as root: the window runs it through sudo, which asks for the IT card's PIN, so
@@ -17,19 +18,20 @@ import argparse
 import json
 import os
 import signal
+import subprocess
 import sys
 import time
 import urllib.request
 from pathlib import Path
 
 from medicus.audit import AuditLog
-from oppgaver import prosesser
+from oppgaver import prosesser, tjenester
 
 AUDIT = Path("/var/lib/medicus-oppgaver/audit.jsonl")
 REPORT_URL = "http://127.0.0.1:8000/api/program-lukket"
 
 # Exit codes the window turns into messages. sudo itself exits 1 when the PIN is wrong.
-OK, NOT_ROOT, PROTECTED, GONE, STILL_RUNNING = 0, 2, 3, 4, 5
+OK, NOT_ROOT, PROTECTED, GONE, STILL_RUNNING, FAILED = 0, 2, 3, 4, 5, 6
 
 
 def listing(out=print, proc=prosesser.PROC) -> int:
@@ -72,6 +74,25 @@ def stop(pid: int, start: int, force: bool, proc=prosesser.PROC, kill=os.kill, a
         return OK
     out(f"{p.name} svarer ikke. Du kan tvinge den til å avslutte.")
     return STILL_RUNNING
+
+
+def restart(unit: str, run=subprocess.run, audit=None, who=None, out=print) -> int:
+    """Restart one service from the list in oppgaver/tjenester.py. Checked here again, and logged."""
+    audit = audit or AuditLog(AUDIT)
+    who = who or os.getenv("SUDO_USER", "root")
+    details = {"tjeneste": unit, "navn": tjenester.NAMES.get(unit, unit)}
+    reason = tjenester.locked(unit)
+    if reason:
+        audit.record(who, "tjeneste_omstart_avvist", {**details, "grunn": reason})
+        out(f"Beskyttet: {reason}")
+        return PROTECTED
+    try:
+        ok = run(["systemctl", "restart", unit], capture_output=True, text=True, timeout=90).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        ok = False
+    audit.record(who, "tjeneste_omstartet" if ok else "tjeneste_omstart_feilet", details)
+    out(f"{details['navn']} er startet på nytt." if ok else f"{details['navn']} startet ikke. Se journalctl -u {unit}.")
+    return OK if ok else FAILED
 
 
 def report(program: str, force: bool, ended: bool) -> None:
@@ -119,13 +140,17 @@ def main(argv=None) -> int:
     s.add_argument("pid", type=int)
     s.add_argument("start", type=int)
     s.add_argument("--tving", action="store_true")
+    r = sub.add_parser("omstart")
+    r.add_argument("tjeneste")
     args = parser.parse_args(argv)
     if args.cmd == "liste":
         return listing()
     if os.geteuid() != 0:
-        print("Å stoppe programmer krever IT-kortet: kjør med sudo.")
+        print("Å stoppe programmer og starte tjenester på nytt krever IT-kortet: kjør med sudo.")
         return NOT_ROOT
     AUDIT.parent.mkdir(parents=True, exist_ok=True)
+    if args.cmd == "omstart":
+        return restart(args.tjeneste)
     return stop(args.pid, args.start, args.tving)
 
 

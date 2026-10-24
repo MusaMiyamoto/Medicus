@@ -195,7 +195,9 @@ Medicus toolbar and the heartbeat loader. No other brand is visible anywhere.
   under their card, so IT can see which programs freeze.
 - **Oppgavebehandling (Task Manager, IT mode):** our own. It shows every program and closes it gracefully
   or by force, each time confirmed with the IT card PIN and written to an audit log. The kernel, system
-  services and the desktop are protected and can't be stopped from it.
+  services and the desktop are protected and can't be stopped from it. **Tjenester** lists the Medicus
+  services and restarts one that hangs (patient record service, health network, web filter, virus
+  protection), with the same PIN and log. The card login, card lock and security services are locked.
 - **IT tools are locked, not just hidden:** the terminal, settings, task manager, network editor and
   `sudo` belong to the `medicus-it` group. See [docs/IT-handbok.md](docs/IT-handbok.md), the handbook for IT staff.
 - **Lynis** is installed for IT to run full security audits.

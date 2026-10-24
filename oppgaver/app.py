@@ -7,7 +7,10 @@
   own work programs (prosesser.user_may_close). No PIN: it is their own program and they are logged
   in with their card. Each close is logged by the Medicus service.
 
-The list updates every 3 seconds.
+IT mode also has Tjenester: the services in oppgaver/tjenester.py, with "Start på nytt" for the ones
+that may be restarted (`sudo medicus-oppgaver omstart`, PIN as above).
+
+The lists update every 3 seconds.
 """
 
 import os
@@ -22,15 +25,15 @@ gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
 from . import __main__ as helper  # noqa: E402
-from . import prosesser  # noqa: E402
+from . import prosesser, tjenester  # noqa: E402
 from .sprak import _  # noqa: E402
 
 APP_ID = "no.medicus.Oppgaver"
 PERSONAL_APP_ID = "no.medicus.LukkProgram"
 COMMAND = "/usr/local/bin/medicus-oppgaver"
 REFRESH_MS = 3000
-# Exit codes from `medicus-oppgaver stopp` (and 1 from sudo when the PIN is wrong).
-WRONG_PIN, PROTECTED, GONE, STILL_RUNNING = 1, 3, 4, 5
+# Exit codes from `medicus-oppgaver stopp` and `omstart` (and 1 from sudo when the PIN is wrong).
+WRONG_PIN, PROTECTED, GONE, STILL_RUNNING, FAILED = 1, 3, 4, 5, 6
 
 CSS = """
 window.oppgaver { background: #f6f4ef; color: #2a2418; }
@@ -79,6 +82,29 @@ def result_text(code: int, name: str) -> tuple[str, bool]:
         return _("Programmet var allerede avsluttet."), False
     if code == STILL_RUNNING:
         return _("{} svarer ikke. Prøv «Tving avslutning».").format(name), True
+    return _("Noe gikk galt: {}").format(code), True
+
+
+def run_restart(unit: str, pin: str) -> int:
+    """Ask the root helper to restart a service. Returns its exit code (1: wrong PIN)."""
+    try:
+        return subprocess.run(["sudo", "-S", "-p", "", COMMAND, "omstart", unit], input=pin + "\n",
+                              capture_output=True, text=True, timeout=120).returncode
+    except (OSError, subprocess.TimeoutExpired):
+        return -1
+
+
+def restart_text(code: int, service) -> tuple[str, bool]:
+    """The message for an `omstart` exit code, and whether it is an error."""
+    name = _(service.name)
+    if code == 0:
+        return _("{} er startet på nytt.").format(name), False
+    if code == WRONG_PIN:
+        return _("Feil PIN, eller IT-kortet er sperret."), True
+    if code == PROTECTED:
+        return _("Denne tjenesten er beskyttet og kan ikke startes på nytt her."), True
+    if code == FAILED:
+        return _("{} startet ikke. Se loggen i terminalen: journalctl -u {}").format(name, service.unit), True
     return _("Noe gikk galt: {}").format(code), True
 
 
@@ -158,6 +184,117 @@ class ConfirmWindow(Gtk.Window):
         return False
 
 
+class ServicesWindow(Gtk.Window):
+    """IT mode: the services in oppgaver/tjenester.py, and restarting one with the IT card PIN."""
+
+    def __init__(self, parent, read=tjenester.read):
+        super().__init__(transient_for=parent, title=_("Tjenester"))
+        self.read = read
+        self.busy = self.filling = False
+        self.set_default_size(620, 560)
+        self.add_css_class("oppgaver")
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin_top=16, margin_bottom=16,
+                      margin_start=16, margin_end=16)
+        title = Gtk.Label(label=_("Tjenester"), xalign=0)
+        title.add_css_class("title")
+        box.append(title)
+        sub = Gtk.Label(label=_("Start en tjeneste som henger på nytt. Bekreftes med PIN for IT-kortet og skrives "
+                                "i revisjonsloggen. Sikkerhetstjenestene kan ikke startes på nytt herfra."),
+                        xalign=0, wrap=True)
+        sub.add_css_class("subtitle")
+        box.append(sub)
+        self.list = Gtk.ListBox(selection_mode=Gtk.SelectionMode.SINGLE)
+        self.list.add_css_class("procs")
+        self.list.connect("row-selected", self.on_select)
+        scroll = Gtk.ScrolledWindow(vexpand=True)
+        scroll.set_child(self.list)
+        box.append(scroll)
+        self.detail = Gtk.Label(label=_("Velg en tjeneste i listen."), xalign=0, wrap=True)
+        self.detail.add_css_class("detail")
+        box.append(self.detail)
+        box.append(Gtk.Label(label=_("Bekreft med PIN for IT-kortet"), xalign=0))
+        self.pin = Gtk.PasswordEntry(show_peek_icon=False)
+        self.pin.connect("activate", self.confirm)
+        box.append(self.pin)
+        self.notice = Gtk.Label(xalign=0, wrap=True, visible=False)
+        self.notice.add_css_class("notice")
+        box.append(self.notice)
+        buttons = Gtk.Box(spacing=8, halign=Gtk.Align.END)
+        close = Gtk.Button(label=_("Lukk"))
+        close.connect("clicked", lambda *_: self.close())
+        self.restart = Gtk.Button(label=_("Start på nytt"), sensitive=False)
+        self.restart.add_css_class("suggested-action")
+        self.restart.connect("clicked", self.confirm)
+        buttons.append(close)
+        buttons.append(self.restart)
+        box.append(buttons)
+        self.set_child(box)
+        self.refresh()
+        self.timer = GLib.timeout_add(REFRESH_MS, self.refresh)
+        self.connect("close-request", lambda *_: GLib.source_remove(self.timer) and False)
+
+    def refresh(self):
+        if self.busy:
+            return True
+        selected = self.list.get_selected_row()
+        keep = selected.service.unit if selected else None
+        self.filling = True  # as in OppgaverWindow.fill: no button flicker while the rows are rebuilt
+        self.list.remove_all()
+        for s in self.read():
+            row = Gtk.ListBoxRow()
+            row.service = s
+            line = Gtk.Box(spacing=0)
+            icon = Gtk.Image.new_from_icon_name("changes-prevent-symbolic" if s.locked else "system-run-symbolic")
+            icon.set_size_request(24, -1)
+            line.append(icon)
+            line.append(_cell(_(s.name), 30))
+            line.append(_cell(_(s.status), 16))
+            if s.locked:
+                line.add_css_class("locked")
+            row.set_child(line)
+            self.list.append(row)
+            if s.unit == keep:
+                self.list.select_row(row)
+        self.filling = False
+        self.on_select(self.list, self.list.get_selected_row())
+        return True
+
+    def on_select(self, _list, row):
+        if self.filling:
+            return
+        s = row.service if row else None
+        self.restart.set_sensitive(bool(s) and not s.locked and not self.busy)
+        if not s:
+            self.detail.set_text(_("Velg en tjeneste i listen."))
+        else:
+            text = f"{_(s.name)} · {s.unit} · {_(s.status)}"
+            self.detail.set_text(f"{text}\n{_('Beskyttet')}: {_(s.locked)}" if s.locked else text)
+
+    def confirm(self, *_args):
+        row = self.list.get_selected_row()
+        pin = self.pin.get_text()
+        if not row or row.service.locked or not pin or self.busy:
+            return
+        service = row.service
+        self.pin.set_text("")
+        self.busy = True
+        self.restart.set_sensitive(False)
+        self.show(_("Starter {} på nytt …").format(_(service.name)), False)
+        threading.Thread(target=lambda: GLib.idle_add(self.finished, service, run_restart(service.unit, pin)),
+                         daemon=True).start()
+
+    def finished(self, service, code: int):
+        self.busy = False
+        self.show(*restart_text(code, service))
+        self.refresh()
+        return False
+
+    def show(self, text: str, error: bool):
+        self.notice.set_text(text)
+        (self.notice.add_css_class if error else self.notice.remove_css_class)("error")
+        self.notice.set_visible(True)
+
+
 class OppgaverWindow(Gtk.ApplicationWindow):
     def __init__(self, app, personal=False):
         name = _("Lukk program som henger") if personal else _("Oppgavebehandling")
@@ -195,6 +332,10 @@ class OppgaverWindow(Gtk.ApplicationWindow):
         self.sort = Gtk.DropDown.new_from_strings([_("Sorter: CPU"), _("Sorter: minne"), _("Sorter: navn")])
         self.sort.connect("notify::selected", lambda *_: self.fill())
         bar.append(self.sort)
+        if not personal:
+            services = Gtk.Button(label=_("Tjenester"))
+            services.connect("clicked", lambda *_: ServicesWindow(self).present())
+            bar.append(services)
         root.append(bar)
 
         self.summary = Gtk.Label(xalign=0)

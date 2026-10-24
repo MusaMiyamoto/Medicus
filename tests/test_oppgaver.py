@@ -10,7 +10,7 @@ import pytest
 
 from medicus.audit import AuditLog
 from oppgaver import __main__ as helper
-from oppgaver import prosesser, sprak
+from oppgaver import prosesser, sprak, tjenester
 
 ROOT = Path(__file__).parent.parent
 OS = ROOT / "os/config"
@@ -181,6 +181,8 @@ def test_every_text_has_english(monkeypatch):
     shown = (set(prosesser.STATES.values()) | {t for _, t, _ in prosesser.PROGRAMS}
              | set(prosesser.PAGES.values()) | set(prosesser.OTHER_WORK.values()))
     reasons = re.findall(r'return "([^"]+)"', (ROOT / "oppgaver/prosesser.py").read_text(encoding="utf-8"))
+    shown |= ({name for _, name, _ in tjenester.SERVICES} | {r for _, _, r in tjenester.SERVICES if r}
+              | set(tjenester.STATES.values()) | {"Ukjent", tjenester.locked("sshd.service")})
     same_in_english = {"Program", "PID", "Status", "CPU"}
     missing = (texts | shown | set(reasons)) - set(sprak.EN) - same_in_english
     assert not missing, missing
@@ -218,7 +220,7 @@ def test_the_stops_are_part_of_the_audit_checks():
 GUI_CHECK = r"""
 import sys
 from gi.repository import Gio, GLib
-from oppgaver import app, prosesser
+from oppgaver import app, prosesser, tjenester
 
 proc = prosesser.Process(pid=4242, ppid=1, comm="python3", cmdline="python3 -I -c from nettleser.app import main",
                          uid=1, user="annen", state="S", cpu_ticks=0, start=1, rss=0)
@@ -246,6 +248,17 @@ class Check(app.OppgaverApp):
             dialog.present()
             assert dialog.pin.get_parent() is None  # no PIN for your own programs
             dialog.close()
+        services = app.ServicesWindow(window, read=lambda: [
+            tjenester.Service("medicus.service", "Pasientjournal (tjeneste)", "active", None),
+            tjenester.Service("nftables.service", "Brannmur", "active", tjenester.SECURITY)])
+        services.present()
+        services.list.select_row(services.list.get_row_at_index(0))
+        assert services.restart.get_sensitive()
+        services.refresh()  # the 3-second update keeps the selection and the button
+        assert services.restart.get_sensitive()
+        services.list.select_row(services.list.get_row_at_index(1))
+        assert not services.restart.get_sensitive()  # security services are locked
+        services.close()
         print("ok")
         self.quit()
 
@@ -354,3 +367,63 @@ def test_everyone_has_close_a_frozen_program_and_ctrl_shift_esc():
     keys = (OS / "includes.chroot/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/"
                  "xfce4-keyboard-shortcuts.xml").read_text()
     assert '"&lt;Primary&gt;&lt;Shift&gt;Escape" type="string" value="medicus-lukk-program"' in keys
+
+
+# --- Tjenester: IT restarts a service that hangs ---------------------------------------------------
+
+class Systemctl:
+    def __init__(self, code=0):
+        self.code, self.calls = code, []
+
+    def __call__(self, cmd, **_kw):
+        self.calls.append(cmd)
+        return type("Done", (), {"returncode": self.code, "stdout": ""})()
+
+
+def test_a_service_that_hangs_is_restarted_and_logged(tmp_path):
+    log, run = AuditLog(tmp_path / "a.jsonl"), Systemctl()
+    assert helper.restart("medicus.service", run=run, audit=log, who="eirik-strand", out=lambda *_: None) == helper.OK
+    assert run.calls == [["systemctl", "restart", "medicus.service"]]
+    (last,) = entries(log)
+    assert last["user"] == "eirik-strand" and last["action"] == "tjeneste_omstartet"
+    assert last["details"] == {"tjeneste": "medicus.service", "navn": "Pasientjournal (tjeneste)"}
+
+
+@pytest.mark.parametrize("unit", ["medicus-auth.service", "medicus-oktvakt.service", "nftables.service",
+                                  "apparmor.service", "usbguard.service", "auditd.service", "sshd.service",
+                                  "lightdm.service", "--now", "medicus.service; reboot"])
+def test_login_card_lock_security_and_unknown_services_are_refused(tmp_path, unit):
+    log, run = AuditLog(tmp_path / "a.jsonl"), Systemctl()
+    assert helper.restart(unit, run=run, audit=log, who="eirik-strand", out=lambda *_: None) == helper.PROTECTED
+    assert run.calls == []
+    assert entries(log)[-1]["action"] == "tjeneste_omstart_avvist"
+
+
+def test_a_restart_that_fails_is_reported(tmp_path):
+    log = AuditLog(tmp_path / "a.jsonl")
+    code = helper.restart("tinyproxy.service", run=Systemctl(code=1), audit=log, who="x", out=lambda *_: None)
+    assert code == helper.FAILED and entries(log)[-1]["action"] == "tjeneste_omstart_feilet"
+
+
+def test_restarting_needs_root(monkeypatch):
+    monkeypatch.setattr(helper.os, "geteuid", lambda: 1001)
+    assert helper.main(["omstart", "medicus.service"]) == helper.NOT_ROOT
+
+
+def test_service_states_are_read_from_systemctl():
+    out = ("Id=medicus.service\nActiveState=active\n\nActiveState=failed\nId=tinyproxy.service\n\n"
+           "Id=nftables.service\nActiveState=active\n")
+    run = lambda cmd, **kw: type("Done", (), {"stdout": out})()  # noqa: E731
+    services = {s.unit: s for s in tjenester.read(run=run)}
+    assert [s.unit for s in tjenester.read(run=run)] == [u for u, _, _ in tjenester.SERVICES]
+    assert services["medicus.service"].status == "Kjører" and not services["medicus.service"].locked
+    assert services["tinyproxy.service"].status == "Feilet"
+    assert services["nftables.service"].locked == tjenester.SECURITY
+    assert services["auditd.service"].status == "Ukjent"  # not in the output
+
+
+def test_every_enabled_medicus_service_is_in_the_list():
+    hook = (OS / "hooks/normal/0100-medicus.hook.chroot").read_text()
+    enabled = set(re.findall(r"(medicus[\w-]*\.service)", " ".join(
+        line for line in hook.splitlines() if line.startswith("systemctl enable"))))
+    assert enabled <= set(tjenester.NAMES)

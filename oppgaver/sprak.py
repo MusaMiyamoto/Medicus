@@ -91,6 +91,40 @@ EN = {
     "Programmet tilhører en annen bruker ({}).": "The program belongs to another user ({}).",
     "Bekreft med PIN for IT-kortet": "Confirm with the IT card PIN",
     "Stopper …": "Stopping …",
+    # Tjenester (IT mode, oppgaver/tjenester.py)
+    "Tjenester": "Services",
+    "Start en tjeneste som henger på nytt. Bekreftes med PIN for IT-kortet og skrives i revisjonsloggen. "
+    "Sikkerhetstjenestene kan ikke startes på nytt herfra.":
+        "Restart a service that hangs. Confirmed with the IT card PIN and written to the audit log. "
+        "The security services can't be restarted from here.",
+    "Velg en tjeneste i listen.": "Choose a service in the list.",
+    "Lukk": "Close",
+    "Start på nytt": "Restart",
+    "Starter {} på nytt …": "Restarting {} …",
+    "{} er startet på nytt.": "{} has restarted.",
+    "Denne tjenesten er beskyttet og kan ikke startes på nytt her.":
+        "This service is protected and can't be restarted here.",
+    "{} startet ikke. Se loggen i terminalen: journalctl -u {}": "{} did not start. See the log in the terminal: journalctl -u {}",
+    "Nettfilter": "Web filter",
+    "Virusbeskyttelse": "Virus protection",
+    "Virusoppdatering": "Virus updates",
+    "Brannmur": "Firewall",
+    "Programbeskyttelse": "Program protection",
+    "USB-lås": "USB lock",
+    "Sikkerhetslogg": "Security log",
+    "Starter": "Starting",
+    "Stopper": "Stopping",
+    "Feilet": "Failed",
+    "Laster inn på nytt": "Reloading",
+    "Ukjent": "Unknown",
+    "Sikkerhetstjeneste: kan ikke startes på nytt herfra. Start PC-en på nytt i stedet.":
+        "Security service: can't be restarted from here. Restart the PC instead.",
+    "Alle blir logget ut. Start PC-en på nytt i stedet.": "Everyone would be logged out. Restart the PC instead.",
+    "Skjermlåsen når kortet tas ut, må alltid kjøre.": "The screen lock for a removed card must always run.",
+    "Ikke en tjeneste Oppgavebehandling kan starte på nytt.": "Not a service the Task Manager can restart.",
+    "Rydding av hjemmemapper": "Home folder cleanup",
+    "Kjører bare ved oppstart. Nå ville den tømt mappene til den som er logget inn.":
+        "Runs only at startup. Now it would empty the folders of whoever is logged in.",
     # Results
     "{} er avsluttet.": "{} has closed.",
     "Feil PIN, eller IT-kortet er sperret.": "Wrong PIN, or the IT card is blocked.",
