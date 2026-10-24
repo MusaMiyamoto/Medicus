@@ -87,7 +87,7 @@ main.wide { max-width: 1280px; }
   display: block; width: 100%; text-align: left; background: transparent; color: var(--text);
   border: 0; border-top: 1px solid var(--border); border-radius: 0; padding: 10px 6px; font-weight: normal;
 }
-.message-list button.active { background: var(--ok-bg); }
+.message-list button.active { background: var(--ok-bg); box-shadow: inset 4px 0 0 var(--accent); }
 .message-list button.unread .subject { font-weight: 700; }
 .message-list .from, .message-list .subject { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .badge { display: inline-block; font-size: 0.78rem; font-weight: 700; padding: 1px 8px; border-radius: 99px; }
@@ -142,6 +142,9 @@ h3.group { margin: 22px 0 10px; font-size: 1rem; color: var(--muted); text-trans
 .check.advarsel .icon { background: #c98a00; }
 .check.feil .icon { background: var(--danger); }
 .check.info .icon { background: #6b7a8f; }
+.check .state { font-size: 0.8rem; font-weight: 700; padding: 1px 8px; border-radius: 99px; border: 1px solid currentColor; }
+.check.advarsel .state { color: var(--warn-text); }
+.check.feil .state { color: var(--danger); }
 .scan { font-size: 0.85rem; font-weight: 600; }
 .scan.ok { color: var(--ok-text); }
 .scan.warn { color: var(--warn-text); }
