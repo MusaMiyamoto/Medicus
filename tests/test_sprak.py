@@ -16,6 +16,7 @@ def test_norwegian_is_left_as_it_is():
 def test_login_screen_in_english():
     assert sprak.t("Logg inn", "en") == "Log in"
     assert sprak.t("Feil PIN. 2 forsøk igjen.", "en") == "Wrong PIN. 2 tries left."
+    assert sprak.t("Feil PIN. 1 forsøk igjen.", "en") == "Wrong PIN. 1 try left."
     assert sprak.t("Hei, Ingrid Berg", "en") == "Hello, Ingrid Berg"
     assert sprak.t("Overlege, kardiologi · Oslo universitetssykehus, Ullevål", "en") == \
         "Consultant, cardiology · Oslo University Hospital, Ullevål"
@@ -43,6 +44,38 @@ def test_the_session_language_is_a_locale_the_image_builds():
     built = re.search(r"live-config\.locales=(\S+)", build)[1].split(",")
     assert set(sprak.LOCALES.values()) <= set(built)
     assert built[0] == sprak.LOCALES["nb"]  # Norwegian stays the default
+
+
+def test_the_greeter_always_chooses_the_language():
+    """Norwegian included, before both kinds of login, so ~/.dmrc always holds this login's choice
+    and never an earlier one."""
+    greeter = (ROOT / "tilgang/greeter.py").read_text(encoding="utf-8")
+    assert greeter.count("self.lightdm.language = LOCALES[self.lang]") == 2
+
+
+def test_the_session_reads_its_language_from_dmrc(tmp_path):
+    """LightDM writes the greeter's choice to ~/.dmrc but does not put it in the session's
+    environment, so an Xsession.d script exports it. Run it the way Xsession does (sh, set -e)."""
+    import subprocess
+
+    script = ROOT / "os/config/includes.chroot/etc/X11/Xsession.d/40medicus-sprak"
+    assert re.fullmatch(r"[a-zA-Z0-9_-]+", script.name)  # run-parts style: Xsession skips other names
+
+    def session_lang(dmrc):
+        if dmrc is not None:
+            (tmp_path / ".dmrc").write_text(dmrc)
+        else:
+            (tmp_path / ".dmrc").unlink(missing_ok=True)
+        out = subprocess.run(["sh", "-ec", f'. "{script}"; echo "$LANG"'], capture_output=True, text=True,
+                             env={"HOME": str(tmp_path), "LANG": "nb_NO.UTF-8", "PATH": "/usr/bin:/bin"})
+        assert out.returncode == 0, out.stderr
+        return out.stdout.strip()
+
+    assert session_lang("[Desktop]\nLanguage=en_GB.UTF-8\nSession=xfce\n") == "en_GB.UTF-8"
+    assert session_lang("[Desktop]\nLanguage=nb_NO.UTF-8\n") == "nb_NO.UTF-8"
+    assert session_lang(None) == "nb_NO.UTF-8"                       # no .dmrc: the default
+    assert session_lang("[Desktop]\nLanguage=de_DE.UTF-8\n") == "nb_NO.UTF-8"  # not built: ignored
+    assert session_lang("[Desktop]\nLanguage=en_GB.UTF-8; rm -rf /\n") == "nb_NO.UTF-8"
 
 
 def test_date_on_the_login_screen():

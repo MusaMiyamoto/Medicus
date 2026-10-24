@@ -80,6 +80,7 @@ EN = {
 }
 
 RULES = [
+    (re.compile(r"^Feil PIN\. 1 forsøk igjen\.$"), "Wrong PIN. 1 try left."),
     (re.compile(r"^Feil PIN\. (\d) forsøk igjen\.$"), r"Wrong PIN. \1 tries left."),
     (re.compile(r"^Hei, (.+)$"), r"Hello, \1"),
     (re.compile(r"^Kortet gikk ut (.+)\. Hent nytt kort\. Nødtilgang virker fortsatt\.$"),

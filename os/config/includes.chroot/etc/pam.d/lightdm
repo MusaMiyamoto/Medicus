@@ -16,6 +16,8 @@ auth      required                    pam_permit.so
 
 session  [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so close
 session   required  pam_env.so readenv=1
+# The default language (Norwegian). If English was chosen on the login screen,
+# /etc/X11/Xsession.d/40medicus-sprak switches the session to it.
 session   required  pam_env.so readenv=1 envfile=/etc/default/locale
 session   required  pam_limits.so
 session   required  pam_loginuid.so

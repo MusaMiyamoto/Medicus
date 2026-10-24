@@ -1,0 +1,13 @@
+# Medicus: the session's language, as chosen on the login screen (Norsk or English).
+# The login screen tells LightDM, which writes it to ~/.dmrc just before the session starts, but
+# LightDM has already fixed the session's environment by then. So it is read here instead.
+# Only the two languages the image is built with are accepted; anything else keeps the default.
+# Sourced by /etc/X11/Xsession, which runs with `set -e`: nothing here may fail.
+
+medicus_sprak=$(sed -n 's/^Language=//p' "$HOME/.dmrc" 2>/dev/null || true)
+case "$medicus_sprak" in
+  nb_NO.UTF-8|en_GB.UTF-8)
+    LANG=$medicus_sprak
+    export LANG ;;
+esac
+unset medicus_sprak

@@ -573,6 +573,7 @@ const EN = {
 
 // Text with numbers or names in it: [pattern, English]. $1, $2 … are kept from the Norwegian.
 const RULES = [
+  [/^Feil PIN\. 1 forsøk igjen\.$/, "Wrong PIN. 1 try left."],
   [/^Feil PIN\. (\d) forsøk igjen\.$/, "Wrong PIN. $1 tries left."],
   [/^Velkommen, (.+)$/, "Welcome, $1"],
   [/^(\d+) pasienter på listen din, fra (.+?)\.( Det tok ([\d,]+) s\.)? Notatet lagres i pasientens journal når du godkjenner\.$/,

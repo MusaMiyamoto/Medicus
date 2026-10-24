@@ -466,6 +466,9 @@ class LoginWindow(Gtk.ApplicationWindow):
         if not ok:
             self.message.set_text(self.t(message))
             self.pin.set_text("")
+            # The field lost focus while it was disabled during the check. Without this the next
+            # click only gives the field its focus back, and a PIN typed after it goes nowhere.
+            self.pin.grab_focus()
         return False
 
     def login(self):
