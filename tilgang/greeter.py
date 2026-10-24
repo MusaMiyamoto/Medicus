@@ -56,6 +56,9 @@ button.emergency-go:hover { background: #8f1d17; }
          background: rgba(255, 255, 255, 0.10); border: 1px solid rgba(255, 255, 255, 0.16); }
 .power:hover { background: rgba(255, 255, 255, 0.22); }
 .sim button.card-toggle { padding: 6px 14px; }
+/* The card and workplace lists: a plain light list, without the dark shadow frame around it. */
+.sim popover > contents { box-shadow: none; border-radius: 10px; padding: 4px; }
+.sim popover { box-shadow: none; margin: 0; }
 """
 
 
@@ -340,6 +343,8 @@ class LoginWindow(Gtk.ApplicationWindow):
         toggle_content.append(self.toggle_label)
         self.card_toggle.set_child(toggle_content)
         self.card_toggle.connect("clicked", lambda *_: self.sim_toggle())
+        # A click must not leave focus here, or Enter in the PIN field would press it (and take the card out).
+        self.card_toggle.set_focus_on_click(False)
         # Demo only: pretend this PC stands at another hospital, to see the workplace change.
         status = self.auth.status()
         self.sim_sites = status.get("arbeidssteder") or []
@@ -349,6 +354,8 @@ class LoginWindow(Gtk.ApplicationWindow):
         self.site_choice.set_selected(current)
         self.site_choice.connect("notify::selected", lambda *_: self.sim_site())
         self.site_choice.set_visible(bool(self.sim_sites))
+        for choice in (self.sim_choice, self.site_choice):
+            choice.set_focus_on_click(False)
         self.sim.append(self.site_choice)
         self.sim.append(self.sim_choice)
         self.sim.append(self.card_toggle)
@@ -470,10 +477,13 @@ class LoginWindow(Gtk.ApplicationWindow):
         self.refresh()
 
     def sim_toggle(self):
-        if self.card:
-            self.auth.remove()
-        elif self.sim_cards:
-            self.auth.insert(self.sim_cards[self.sim_choice.get_selected()]["card_id"])
+        try:
+            if self.card:
+                self.auth.remove()
+            elif self.sim_cards:
+                self.auth.insert(self.sim_cards[self.sim_choice.get_selected()]["card_id"])
+        except Exception as e:
+            self.message.set_text(str(e))
         self.refresh()
 
 

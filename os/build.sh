@@ -15,8 +15,8 @@ if [ "$(id -u)" -ne 0 ]; then
   echo "Må kjøres som root: sudo sh os/build.sh" >&2
   exit 1
 fi
-for tool in lb rsvg-convert rsync; do
-  command -v "$tool" >/dev/null || { echo "Mangler $tool. Installer: apt install live-build librsvg2-bin rsync python3-pil" >&2; exit 1; }
+for tool in lb rsvg-convert rsync git; do
+  command -v "$tool" >/dev/null || { echo "Mangler $tool. Installer: apt install live-build librsvg2-bin rsync git python3-pil" >&2; exit 1; }
 done
 python3 -c "import PIL" 2>/dev/null || { echo "Mangler Pillow. Installer: apt install python3-pil" >&2; exit 1; }
 

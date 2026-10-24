@@ -83,10 +83,13 @@
       <property name="expand" type="bool" value="true"/>
       <property name="style" type="uint" value="0"/>
     </property>
-    <!-- Keyboard layout: Norwegian or Northern Sámi (Alt+Shift), shown as its language code. -->
+    <!-- Keyboard layout: Norwegian or Northern Sámi (Alt+Shift), shown as text: "no" for Norwegian,
+         "no" with a small dot for Northern Sámi (a variant of the Norwegian layout). display-scale keeps
+         the text about the size of the clock instead of filling the whole panel height. -->
     <property name="plugin-10" type="string" value="xkb">
       <property name="display-type" type="uint" value="1"/>
       <property name="display-name" type="uint" value="1"/>
+      <property name="display-scale" type="uint" value="45"/>
       <property name="group-policy" type="uint" value="0"/>
     </property>
     <property name="plugin-4" type="string" value="systray">

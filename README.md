@@ -32,7 +32,8 @@ public body**, never for private PCs or phones.
   patient record, the journal assistant, the Kalkulator, and the simulated citizen portal and disclosure workflow.
 - **Norwegian by default:** language `nb_NO`, Norwegian keyboard, Oslo time zone. **Northern Sámi**
   (davvisámegiella: á č đ ŋ š ŧ ž) is the second keyboard layout: Alt+Shift switches, and the taskbar
-  shows which one is on (*nor* / *sme*).
+  shows which one is on: *no* for Norwegian, *no* with a small dot for Northern Sámi (a variant of
+  the Norwegian layout).
 
 ### Logging in
 
