@@ -14,6 +14,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .. import fnr as fnrlib
 from .. import hjemler
@@ -275,4 +276,9 @@ def released_data(p: dict, request: dict) -> dict:
 
 
 def make_app() -> FastAPI:
-    return create_app(Path(os.getenv("MEDICUS_SIM_STATE", "data/helsenett-sim.json")))
+    """The simulator as its own service in Medicus OS. It only answers requests addressed to this
+    machine, so a web page can't read it through DNS rebinding. (The web demo mounts create_app()
+    behind its own address instead.)"""
+    app = create_app(Path(os.getenv("MEDICUS_SIM_STATE", "data/helsenett-sim.json")))
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "::1"])
+    return app
