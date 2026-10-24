@@ -3,6 +3,7 @@
 import subprocess
 import sys
 from decimal import Decimal
+from pathlib import Path
 
 import gi
 
@@ -17,18 +18,66 @@ from .numfmt import NumberError, format_number, parse_number  # noqa: E402
 APP_ID = "no.medicus.Kalkulator"
 
 CSS = """
-.result { font-size: 26px; font-weight: bold; }
-.display { font-size: 24px; }
-.unit-value { font-size: 18px; font-weight: bold; }
-.error { color: #c0392b; }
-.warning { background: #fff4d6; color: #6b4e00; padding: 10px; border-radius: 8px; }
-.source { font-size: 12px; opacity: 0.8; }
-.hint { opacity: 0.75; font-weight: normal; }
+/* Medicus green on a soft light background. The colours are all set here, so the app looks the same
+   whatever the GTK theme is. */
+window.kalkulator { background: #f2f6f3; color: #1d2b22; }
+
+/* Sidebar: the logo on top, the open page as a green pill. */
+.sidebar { background: #ffffff; border-right: 1px solid #dde7e0; }
+.brand { padding: 18px 16px 12px 16px; }
+.brand-name { font-size: 17px; font-weight: 800; color: #0b6b30; }
+.brand-sub { font-size: 12px; color: #5f7366; }
+stacksidebar, stacksidebar list { background: transparent; border: none; }
+stacksidebar row { margin: 2px 10px; padding: 8px 12px; border-radius: 10px; color: #33463a; }
+stacksidebar row:hover { background: #eef5f0; }
+stacksidebar row:selected { background: #dff1e4; color: #0b6b30; font-weight: bold; }
+
+/* Forms on every page: white rounded fields with a green focus ring. */
+.page { background: #f2f6f3; }
+.page entry, .page dropdown > button, .page button { border-radius: 10px; }
+.page entry, .page dropdown > button { background: #ffffff; border: 1px solid #cfdcd3; box-shadow: none; }
+.page entry:focus-within { border-color: #2e9e44; outline: 2px solid rgba(46, 158, 68, 0.25); }
+.heading { font-size: 17px; font-weight: 800; color: #0b6b30; }
+.unit-value { font-size: 18px; font-weight: bold; color: #0b6b30; }
+.error { color: #b42318; }
+.warning { background: #fff6dc; color: #6b4e00; padding: 12px 14px; border-radius: 12px;
+           border-left: 4px solid #e0a800; }
+.source { font-size: 12px; color: #5f7366; }
+.hint { color: #5f7366; font-weight: normal; }
+
+/* The calculator's display, as a card. */
+.display-card { background: #ffffff; border-radius: 18px; padding: 10px 18px 14px 18px;
+                box-shadow: 0 1px 3px rgba(16, 60, 32, 0.10), 0 6px 18px rgba(16, 60, 32, 0.06); }
+.page .display-card entry.display { font-size: 24px; background: transparent; border: none; outline: none;
+                                    color: #3b4d41; }
+.result { font-size: 36px; font-weight: 800; color: #0b6b30; }
+.result.error { font-size: 18px; font-weight: bold; color: #b42318; }
+
+/* The keypad: digits white, ( ) ⌫ grey, operators soft green, = solid green, C soft red. */
+.keypad button { min-height: 56px; font-size: 21px; border-radius: 14px; border: none; background: #ffffff;
+                 color: #1d2b22; box-shadow: 0 1px 2px rgba(16, 60, 32, 0.14); }
+.keypad button:hover { background: #f4faf6; }
+.keypad button:active { background: #e3efe7; box-shadow: none; }
+.keypad button.function { background: #e9eeeb; color: #33463a; }
+.keypad button.function:hover { background: #dfe6e2; }
+.keypad button.operator { background: #e2f3e7; color: #0b6b30; font-weight: bold; font-size: 24px; }
+.keypad button.operator:hover { background: #d3ecda; }
+.keypad button.clear { background: #fdecea; color: #b42318; font-weight: bold; }
+.keypad button.clear:hover { background: #fadad6; }
+.keypad button.equals { background: linear-gradient(135deg, #3aa83c, #0b6b30); color: #ffffff;
+                        font-weight: bold; font-size: 26px; }
+.keypad button.equals:hover { background: linear-gradient(135deg, #46b648, #0f7a37); }
+
 /* Glove-friendly: everything you tap is at least 44 px tall. */
 button, entry, dropdown > button, spinbutton { min-height: 44px; }
 checkbutton > check { min-width: 24px; min-height: 24px; }
-.keypad button { min-height: 48px; font-size: 18px; }
 """
+
+# The logo for the sidebar: installed on Medicus OS, or from the source tree when run from it.
+LOGO = ("/usr/share/medicus/medicus-logo.svg",
+        str(Path(__file__).resolve().parent.parent / "branding" / "medicus-logo.svg"))
+KEY_STYLE = {"C": "clear", "=": "equals", "⌫": "function", "(": "function", ")": "function",
+             "÷": "operator", "×": "operator", "−": "operator", "+": "operator"}
 
 DOSING_WARNING = (
     "Ikke bruk til legemiddeldosering. Bruk alltid preparatomtalen (SPC) "
@@ -46,6 +95,7 @@ def page_box() -> Gtk.Box:
 def heading(text: str) -> Gtk.Label:
     label = Gtk.Label(xalign=0)
     label.set_markup(f"<b>{text}</b>")
+    label.add_css_class("heading")
     return label
 
 
@@ -63,23 +113,27 @@ class CalculatorPage(Gtk.Box):
         box = page_box()
         self.append(box)
 
-        self.entry = Gtk.Entry(placeholder_text="For eksempel 2,5 × 4")
+        self.entry = Gtk.Entry(placeholder_text="For eksempel 2,5 × 4", xalign=1)
         self.entry.add_css_class("display")
         self.entry.connect("activate", lambda *_: self.solve())
         # Wraps, so a long error message can't make the window wider than the screen.
         self.result = Gtk.Label(xalign=1, selectable=True, wrap=True, justify=Gtk.Justification.RIGHT)
         self.result.add_css_class("result")
-        box.append(self.entry)
-        box.append(self.result)
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        card.add_css_class("display-card")
+        card.append(self.entry)
+        card.append(self.result)
+        box.append(card)
 
-        grid = Gtk.Grid(row_spacing=6, column_spacing=6, row_homogeneous=True, column_homogeneous=True)
+        grid = Gtk.Grid(row_spacing=10, column_spacing=10, row_homogeneous=True, column_homogeneous=True)
         grid.add_css_class("keypad")
         grid.set_vexpand(True)
+        grid.set_margin_top(6)
         for row, keys in enumerate(self.KEYS):
             for col, key in enumerate(keys):
                 button = Gtk.Button(label=key)
-                if key == "=":
-                    button.add_css_class("suggested-action")
+                if key in KEY_STYLE:
+                    button.add_css_class(KEY_STYLE[key])
                 button.connect("clicked", self.on_key, key)
                 grid.attach(button, col, row, 1, 1)
         box.append(grid)
@@ -558,7 +612,7 @@ class LabPage(ScorePage):
 class KalkulatorWindow(Gtk.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app, title="Kalkulator")
-        self.set_default_size(680, 640)
+        self.set_default_size(760, 660)
         self.set_icon_name("accessories-calculator")
 
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE, hexpand=True)
@@ -570,13 +624,38 @@ class KalkulatorWindow(Gtk.ApplicationWindow):
         self.stack.add_titled(AcutePage(), "akutt", "Akutt: NEWS2, GCS, CURB-65")
         self.stack.add_titled(LabPage(), "lab", "Lab og EKG")
 
-        sidebar = Gtk.StackSidebar(stack=self.stack)
-        sidebar.set_size_request(190, -1)
+        self.add_css_class("kalkulator")
+        self.stack.add_css_class("page")
+        sidebar = Gtk.StackSidebar(stack=self.stack, vexpand=True)
+        side = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        side.add_css_class("sidebar")
+        side.set_size_request(220, -1)
+        side.append(brand())
+        side.append(sidebar)
         layout = Gtk.Box()
-        layout.append(sidebar)
-        layout.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+        layout.append(side)
         layout.append(self.stack)
         self.set_child(layout)
+
+
+def brand() -> Gtk.Box:
+    """The Medicus logo and the app's name, at the top of the sidebar."""
+    box = Gtk.Box(spacing=10)
+    box.add_css_class("brand")
+    logo = next((path for path in LOGO if Path(path).is_file()), None)
+    if logo:
+        image = Gtk.Image.new_from_file(logo)
+        image.set_pixel_size(36)
+        box.append(image)
+    names = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
+    name = Gtk.Label(label="Kalkulator", xalign=0)
+    name.add_css_class("brand-name")
+    sub = Gtk.Label(label="Medicus", xalign=0)
+    sub.add_css_class("brand-sub")
+    names.append(name)
+    names.append(sub)
+    box.append(names)
+    return box
 
 
 class KalkulatorApp(Gtk.Application):
