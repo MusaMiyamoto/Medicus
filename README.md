@@ -459,6 +459,12 @@ pytest
 
 ## Roadmap
 
+How a first pilot would go (priorities, what happens when a central service is down, support,
+funding options, the threat model, rolling out next to today's PCs, mobile workers and failed
+cards) is in [docs/pilot.md](docs/pilot.md). The larger changes that are planned but not built
+(A/B images and Secure Boot, attestation, downtime mode, MDR and more) are in
+[docs/design.md](docs/design.md).
+
 - [x] Local transcription, note drafting, review and approval
 - [x] Tamper-evident audit log
 - [x] Hardened systemd service
