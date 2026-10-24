@@ -421,10 +421,10 @@ Microphone / audio file ──► faster-whisper (local speech-to-text)
 `site/` is a small static page for testers: how to start the ISO in a virtual machine, the demo cards
 (PIN 1234), a checklist of what to try, a screenshot tour and where to send feedback. It is in Norwegian
 and English and has no server code. `wrangler.jsonc` publishes it as the Cloudflare Worker
-`medicus-demo` (`medicus-demo.<account>.workers.dev`):
+`medicus` (`medicus.<account>.workers.dev`):
 
 - **From the dashboard:** Workers & Pages → Create → Import a repository → this repository. Name the
-  Worker `medicus-demo` (or change `name` in `wrangler.jsonc` to match), leave the build command empty
+  Worker `medicus` (or change `name` in `wrangler.jsonc` to match), leave the build command empty
   and the deploy command `npx wrangler deploy`. Each push to the chosen branch then updates the site.
 - **From a PC:** `npx wrangler login`, then `npx wrangler deploy` in the repository.
 

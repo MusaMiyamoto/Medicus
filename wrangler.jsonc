@@ -1,7 +1,7 @@
 // The Medicus demo site on Cloudflare Workers: static files from site/, no server code.
 // Deploy: npx wrangler deploy  (the Worker name must match the one in the Cloudflare dashboard).
 {
-  "name": "medicus-demo",
+  "name": "medicus",
   "compatibility_date": "2026-10-01",
   "assets": {
     "directory": "./site"
