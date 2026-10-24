@@ -57,11 +57,15 @@ class Authority:
 
     def _on_clinical_network(self) -> bool:
         """Read by authd itself, never taken from the caller."""
-        return nett.on_clinical_network(self.network(), self.site.nett) if self.site.nett else True
+        return nett.on_clinical_network(self.network(), self.site.nett, self.site.mobile) if self.site.nett else True
 
     def _require_clinical_network(self, card, action):
         if not self._on_clinical_network():
             self.audit.record(card.hpr, f"{action}_refused_network", {"user": card.username})
+            if self.site.mobile:
+                raise PermissionError("PC-en er ikke koblet til helsenettet med VPN, så pasientjournaler er stengt. "
+                                      "Koble til mobilnett eller Wi-Fi, og vent til VPN-en er på. Nødtilgang virker "
+                                      "fortsatt. Kontakt IT hvis det ikke går.")
             raise PermissionError("PC-en er ikke koblet til sykehusets kliniske nett, så pasientjournaler er stengt. "
                                   "Nødtilgang virker fortsatt. Kontakt IT.")
 

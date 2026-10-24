@@ -125,3 +125,57 @@ def test_emergency_and_it_still_work_but_are_marked(make):
     assert ask(a, ROOT, cmd="login", username="eirik-strand", pin="4401")["ok"]
     marked = [json.loads(line) for line in audit.path.read_text().splitlines() if "utenfor_klinisk_nett" in line]
     assert [e["action"] for e in marked] == ["emergency_start", "login"]
+
+
+# --- Mobile PCs: the VPN counts instead of the ward's 802.1X ---------------------
+
+VPN_RANGE = ("10.99.0.0/16",)
+IN_CAR = Network(("100.64.3.9", "10.99.0.42"), certified=False, vpn=True)  # 4G address + tunnel address
+
+
+def test_mobile_pc_counts_the_vpn_but_a_fixed_pc_never_does():
+    assert nett.on_clinical_network(IN_CAR, VPN_RANGE, mobile=True)
+    assert not nett.on_clinical_network(IN_CAR, VPN_RANGE, mobile=False)
+    no_tunnel = Network(("100.64.3.9",), certified=False, vpn=False)
+    assert not nett.on_clinical_network(no_tunnel, VPN_RANGE, mobile=True)
+    # "VPN up" is not enough on its own: the address must be the hospital's VPN range.
+    other_vpn = Network(("100.64.3.9", "10.50.0.2"), certified=False, vpn=True)
+    assert not nett.on_clinical_network(other_vpn, VPN_RANGE, mobile=True)
+
+
+def test_vpn_needs_the_tunnel_up_and_the_kill_switch():
+    def machine(link_flags, kill_switch):
+        def run(cmd, **_):
+            if cmd[:3] == ["ip", "-j", "link"]:
+                return SimpleNamespace(stdout=json.dumps([{"ifname": "helsenett", "flags": link_flags}]), returncode=0)
+            if cmd[0] == "nft":
+                return SimpleNamespace(stdout="", returncode=0 if kill_switch else 1)
+            return SimpleNamespace(stdout="", returncode=1)
+        return run
+    assert nett.vpn_up(machine(["POINTOPOINT", "NOARP", "UP", "LOWER_UP"], True))
+    assert not nett.vpn_up(machine(["POINTOPOINT", "NOARP", "UP", "LOWER_UP"], False))  # tunnel, but leaks
+    assert not nett.vpn_up(machine(["POINTOPOINT", "NOARP"], True))  # down
+    assert not nett.vpn_up(lambda *a, **k: SimpleNamespace(stdout="Device does not exist", returncode=1))
+
+
+@pytest.mark.parametrize("value, profile", [('"mobil"', "mobil"), ('"fast"', "fast"), ('"Mobil"', "fast"),
+                                            ("true", "fast"), (None, "fast")])
+def test_profile_from_the_site_file_and_mobile_pcs_always_need_the_pin(tmp_path, value, profile):
+    path = tmp_path / "arbeidssted.toml"
+    extra = f"profil = {value}\n" if value else ""
+    path.write_text(f'id = "hjem"\nnavn = "Hjemmesykepleien"\n{extra}kort_uten_pin_minutter = 240\n', encoding="utf-8")
+    site = load(path)
+    assert site.profil == profile
+    assert site.kort_uten_pin_minutter == (0 if profile == "mobil" else 240)
+
+
+def test_home_nurse_logs_in_over_vpn_and_is_told_what_to_do_without_it(make):
+    _authority, where, audit = make
+    a = Authority(SimulatedReader(audit.path.parent / "kort.json", audit.path.parent / "tries.json"), audit, set(),
+                  site=Arbeidssted("hjem", "Hjemmesykepleien", VPN_RANGE, 0, "mobil"), network=lambda: where["net"])
+    ask(a, cmd="insert", card_id="spl")
+    where["net"] = Network(("100.64.3.9",), certified=False, vpn=False)
+    reply = ask(a, ROOT, cmd="login", username="jonas-lie", pin="2345")
+    assert not reply["ok"] and "VPN" in reply["error"]
+    where["net"] = IN_CAR
+    assert ask(a, ROOT, cmd="login", username="jonas-lie", pin="2345")["ok"]

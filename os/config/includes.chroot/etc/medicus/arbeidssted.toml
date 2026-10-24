@@ -13,3 +13,8 @@ navn = "Oslo universitetssykehus, Ullevål"
 # so the PIN is always asked for. Only normal mode, and only after card-out: a screen locked with
 # the card still in the reader always needs the PIN.
 # kort_uten_pin_minutter = 240
+
+# A PC that goes out with home nurses, ambulances or on-call doctors. Then the always-on VPN to the
+# health network (medicus-vpn, with its kill switch) counts as the clinical network: put the
+# hospital's VPN address range in `nett`. Tap-in is always off on mobile PCs.
+# profil = "mobil"

@@ -287,6 +287,38 @@ How each part works:
 | Emergency access | Always works: lives first. Marked `utenfor_klinisk_nett` in the log. |
 | IT mode | Works, so IT can repair the network. No patient data anyway. Marked `utenfor_klinisk_nett`. |
 
+### Mobile PCs: home nursing, ambulance, on-call
+
+A PC that leaves the building is never on the ward's network, so the rule above would lock it. Mark it
+as mobile in `/etc/medicus/arbeidssted.toml`, with the hospital's **VPN address range** as `nett`:
+
+```toml
+profil = "mobil"
+nett = ["10.99.0.0/16"]
+```
+
+Then health personnel can log in on 4G or any Wi-Fi when **all** of these hold (read by `medicus-authd`):
+
+- the WireGuard tunnel `helsenett` is up (`medicus-vpn`, enabled with `systemctl enable --now medicus-vpn`);
+- its **kill switch** is on, so nothing can leave the PC except through the tunnel;
+- the PC has an address in the VPN range, which only a correctly set-up tunnel gets.
+
+Without the VPN they get a plain message: *Koble til mobilnett eller Wi-Fi, og vent til VPN-en er på*.
+Emergency access works anyway.
+
+| Fixed PC | Mobile PC |
+|---|---|
+| Ward network through 802.1X with the TPM certificate | VPN with kill switch |
+| Tap-in if IT allows it | **Never tap-in**: the PC is in cars and patients' homes |
+| | Card out locks at once, same 15-minute hold |
+
+Be aware: the WireGuard key is in `/etc/wireguard` (root only), not in the TPM like the Wi-Fi certificate.
+Mobile PCs must have **full-disk encryption** (LUKS) so a stolen PC can't give away the key. Revoke a lost
+PC's VPN key on the VPN server at once.
+
+Not solved yet: working with **no network at all** (a basement, a mountain road). That needs downtime mode,
+see `docs/design.md`.
+
 ### Tap-in: card back without the PIN
 
 Typing the PIN every time the card comes back is one of the biggest annoyances on shared ward PCs. Each

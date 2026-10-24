@@ -5,6 +5,8 @@
     nett = ["10.20.0.0/16"]   # optional: the clinical VLANs. Then normal logins only work there.
     kort_uten_pin_minutter = 240   # optional: card back in resumes a held session without the PIN,
                                    # up to this long after the PIN was last typed. 0 (default) = off.
+    profil = "mobil"               # optional: a PC that goes out (home nursing, ambulance, on-call):
+                                   # the VPN counts as the clinical network, and tap-in is always off.
 
 The card says who you are; the PC says where you are. So the same doctor shows up as
 "Overlege, kardiologi · Oslo universitetssykehus, Ullevål" on a PC at Ullevål, and with the
@@ -30,6 +32,12 @@ class Arbeidssted:
     nett: tuple[str, ...] = ()
     # Tap-in: minutes after the last PIN in which putting the card back resumes a held session. 0 = off.
     kort_uten_pin_minutter: int = 0
+    # "fast" (a PC in the building) or "mobil" (goes out with home nurses, ambulances, on-call doctors).
+    profil: str = "fast"
+
+    @property
+    def mobile(self) -> bool:
+        return self.profil == "mobil"
 
     def public(self) -> dict:
         return asdict(self)
@@ -49,15 +57,18 @@ def load(path: Path = CONFIG) -> Arbeidssted:
         site = Arbeidssted(str(data["id"]), str(data["navn"]))
     except (OSError, KeyError, tomllib.TOMLDecodeError):
         return UNKNOWN
+    # Anything but exactly "mobil" is a fixed PC, which is the stricter choice for the network.
+    profile = "mobil" if data.get("profil") == "mobil" else "fast"
     tap = data.get("kort_uten_pin_minutter", 0)
-    tap = tap if type(tap) is int and 0 <= tap <= TAP_MAX else 0
+    # A PC that is carried into cars and patients' homes always needs the PIN.
+    tap = tap if type(tap) is int and 0 <= tap <= TAP_MAX and profile == "fast" else 0
     if "nett" not in data:
-        return Arbeidssted(site.id, site.navn, (), tap)
+        return Arbeidssted(site.id, site.navn, (), tap, profile)
     try:
         subnets = check_subnets(data["nett"]) if isinstance(data["nett"], list) else ()
     except ValueError:
         subnets = ()
-    return Arbeidssted(site.id, site.navn, subnets or NO_NETWORK, tap)
+    return Arbeidssted(site.id, site.navn, subnets or NO_NETWORK, tap, profile)
 
 
 def load_sim_sites(path: Path = SIM_SITES) -> list[Arbeidssted]:

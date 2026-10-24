@@ -55,6 +55,9 @@ There are no passwords. Three ways in, all with a card:
   - **Tap-in (if IT allows it on that PC):** the same card back is enough, without the PIN, for a set time
     after the PIN was last typed (`kort_uten_pin_minutter`, at most one shift). Never in IT mode, and never
     when the screen locked with the card still in the reader.
+- **Mobile PCs** (home nursing, ambulance, on-call: `profil = "mobil"`): the always-on VPN to the health
+  network, with its kill switch, counts as the clinical network, so records open on 4G or any Wi-Fi.
+  Without the VPN, the user is told to connect and wait. Tap-in is always off on mobile PCs.
   - **Card not back in time:** the session ends.
   - **Another person logs in:** the held session ends.
   - **While held:** no app can use the session; the journal service refuses it.
