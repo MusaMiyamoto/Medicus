@@ -25,6 +25,15 @@
   </div>
 
   <main>
+    <div id="draft-banner" class="warning" role="alert" hidden>
+      <p><strong>⚠ Du har et notat som ikke ble godkjent</strong> (lagret kl. <span id="draft-time"></span>), for
+        eksempel fordi økten ble avsluttet. Det ligger bare i minnet på denne PC-en.</p>
+      <div class="row">
+        <button id="draft-restore" type="button">Hent utkastet</button>
+        <button id="draft-discard" type="button" class="secondary">Forkast det</button>
+      </div>
+    </div>
+
     <section class="card">
       <h2>Pasient</h2>
       <div class="picker">

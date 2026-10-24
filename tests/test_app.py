@@ -183,3 +183,36 @@ def test_recording_needs_the_patients_yes(env):
     assert app.post("/api/transcribe", files=audio).status_code == 403
     actions = [json.loads(line)["action"] for line in medicus_app.audit.path.read_text().splitlines()]
     assert actions.count("recording_consent") == 2 and "recording_consent_withdrawn" in actions
+
+
+def test_unfinished_note_survives_the_session_but_only_for_its_author(env, monkeypatch):
+    app, _sim, login = env
+    monkeypatch.setattr(medicus_app, "drafts", {})
+    login(DOCTOR)
+    assert app.get("/api/utkast").json() == {"utkast": None}
+    draft = {"transcript": "Pasient: vondt i halsen", "seksjoner": {"funn": "Røde mandler."}, "fnr": seed.KARI}
+    assert app.put("/api/utkast", json=draft).json() == {"lagret": True}
+    login(NURSE)  # someone else on the same PC sees nothing
+    assert app.get("/api/utkast").json() == {"utkast": None}
+    login(DOCTOR)  # the author, in a new session
+    back = app.get("/api/utkast").json()["utkast"]
+    assert back["seksjoner"] == {"funn": "Røde mandler."} and back["fnr"] == seed.KARI and ":" in back["lagret_kl"]
+    app.post("/api/approve", json={"note": "Funn: Røde mandler.", "fnr": ""})
+    assert app.get("/api/utkast").json() == {"utkast": None}  # approved: gone
+
+
+def test_drafts_expire_can_be_discarded_and_need_a_normal_login(env, monkeypatch):
+    app, _sim, login = env
+    monkeypatch.setattr(medicus_app, "drafts", {})
+    login(DOCTOR)
+    app.put("/api/utkast", json={"transcript": "x", "seksjoner": {}})
+    assert app.delete("/api/utkast").json() == {"ok": True}
+    assert app.get("/api/utkast").json() == {"utkast": None}
+    app.put("/api/utkast", json={"transcript": "x", "seksjoner": {}})
+    monkeypatch.setattr(medicus_app.time, "time", lambda: 10**11)  # long after the shift
+    assert app.get("/api/utkast").json() == {"utkast": None}
+    assert app.put("/api/utkast", json={"transcript": "", "seksjoner": {"funn": " "}}).json() == {"lagret": False}
+    assert app.put("/api/utkast", json={"transcript": "x", "seksjoner": {}, "fnr": "1" * 12}).status_code == 422
+    for who in (IT, EMERGENCY, None):
+        login(who)
+        assert app.get("/api/utkast").status_code in (401, 403)

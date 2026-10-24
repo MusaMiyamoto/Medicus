@@ -303,6 +303,14 @@ comes from in the conversation. Click a sentence to highlight those lines.
   can't invent sources.
 - **Re-checked as you edit.** Approving a note with red sentences asks for confirmation first.
 
+**Nothing lost when a session ends:** the unfinished note (conversation, draft and chosen patient) is
+saved in the local service's memory as you type. If the session ends before it is approved (card not
+back within 15 minutes, or a colleague logged in), it is offered back at your next login. Only to
+you, for at most 12 hours, never on disk, and gone once approved or discarded.
+
+**Wrong-patient guard:** switching patient while a note is open asks first, and empties the clipboard,
+so a note can't be pasted into the wrong record.
+
 **Less waiting:** the patient list is fetched in the background at login, so the picker is ready when
 the assistant opens. If the record system is slow, the page says what it is waiting for and how long it took.
 The Sikkerhetssenter shows the record system's response time (median, and what 9 of 10 calls stay under).

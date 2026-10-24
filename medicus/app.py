@@ -14,7 +14,7 @@ import shutil
 import tempfile
 import time
 from collections import deque
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
@@ -495,7 +495,58 @@ def approve(body: ApprovalIn, session: dict = Depends(normal_session)):
     audit.record(session["hpr"], "note_approved", {"chars": len(body.note), "samtykke_opptak": has_consent(session),
                                                     "patient": fnrlib.mask(body.fnr) if saved else None,
                                                     "saved_in": saved})
+    drafts.pop(session["hpr"], None)  # approved: the draft is done
     return {"ok": True, "lagret_i": saved}
+
+
+# --- Unfinished notes (utkast) ---------------------------------------------------
+# If the session ends before the note is approved (the card wasn't back within 15 minutes, or a
+# colleague logged in), the work isn't lost: the page saves the draft here as you type, and offers
+# it back at your next login. In this service's memory only (never on disk), only for the same
+# person, for at most one shift, and gone once approved or discarded.
+
+DRAFT_SECONDS = 12 * 3600
+drafts: dict[str, dict] = {}  # hpr -> {"at", "transcript", "seksjoner", "fnr"}
+
+
+class DraftIn(BaseModel):
+    transcript: str = Field(max_length=100_000)
+    seksjoner: dict[str, str] = {}
+    fnr: str = Field("", max_length=11)
+
+
+def _drop_old_drafts():
+    for hpr in [h for h, d in drafts.items() if time.time() - d["at"] > DRAFT_SECONDS]:
+        del drafts[hpr]
+
+
+@app.put("/api/utkast")
+def save_draft(body: DraftIn, session: dict = Depends(normal_session)):
+    if sum(len(t) for t in body.seksjoner.values()) > 50_000:
+        raise HTTPException(413, "Notatet er for langt.")
+    _drop_old_drafts()
+    if not body.transcript.strip() and not any(t.strip() for t in body.seksjoner.values()):
+        drafts.pop(session["hpr"], None)
+        return {"lagret": False}
+    drafts[session["hpr"]] = {"at": time.time(), **body.model_dump()}
+    return {"lagret": True}
+
+
+@app.get("/api/utkast")
+def get_draft(session: dict = Depends(normal_session)):
+    _drop_old_drafts()
+    draft = drafts.get(session["hpr"])
+    if draft is None:
+        return {"utkast": None}
+    saved = datetime.fromtimestamp(draft["at"]).strftime("%H:%M")
+    return {"utkast": {k: draft[k] for k in ("transcript", "seksjoner", "fnr")} | {"lagret_kl": saved}}
+
+
+@app.delete("/api/utkast")
+def discard_draft(session: dict = Depends(normal_session)):
+    if drafts.pop(session["hpr"], None) is not None:
+        audit.record(session["hpr"], "draft_discarded", {})
+    return {"ok": True}
 
 
 # --- Moving a record from Epic (normal login) --------------------------------

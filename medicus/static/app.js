@@ -77,9 +77,15 @@ function choose(p) {
   search.parentElement.hidden = true;
   openList(false);
   $("approve").textContent = "Godkjenn og lagre i journalen";
+  if (hasNote()) saveDraftSoon();
 }
 
-$("patient-clear").addEventListener("click", () => {
+$("patient-clear").addEventListener("click", async () => {
+  // Wrong-patient guard: a note written for one patient must not end up in another's record.
+  if (patient && hasNote() && !confirm(`Notatet er skrevet for ${patient.navn}. Vil du virkelig bytte pasient?`)) {
+    return;
+  }
+  try { await navigator.clipboard.writeText(""); } catch (e) { /* the clipboard may be unavailable */ }
   patient = null;
   $("patient-chosen").hidden = true;
   search.parentElement.hidden = false;
@@ -292,7 +298,7 @@ function showSources(result) {
         button.textContent += `  (tall ikke sagt: ${item.tall_uten_kilde.join(", ").replaceAll(".", ",")})`;
       }
       button.setAttribute("aria-label", `${chip}: ${item.tekst}`);
-      button.addEventListener("click", () => highlight(item.linjer, button));
+      button.addEventListener("click", () => showSourceLines(item.linjer, button));
       entry.append(button);
       list.append(entry);
     }
@@ -306,7 +312,7 @@ function showSources(result) {
     : "✓ Alle setninger med innhold finnes i samtalen. Les likevel gjennom før du godkjenner.";
 }
 
-function highlight(lineNumbers, button) {
+function showSourceLines(lineNumbers, button) {
   document.querySelectorAll(".source-chip.active").forEach((b) => b.classList.remove("active"));
   button.classList.add("active");
   const items = [...$("source-lines").children];
@@ -338,6 +344,64 @@ function recheckSoon() {
 }
 transcript.addEventListener("input", recheckSoon);
 
+// --- Unfinished notes: saved in the local service's memory as you type (never on disk) ---
+const SECTION_LABELS = { kontaktarsak: "Kontaktårsak", anamnese: "Anamnese", funn: "Funn", vurdering: "Vurdering", plan: "Plan" };
+let draftTimer = null;
+let offeredDraft = null;
+
+function hasNote() {
+  return Boolean(sectionsEl.querySelector("textarea")) || transcript.value.trim() !== "";
+}
+
+function saveDraftSoon() {
+  if (offeredDraft) return;  // don't overwrite an old draft before the doctor has chosen what to do with it
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(() => {
+    api("/api/utkast", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ transcript: transcript.value, seksjoner: currentSections(), fnr: patient ? patient.fnr : "" }),
+    }).catch(() => { /* not critical: the note is still on screen */ });
+  }, 1500);
+}
+transcript.addEventListener("input", saveDraftSoon);
+sectionsEl.addEventListener("input", saveDraftSoon);
+
+api("/api/utkast").then((data) => {
+  if (!data.utkast) return;
+  offeredDraft = data.utkast;
+  $("draft-time").textContent = data.utkast.lagret_kl;
+  $("draft-banner").hidden = false;
+}).catch(() => {});
+
+$("draft-restore").addEventListener("click", async () => {
+  const draft = offeredDraft;
+  offeredDraft = null;
+  $("draft-banner").hidden = true;
+  transcript.value = draft.transcript;
+  const keys = Object.keys(draft.seksjoner);
+  if (keys.length) {
+    renderNote(keys.map((key) => ({ key, label: SECTION_LABELS[key] || key, text: draft.seksjoner[key] })), null);
+    recheckSoon();
+  }
+  if (draft.fnr) {
+    try {
+      choose(await api(`/api/journal/pasient/${draft.fnr}`));
+    } catch (e) {
+      setStatus(`Fant ikke pasienten fra utkastet igjen: ${e.message}`, true);
+    }
+  }
+  setStatus("Utkastet er hentet. Les gjennom før du godkjenner.");
+});
+
+$("draft-discard").addEventListener("click", async () => {
+  if (!confirm("Forkaste utkastet for godt?")) return;
+  offeredDraft = null;
+  $("draft-banner").hidden = true;
+  await api("/api/utkast", { method: "DELETE" }).catch(() => {});
+  setStatus("Utkastet er forkastet.");
+});
+
 function noteText() {
   return [...sectionsEl.querySelectorAll("textarea")]
     .map((area) => `${area.dataset.label}:\n${area.value.trim()}`)
@@ -359,6 +423,7 @@ $("generate").addEventListener("click", async () => {
       body: JSON.stringify({ transcript: transcript.value }),
     });
     renderNote(data.sections, data.kilder);
+    saveDraftSoon();
     setStatus("Utkast klart. Kontroller alt før du godkjenner.");
   } catch (e) {
     setStatus(e.message, true);
