@@ -18,6 +18,7 @@ from collections import deque
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
@@ -68,6 +69,34 @@ async def privacy_headers(request, call_next):
     api = request.url.path.startswith("/api/")
     response.headers["Cache-Control"] = "no-store" if api else "no-cache"
     return response
+
+
+LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+
+def _local(address: str) -> bool:
+    """Whether a Host header ('127.0.0.1:8000') or Origin ('http://localhost:8000') is this machine."""
+    return urlsplit(address if "://" in address else "//" + address).hostname in LOCAL_HOSTS | {settings.host}
+
+
+@app.middleware("http")
+async def only_this_machine(request, call_next):
+    # The session comes from the card in this PC's reader, not from a cookie, so any page open in the
+    # browser could otherwise make the browser call this service as the logged-in clinician: open a
+    # record (which logs an access and tells the patient), or, through DNS rebinding, read one.
+    # So requests must be addressed to this machine (no rebinding), and the API and every change
+    # must come from this service's own pages or from local programs. Following a link to one of our
+    # pages from elsewhere is fine (the browser's "blocked site" page links back to the site list):
+    # a page shows nothing until its own scripts call the API. The public demo runs behind its own
+    # address and has its own cookie sessions.
+    if not settings.demo:
+        origin = request.headers.get("origin")
+        cross_site = (request.headers.get("sec-fetch-site") not in (None, "same-origin", "none")
+                      or origin is not None and not _local(origin))
+        page_visit = request.method == "GET" and not request.url.path.startswith("/api/")
+        if not _local(request.headers.get("host", "")) or cross_site and not page_visit:
+            return JSONResponse({"detail": "Bare tilgjengelig fra Medicus på denne maskinen."}, status_code=403)
+    return await call_next(request)
 
 
 @app.middleware("http")

@@ -94,7 +94,7 @@ def test_clinician_app_sends_and_previews(tmp_path, monkeypatch):
     monkeypatch.setattr(medicus_app, "helsenett", lambda: SimulatedClient("http://sim", http=sim))
     monkeypatch.setattr(medicus_app, "audit", medicus_app.AuditLog(tmp_path / "audit.jsonl"))
     monkeypatch.setenv("MEDICUS_DEV_IDENTITY", json.dumps({**BERG, "modus": "normal"}))
-    app = TestClient(medicus_app.app)
+    app = TestClient(medicus_app.app, base_url="http://127.0.0.1:8000")
     dcm = bilder.synthetic_dicom("Ola Nordmann", seed.OLA, "MR", "MR kne", "KNEE")
     reply = app.post("/api/post", data={"til": [f"hpr:{MOE['hpr']}"], "emne": "MR kne", "tekst": "Vurdering?",
                                         "fnr": seed.OLA}, files=[("filer", ("kne.dcm", dcm, "application/dicom"))])
@@ -109,4 +109,4 @@ def test_clinician_app_sends_and_previews(tmp_path, monkeypatch):
 
 def test_emergency_session_has_no_mail(tmp_path, monkeypatch):
     monkeypatch.setenv("MEDICUS_DEV_IDENTITY", json.dumps({**LIE, "modus": "nød"}))
-    assert TestClient(medicus_app.app).get("/api/post/innboks").status_code == 403
+    assert TestClient(medicus_app.app, base_url="http://127.0.0.1:8000").get("/api/post/innboks").status_code == 403

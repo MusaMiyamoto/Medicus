@@ -12,6 +12,7 @@ from helsenett.sim.app import create_app
 DOCTOR = {**seed.BERG, "modus": "normal"}
 NURSE = {**seed.LIE, "modus": "normal"}
 EMERGENCY = {**seed.LIE, "modus": "nød", "situasjon": "Bevisstløs pasient", "sekunder_igjen": 1700}
+LOCAL = "http://127.0.0.1:8000"  # the service only answers requests addressed to this machine
 IT = {"navn": "Eirik Strand", "rolle": "IT", "hpr": "IT-4401", "virksomhet": "Oslo universitetssykehus", "modus": "it"}
 
 
@@ -31,7 +32,7 @@ def env(tmp_path, monkeypatch):
         else:
             monkeypatch.setenv("MEDICUS_DEV_IDENTITY", json.dumps(session))
 
-    return TestClient(medicus_app.app), sim, login
+    return TestClient(medicus_app.app, base_url=LOCAL), sim, login
 
 
 def test_not_logged_in_gets_nothing(env):
@@ -306,14 +307,41 @@ def test_broken_audit_chain_is_found_at_start(env, monkeypatch):
     assert medicus_app.audit_chain_check()["status"] == "info"
 
     medicus_app.audit.record("999000101", "patient_opened", {"patient": "123456*****"})
-    with TestClient(medicus_app.app):
+    with TestClient(medicus_app.app, base_url=LOCAL):
         pass
     assert medicus_app.audit_chain_check()["status"] == "ok"
 
     path = medicus_app.audit.path
     path.write_text(path.read_text().replace("patient_opened", "patient_closed"))
-    with TestClient(medicus_app.app):
+    with TestClient(medicus_app.app, base_url=LOCAL):
         pass
     check = medicus_app.audit_chain_check()
     assert check["status"] == "feil" and "linje 1" in check["forklaring"]
     assert json.loads(path.read_text().splitlines()[-1])["action"] == "audit_chain_broken_at_start"
+
+
+# --- Only this machine: other web pages can't use the card session ----------------------------------
+
+def test_other_sites_cannot_use_the_clinicians_session(env):
+    browser, _sim, login = env
+    login(DOCTOR)
+    assert browser.get("/api/meg").status_code == 200
+    assert browser.get("/api/meg", headers={"Sec-Fetch-Site": "same-origin"}).status_code == 200
+    assert browser.get("/", headers={"Sec-Fetch-Site": "none"}).status_code == 200  # typed or from the menu
+    # The browser's "blocked site" page links back to the site list: a page visit, no data.
+    assert browser.get("/nettsteder", headers={"Sec-Fetch-Site": "cross-site"}).status_code == 200
+    assert browser.post(f"/api/pasient/{seed.OLA}/notat", json={"tekst": "x"},
+                        headers={"Sec-Fetch-Site": "cross-site"}).status_code == 403
+    for headers in ({"Sec-Fetch-Site": "cross-site"}, {"Sec-Fetch-Site": "same-site"},
+                    {"Origin": "https://www.nrk.no"}, {"Origin": "null"}):
+        r = browser.get(f"/api/pasient/{seed.OLA}", headers=headers)
+        assert r.status_code == 403, headers
+    assert browser.post(f"/api/pasient/{seed.OLA}/notat", json={"tekst": "x"},
+                        headers={"Origin": "https://evil.example"}).status_code == 403
+
+
+def test_dns_rebinding_is_refused(env):
+    browser, _sim, login = env
+    login(DOCTOR)
+    assert browser.get("/api/meg", headers={"Host": "evil.example:8000"}).status_code == 403
+    assert TestClient(medicus_app.app, base_url="http://localhost:8000").get("/api/meg").status_code == 200
