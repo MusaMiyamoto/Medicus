@@ -10,10 +10,12 @@ Anyone who has opened emergency access writes the report at /rapport.
 import json
 import os
 import secrets
-import shutil
+import sys
 import tempfile
+import threading
 import time
 from collections import deque
+from contextlib import asynccontextmanager
 from datetime import date, datetime
 from pathlib import Path
 
@@ -41,7 +43,17 @@ SAMPLE = Path(__file__).parent.parent / "samples" / "konsultasjon_eksempel.txt"
 LOGO = Path(__file__).parent.parent / "branding" / "medicus-logo.svg"
 BROWSER_LOGO = Path(__file__).parent.parent / "branding" / "nettleser.svg"
 
-app = FastAPI(title="Medicus", docs_url=None, redoc_url=None)
+@asynccontextmanager
+async def lifespan(_app):
+    check_audit_chain()
+    if settings.warmup:
+        # In the background, so the service is up at once and Whisper is ready before the first patient.
+        from .transcribe import warmup
+        threading.Thread(target=warmup, name="whisper-warmup", daemon=True).start()
+    yield
+
+
+app = FastAPI(title="Medicus", docs_url=None, redoc_url=None, lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 
@@ -59,6 +71,29 @@ async def privacy_headers(request, call_next):
 
 
 audit = AuditLog(settings.audit_log)
+audit_at_start: dict = {}  # {"ok", "linje"}: the chain check when the service started
+
+
+def check_audit_chain():
+    """Check this service's audit log chain at start, and say so loudly (and in the log) if it's broken."""
+    ok, line = audit.verify()
+    audit_at_start.update(ok=ok, linje=line)
+    if not ok:
+        print(f"REVISJONSLOGGEN ER BRUTT på linje {line} ({settings.audit_log}). "
+              "Kjør «sudo medicus-revisjon sjekk».", file=sys.stderr)
+        audit.record("system", "audit_chain_broken_at_start", {"linje": line})
+
+
+def audit_chain_check() -> dict:
+    """For the Sikkerhetssenter."""
+    name = "Revisjonskjede"
+    if not audit_at_start:
+        return {"navn": name, "status": sikkerhet.INFO, "forklaring": "Kjeden sjekkes når Medicus starter."}
+    if audit_at_start["ok"]:
+        return {"navn": name, "status": sikkerhet.OK, "forklaring": "Loggkjeden var hel da Medicus startet."}
+    return {"navn": name, "status": sikkerhet.FAIL,
+            "forklaring": f"Loggkjeden er brutt på linje {audit_at_start['linje']}. Noen kan ha endret loggen. "
+                          "Varsle sikkerhetsteamet og kjør «sudo medicus-revisjon sjekk»."}
 
 
 def current_session() -> dict | None:
@@ -394,7 +429,7 @@ def security_status(_session: dict = Depends(it_session)):
     devices = sikkerhet.medical_devices(utstyr.connected(), utstyr.load())
     return sikkerhet.checks() + [sikkerhet.emergency_reports(late), devices, sikkerhet.machine_certificate(),
                                  sikkerhet.response_time(list(response_times)), revisjon.status_check(),
-                                 workplace_check()]
+                                 audit_chain_check(), workplace_check()]
 
 
 # --- Emergency access ------------------------------------------------------
@@ -479,11 +514,21 @@ def transcribe_audio(audio: UploadFile, session: dict = Depends(normal_session))
         raise HTTPException(403, "Pasienten må samtykke før samtalen tas opp eller lastes opp.")
 
     suffix = Path(audio.filename or "").suffix or ".webm"
+    max_bytes = settings.upload_max_mb * 1024 * 1024
     fd, path = tempfile.mkstemp(suffix=suffix)
     try:
+        # Copied in pieces, and stopped as soon as it's too big, so a huge file never fills the disk.
+        size = 0
         with os.fdopen(fd, "wb") as f:
-            shutil.copyfileobj(audio.file, f)
+            while chunk := audio.file.read(1024 * 1024):
+                size += len(chunk)
+                if size > max_bytes:
+                    raise HTTPException(413, f"Lydfilen er for stor (over {settings.upload_max_mb} MB).")
+                f.write(chunk)
         text, seconds = transcribe(path)
+    except HTTPException:
+        audit.record(session["hpr"], "transcribe_refused_too_large", {"max_mb": settings.upload_max_mb})
+        raise
     except Exception as e:
         audit.record(session["hpr"], "transcribe_failed", {"error": type(e).__name__})
         raise HTTPException(500, "Kunne ikke transkribere lydfilen.") from e
@@ -499,7 +544,8 @@ def create_note(body: TranscriptIn, session: dict = Depends(normal_session)):
     try:
         note = notes.generate_note(body.transcript)
     except notes.NoteError as e:
-        audit.record(session["hpr"], "note_failed", {"error": str(e)})
+        # The error's type only (what caused it, e.g. ConnectError), like transcribe_failed: no free text.
+        audit.record(session["hpr"], "note_failed", {"error": type(e.__cause__ or e).__name__})
         raise HTTPException(502, str(e)) from e
     checked = kilder.check_note(body.transcript, note)
     audit.record(session["hpr"], "note_generated", {"model": settings.llm_model, "chars": len(body.transcript),

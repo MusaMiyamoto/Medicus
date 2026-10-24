@@ -262,3 +262,58 @@ def test_patient_data_is_never_cached_and_pages_are_always_revalidated(env):
     assert app.get("/api/meg").headers["cache-control"] == "no-store"
     assert app.get("/static/common.js").headers["cache-control"] == "no-cache"
     assert app.get("/pasient").headers["cache-control"] == "no-cache"
+
+
+def test_too_large_recording_is_refused_while_it_streams(env, monkeypatch, tmp_path):
+    app, _sim, login = env
+    login(DOCTOR)
+    medicus_app.consents.clear()
+    app.post("/api/samtykke", json={"svar": "ja"})
+    monkeypatch.setattr(medicus_app, "settings", medicus_app.settings.__class__(upload_max_mb=1))
+    seen = []
+    monkeypatch.setattr("medicus.transcribe.transcribe", lambda path: (seen.append(path), ("Hei", 2.0))[1])
+    monkeypatch.setattr(medicus_app.tempfile, "tempdir", str(tmp_path))
+
+    big = {"audio": ("opptak.webm", b"x" * (1024 * 1024 + 1), "audio/webm")}
+    reply = app.post("/api/transcribe", files=big)
+    assert reply.status_code == 413 and "1 MB" in reply.json()["detail"]
+    assert not seen and not list(tmp_path.glob("*.webm"))  # never transcribed, and the part file is gone
+
+    small = {"audio": ("opptak.webm", b"x" * 1000, "audio/webm")}
+    assert app.post("/api/transcribe", files=small).json() == {"transcript": "Hei"}
+    assert len(seen) == 1 and not list(tmp_path.glob("*.webm"))
+    actions = [json.loads(line)["action"] for line in medicus_app.audit.path.read_text().splitlines()]
+    assert "transcribe_refused_too_large" in actions and "transcribe" in actions
+
+
+def test_failed_note_logs_only_the_kind_of_error(env, monkeypatch):
+    app, _sim, login = env
+    login(DOCTOR)
+
+    def unreachable(transcript):
+        raise medicus_app.notes.NoteError("Fikk ikke kontakt") from ConnectionRefusedError("detaljer")
+
+    monkeypatch.setattr(medicus_app.notes, "generate_note", unreachable)
+    assert app.post("/api/note", json={"transcript": "Pasient: hei"}).status_code == 502
+    last = json.loads(medicus_app.audit.path.read_text().splitlines()[-1])
+    assert last["action"] == "note_failed" and last["details"] == {"error": "ConnectionRefusedError"}
+
+
+def test_broken_audit_chain_is_found_at_start(env, monkeypatch):
+    _app, _sim, _login = env
+    monkeypatch.setattr(medicus_app, "settings", medicus_app.settings.__class__(warmup=False))
+    monkeypatch.setattr(medicus_app, "audit_at_start", {})
+    assert medicus_app.audit_chain_check()["status"] == "info"
+
+    medicus_app.audit.record("999000101", "patient_opened", {"patient": "123456*****"})
+    with TestClient(medicus_app.app):
+        pass
+    assert medicus_app.audit_chain_check()["status"] == "ok"
+
+    path = medicus_app.audit.path
+    path.write_text(path.read_text().replace("patient_opened", "patient_closed"))
+    with TestClient(medicus_app.app):
+        pass
+    check = medicus_app.audit_chain_check()
+    assert check["status"] == "feil" and "linje 1" in check["forklaring"]
+    assert json.loads(path.read_text().splitlines()[-1])["action"] == "audit_chain_broken_at_start"
