@@ -20,7 +20,7 @@ ICON = Path(__file__).parent.parent / "branding" / "nettleser.svg"
 
 CSS = """
 .medicus-bar { background: #0f4f2f; color: #ffffff; padding: 4px 8px; }
-.medicus-bar button { color: #ffffff; background: transparent; border: none; min-width: 34px; min-height: 34px; border-radius: 8px; }
+.medicus-bar button { color: #ffffff; background: transparent; border: none; min-width: 44px; min-height: 44px; border-radius: 8px; }  /* glove-friendly */
 .medicus-bar button:hover { background: rgba(255, 255, 255, 0.14); }
 .medicus-bar button:disabled { opacity: 0.35; }
 .medicus-bar entry { min-height: 34px; border-radius: 10px; background: rgba(255, 255, 255, 0.12);

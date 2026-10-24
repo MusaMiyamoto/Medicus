@@ -24,6 +24,9 @@ CSS = """
 .warning { background: #fff4d6; color: #6b4e00; padding: 10px; border-radius: 8px; }
 .source { font-size: 12px; opacity: 0.8; }
 .hint { opacity: 0.75; font-weight: normal; }
+/* Glove-friendly: everything you tap is at least 44 px tall. */
+button, entry, dropdown > button, spinbutton { min-height: 44px; }
+checkbutton > check { min-width: 24px; min-height: 24px; }
 .keypad button { min-height: 48px; font-size: 18px; }
 """
 

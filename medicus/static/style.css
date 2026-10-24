@@ -277,3 +277,13 @@ label.check { display: flex; gap: 8px; align-items: center; font-weight: 600; ma
 .transfer-doc { border-top: 1px solid var(--border); padding: 10px 0; }
 .drop { display: block; border: 2px dashed var(--border); border-radius: 12px; padding: 22px; text-align: center; cursor: pointer; }
 .drop:hover, .drop.over { border-color: var(--accent); background: var(--ok-bg); }
+
+/* Glove-friendly: everything you tap is at least 44 × 44 px (WCAG 2.5.5), with room between targets,
+   so it works with nitrile gloves on a touch screen and with a shaky hand on a mouse. */
+.topbar nav a { display: inline-flex; align-items: center; min-height: 44px; padding: 6px 14px; }
+input, select { min-height: 44px; }
+.picker-list li { min-height: 44px; align-items: center; }
+button.source-chip { min-height: 44px; }
+input[type="checkbox"], input[type="radio"] { width: 24px; height: 24px; min-height: 0; flex: none; }
+label.check { min-height: 44px; }
+.message-list button, .patients button { min-height: 44px; }

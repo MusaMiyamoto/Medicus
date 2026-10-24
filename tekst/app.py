@@ -19,7 +19,7 @@ ICON = "medicus-tekst"
 
 CSS = """
 .tekst-bar { padding: 4px 6px; }
-.tekst-bar button { min-height: 32px; }
+.tekst-bar button { min-height: 44px; min-width: 44px; }  /* glove-friendly */
 textview.tekst { font-size: 12pt; }
 textview.tekst text { padding: 6px; }
 .error { color: #b3261e; padding: 6px 0; }
