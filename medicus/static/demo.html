@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prøv Medicus</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .demo-intro { background: var(--warn-bg); color: var(--warn-text); border-radius: 12px; padding: 14px 18px; margin: 16px 0; }
+    .demo-intro p { margin: 4px 0; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin: 10px 0 16px; }
+    .cards button { text-align: left; font-weight: normal; background: var(--bg); color: var(--text); border: 2px solid var(--border); min-height: 64px; }
+    .cards button[aria-pressed="true"] { border-color: var(--accent); background: var(--ok-bg); }
+    .cards button:disabled { opacity: 0.55; cursor: not-allowed; }
+    .cards .muted { font-size: 0.9rem; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
+    label { display: block; font-weight: 600; margin-bottom: 4px; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+    .situations { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .situations button { background: var(--danger); }
+    .error { color: var(--danger); font-weight: 600; min-height: 1.5em; margin: 8px 0 0; }
+    .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+    .tile { display: flex; flex-direction: column; gap: 2px; padding: 14px; border: 1px solid var(--border);
+            border-radius: 10px; text-decoration: none; color: var(--text); background: var(--bg); }
+    .tile:hover { border-color: var(--accent); }
+    .tile b { color: var(--accent); }
+    .hint { font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img src="/logo.svg" alt="">Medicus</div>
+    <div class="who" id="who-demo">Demo</div>
+  </header>
+  <main>
+    <div class="demo-intro">
+      <p><b>Dette er en nettdemo av Medicus, med bare oppdiktede (syntetiske) pasienter og personer.</b>
+        Ikke skriv inn ekte pasientopplysninger.</p>
+      <p class="hint">This is a web demo of Medicus with synthetic data only. In the real Medicus OS you log in with a
+        health-personnel card at the login screen; here you pick a demo card instead. Every demo card has PIN <b>1234</b>.</p>
+    </div>
+
+    <section class="card" id="login" hidden>
+      <h2>Sett inn kort</h2>
+      <p class="muted">Velg et demokort. Alle har PIN-kode <b>1234</b>. Tre feil PIN sperrer kortet (bare i din nettleser).</p>
+      <div class="cards" id="cards" role="group" aria-label="Demokort"></div>
+      <div class="row">
+        <div>
+          <label for="site">Arbeidssted (der PC-en står)</label>
+          <select id="site"></select>
+        </div>
+        <form id="pinform">
+          <label for="pin">PIN-kode</label>
+          <input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="1234">
+        </form>
+      </div>
+      <div class="actions">
+        <button type="submit" form="pinform" id="go">Logg inn</button>
+        <button type="button" class="secondary" id="emergency">Nødtilgang …</button>
+      </div>
+      <div id="emergency-box" hidden>
+        <p class="muted">Nødtilgang: kortet uten PIN, i 30 minutter, når liv står på spill. Alt logges, og du må
+          skrive en rapport etterpå. Hva er situasjonen?</p>
+        <div class="situations" id="situations"></div>
+      </div>
+      <p class="error" id="error" role="alert"></p>
+    </section>
+
+    <section class="card" id="desk" hidden>
+      <h2 id="hello">Velkommen</h2>
+      <p class="muted" id="where"></p>
+      <div class="tiles" id="tiles"></div>
+      <div class="actions">
+        <button type="button" id="logout">Ta ut kortet (logg ut)</button>
+        <button type="button" class="secondary" id="reset">Start demoen på nytt</button>
+      </div>
+      <p class="muted hint">I Medicus OS åpnes disse som egne vinduer på skrivebordet. Tar du ut kortet der,
+        låses skjermen og økten holdes i 15 minutter, så du kan fortsette med samme kort og PIN.</p>
+    </section>
+
+    <section class="card" id="about-it" hidden>
+      <h2>Om demoen</h2>
+      <p class="muted">Ikke med i nettdemoen: innloggingsskjermen med kortleser, skjermlås, sletting av
+        hjemmemappen ved utlogging, journalassistentens opptak (ingen tale- eller språkmodell her: eksempelsamtalen
+        blir et ferdig eksempelnotat) og Kalkulatoren. Sikkerhetssenteret viser her serveren demoen kjører på,
+        ikke en Medicus-PC.</p>
+    </section>
+  </main>
+  <script src="/static/common.js"></script>
+  <script>
+    const APPS = [
+      ["/", "Journalassistent", "Fra samtale til journalnotat, med kildesjekk og samtykke."],
+      ["/pasient", "Pasientjournal", "Oppdiktede pasienter, med tilgangslogg."],
+      ["/post", "Post", "Helsenett-post med merking av ekte og falske avsendere."],
+      ["/nettsteder", "Nettleser", "Bare godkjente nettsteder."],
+      ["/overforing", "Overføring", "Filer inn og ut, med virusskanning."],
+      ["/helsenett/helsenorge", "Helsenorge (simulert)", "Det innbyggeren ser: hvem som har lest journalen."],
+      ["/helsenett/utlevering", "Utlevering (simulert)", "Innsyn og utlevering av journal."],
+      ["/om", "Om Medicus", "Åpen kildekode og lisenser."],
+    ];
+    const IT_APPS = [
+      ["/sikkerhet", "Sikkerhetssenter", "Status for brannmur, oppdateringer, virusskanning og revisjon."],
+      ["/om", "Om Medicus", "Åpen kildekode og lisenser."],
+    ];
+    let info = null;
+    let chosen = null;
+    const $ = (id) => document.getElementById(id);
+
+    function fail(e) { $("error").textContent = e.message; }
+
+    function drawCards() {
+      $("cards").innerHTML = "";
+      for (const c of info.kort) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.disabled = c.sperret;
+        b.setAttribute("aria-pressed", String(chosen === c.kort));
+        b.innerHTML = `<b>${esc(c.navn)}</b><br><span class="muted">${esc(c.rolle)}${c.sperret ? " · sperret" : ""}</span>`;
+        b.addEventListener("click", () => {
+          chosen = c.kort;
+          $("error").textContent = "";
+          $("emergency").hidden = c.rolle === "IT";
+          if (c.rolle === "IT") $("emergency-box").hidden = true;
+          drawCards();
+          $("pin").focus();
+        });
+        $("cards").append(b);
+      }
+    }
+
+    function go(reply) { location.href = reply.til; }
+
+    async function load() {
+      info = await api("/api/demo");
+      $("about-it").hidden = false;
+      if (info.okt) {
+        const s = info.okt;
+        if (s.modus === "nød") { location.href = "/nod"; return; }
+        $("login").hidden = true;
+        $("desk").hidden = false;
+        $("who-demo").innerHTML = `<b>${esc(s.navn)}</b><br>${esc(s.stilling || s.rolle)} · ${esc(s.virksomhet)}`;
+        $("hello").textContent = `Velkommen, ${s.navn}`;
+        $("where").textContent = `${s.stilling || s.rolle} · ${s.virksomhet}`;
+        $("tiles").innerHTML = (s.modus === "it" ? IT_APPS : APPS).map(([href, name, text]) =>
+          `<a class="tile" href="${esc(href)}"><b>${esc(name)}</b><span class="muted">${esc(text)}</span></a>`).join("");
+        return;
+      }
+      $("desk").hidden = true;
+      $("login").hidden = false;
+      $("who-demo").textContent = "Demo";
+      $("site").innerHTML = info.arbeidssteder.map((s) => `<option value="${esc(s.id)}">${esc(s.navn)}</option>`).join("");
+      $("situations").innerHTML = "";
+      for (const situation of info.situasjoner) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = situation;
+        b.addEventListener("click", () => emergency(situation));
+        $("situations").append(b);
+      }
+      drawCards();
+    }
+
+    function needCard() {
+      if (chosen) return true;
+      $("error").textContent = "Velg et kort først.";
+      return false;
+    }
+
+    $("pinform").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!needCard()) return;
+      try {
+        go(await api("/api/demo/logginn", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kort: chosen, pin: $("pin").value, arbeidssted: $("site").value }) }));
+      } catch (err) {
+        $("pin").value = "";
+        fail(err);
+        info = await api("/api/demo");
+        drawCards();
+      }
+    });
+
+    $("emergency").addEventListener("click", () => {
+      if (!needCard()) return;
+      $("emergency-box").hidden = !$("emergency-box").hidden;
+    });
+
+    async function emergency(situation) {
+      if (!needCard()) return;
+      try {
+        go(await api("/api/demo/nod", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kort: chosen, situasjon: situation, arbeidssted: $("site").value }) }));
+      } catch (err) { fail(err); }
+    }
+
+    $("logout").addEventListener("click", async () => {
+      await api("/api/demo/loggut", { method: "POST" }).catch(() => {});
+      chosen = null;
+      load().catch(fail);
+    });
+    $("reset").addEventListener("click", async () => {
+      await api("/api/demo/nullstill", { method: "POST" }).catch(() => {});
+      chosen = null;
+      load().catch(fail);
+    });
+
+    load().catch(fail);
+  </script>
+</body>
+</html>

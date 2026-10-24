@@ -20,7 +20,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -34,7 +34,7 @@ from tilgang import arbeidssted
 from tilgang.client import AuthError
 from tilgang.client import call as auth_call
 
-from . import kilder, nettsteder, notes, revisjon, sikkerhet
+from . import demo, kilder, nettsteder, notes, revisjon, sikkerhet
 from .audit import AuditLog
 from .config import settings
 
@@ -70,6 +70,29 @@ async def privacy_headers(request, call_next):
     return response
 
 
+@app.middleware("http")
+async def demo_visitor(request, call_next):
+    # The public web demo only (settings.demo); in Medicus OS this does nothing. Added last, so it runs
+    # first: every route below knows this browser's demo session.
+    if not settings.demo:
+        if request.url.path == "/demo" or request.url.path.startswith("/api/demo"):
+            return JSONResponse({"detail": "Ikke funnet."}, status_code=404)
+        return await call_next(request)
+    demo.current.set(demo.visitor_for(request.cookies.get(demo.COOKIE)))
+    if request.method == "GET" and demo.needs_login(request.url.path):
+        return RedirectResponse("/demo", status_code=303)
+    token = None
+    if demo.current.get() is None and request.method == "POST" and request.url.path in demo.STARTS:
+        token = demo.new_visitor()
+    response = await call_next(request)
+    if token:
+        demo.set_cookie(request, response, token)
+    return response
+
+
+app.include_router(demo.router)
+
+
 audit = AuditLog(settings.audit_log)
 audit_at_start: dict = {}  # {"ok", "linje"}: the chain check when the service started
 
@@ -98,6 +121,8 @@ def audit_chain_check() -> dict:
 
 def current_session() -> dict | None:
     """The logged-in person. MEDICUS_DEV_IDENTITY (JSON) is for development without the OS."""
+    if settings.demo:
+        return demo.session()
     dev = os.getenv("MEDICUS_DEV_IDENTITY")
     if dev:
         return json.loads(dev)
@@ -265,7 +290,8 @@ def me():
     session = current_session()
     if session is None:
         raise HTTPException(401, "Du er ikke logget inn.")
-    keep = ("navn", "rolle", "stilling", "virksomhet", "hpr", "modus", "situasjon", "sekunder_igjen", "rapporter")
+    keep = ("navn", "rolle", "stilling", "virksomhet", "hpr", "modus", "situasjon", "sekunder_igjen", "rapporter",
+            "demo")
     return {k: session[k] for k in keep if k in session}
 
 
@@ -423,7 +449,7 @@ def workplace_check() -> dict:
 @app.get("/api/sikkerhet")
 def security_status(_session: dict = Depends(it_session)):
     try:
-        late = auth_call("overdue")["rapporter"]
+        late = [] if settings.demo else auth_call("overdue")["rapporter"]
     except AuthError:
         late = None
     devices = sikkerhet.medical_devices(utstyr.connected(), utstyr.load())
@@ -455,6 +481,11 @@ def write_emergency_report(body: ReportIn, session: dict = Depends(current_sessi
     """The person who opened emergency access explains why. Works in a normal or emergency session."""
     if session is None:
         raise HTTPException(401, "Du er ikke logget inn.")
+    if settings.demo:
+        try:
+            return demo.write_report(body.id, body.tekst)
+        except (ValueError, LookupError) as e:
+            raise HTTPException(422, str(e)) from e
     try:
         return auth_call("report", id=body.id, tekst=body.tekst)["rapport"]
     except AuthError as e:
@@ -463,6 +494,9 @@ def write_emergency_report(body: ReportIn, session: dict = Depends(current_sessi
 
 @app.post("/api/nod/avslutt")
 def emergency_end(session: dict = Depends(emergency_session)):
+    if settings.demo:
+        demo.end()
+        return {"ok": True}
     try:
         auth_call("end")
     except AuthError as e:
@@ -510,6 +544,9 @@ def withdraw_consent(session: dict = Depends(normal_session)):
 def transcribe_audio(audio: UploadFile, session: dict = Depends(normal_session)):
     from .transcribe import transcribe
 
+    if settings.demo:
+        raise HTTPException(403, "Opptak er slått av i demoen: her finnes ingen talegjenkjenning. "
+                                 "Trykk «Last eksempel» for å prøve med eksempelsamtalen.")
     if not has_consent(session):
         raise HTTPException(403, "Pasienten må samtykke før samtalen tas opp eller lastes opp.")
 
@@ -542,7 +579,13 @@ def transcribe_audio(audio: UploadFile, session: dict = Depends(normal_session))
 @app.post("/api/note")
 def create_note(body: TranscriptIn, session: dict = Depends(normal_session)):
     try:
-        note = notes.generate_note(body.transcript)
+        if settings.demo:
+            try:
+                note = demo.example_note(body.transcript)
+            except ValueError as e:
+                raise HTTPException(422, str(e)) from e
+        else:
+            note = notes.generate_note(body.transcript)
     except notes.NoteError as e:
         # The error's type only (what caused it, e.g. ConnectError), like transcribe_failed: no free text.
         audit.record(session["hpr"], "note_failed", {"error": type(e.__cause__ or e).__name__})

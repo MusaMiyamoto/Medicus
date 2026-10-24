@@ -62,9 +62,11 @@ async function api(path, options = {}) {
 
 async function showWho() {
   const box = document.getElementById("who");
+  if (!box) return null;  // pages without the "who is logged in" header (Om, Nettleser, the demo's card picker)
   try {
     const me = await api("/api/meg");
     box.innerHTML = `<b>${esc(me.navn)}</b><br>${esc(me.stilling || me.rolle)} · ${esc(me.virksomhet)}`;
+    if (me.demo) demoBanner();
     reportReminder(me);
     return me;
   } catch (e) {
@@ -83,6 +85,14 @@ function reportReminder(me) {
   banner.innerHTML = `<b>Du har ${reports.length === 1 ? "en nødtilgangsrapport" : `${reports.length} nødtilgangsrapporter`}
     å skrive</b> – frist kl. ${esc(reports[0].frist.slice(11, 16))}. <a href="/rapport">Skriv rapporten nå</a>`;
   document.querySelector("main").prepend(banner);
+}
+
+// The public web demo: a bar on every page, with the way back to the demo cards.
+function demoBanner() {
+  const bar = document.createElement("div");
+  bar.className = "banner warn";
+  bar.innerHTML = `<b>Nettdemo</b> – bare syntetiske data. <a href="/demo">Tilbake til demoen / bytt kort</a>`;
+  document.querySelector("main").prepend(bar);
 }
 
 const whoReady = showWho();

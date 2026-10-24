@@ -21,6 +21,7 @@ class Settings:
     note_max_chars: int = 8_000       # longest section kept from the model's reply
     upload_max_mb: int = 100          # largest recording that can be uploaded
     audit_log: Path = Path("data/audit.jsonl")
+    demo: bool = False                # the public web demo (medicus/demo.py); never on in Medicus OS
 
     @classmethod
     def from_env(cls, env=os.environ) -> "Settings":
