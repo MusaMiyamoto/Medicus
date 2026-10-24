@@ -50,7 +50,13 @@ async def privacy_headers(request, call_next):
     response = await call_next(request)
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["X-Content-Type-Options"] = "nosniff"
+    # Patient data is never written to the browser's disk cache. Pages and scripts are checked against
+    # the server every time, so an update never leaves old page code running against a new API.
+    api = request.url.path.startswith("/api/")
+    response.headers["Cache-Control"] = "no-store" if api else "no-cache"
     return response
+
+
 audit = AuditLog(settings.audit_log)
 
 
@@ -160,6 +166,16 @@ class NoteIn(BaseModel):
     notat: str = Field(min_length=1, max_length=20000)
 
 
+class ReasonIn(BaseModel):
+    begrunnelse: str = Field(min_length=1, max_length=40)
+    forklaring: str = Field(default="", max_length=300)
+
+
+# Why someone opens a record of a patient who is not on their own list (not their fastlege-list patient,
+# and not seen by them). Logged where the patient can see it, on Helsenorge.
+REASONS = ("Pasienten er hos meg nå", "Tilsyn eller konsultasjon", "Vakt", "Henvisning eller epikrise", "Annet")
+
+
 class PrescriptionIn(BaseModel):
     legemiddel: str = Field(min_length=1, max_length=200)
     dosering: str = Field(min_length=1, max_length=300)
@@ -229,9 +245,15 @@ def synthetic_patients(session: dict = Depends(current_session)):
     return helsenett().list_patients()
 
 
-@app.get("/api/pasient/{fnr}")
-def open_patient(fnr: str, session: dict = Depends(normal_session)):
-    fnr = checked_fnr(fnr)
+def is_own_patient(session: dict, fnr: str) -> bool:
+    """On the clinician's own list. If the list can't be fetched, nobody is: then a reason is asked for."""
+    try:
+        return any(p.get("fnr") == fnr for p in cached_patient_list(session)["pasienter"])
+    except Exception:  # noqa: BLE001 - the journal system is down; ask for a reason rather than block
+        return False
+
+
+def read_record(fnr: str, session: dict, reason: str) -> dict:
     client = helsenett()
     record = {
         "pasient": client.find_patient(fnr),
@@ -239,8 +261,33 @@ def open_patient(fnr: str, session: dict = Depends(normal_session)):
         "kontakter": client.encounters(fnr),
         "resepter": client.prescriptions(fnr),
     }
-    client.log_access(fnr, actor(session), "normal", "Behandling", "Journal")
+    client.log_access(fnr, actor(session), "normal", reason, "Journal")
+    return record
+
+
+@app.get("/api/pasient/{fnr}")
+def open_patient(fnr: str, session: dict = Depends(normal_session)):
+    fnr = checked_fnr(fnr)
+    if not is_own_patient(session, fnr):
+        raise HTTPException(409, {"begrunnelse_kreves": True, "valg": REASONS,
+                                  "melding": "Pasienten er ikke på listen din. Oppgi hvorfor du åpner journalen."})
+    record = read_record(fnr, session, "Behandling")
     audit.record(session["hpr"], "patient_opened", {"patient": fnrlib.mask(fnr)})
+    return record
+
+
+@app.post("/api/pasient/{fnr}/apne")
+def open_patient_with_reason(fnr: str, body: ReasonIn, session: dict = Depends(normal_session)):
+    """A patient outside the clinician's list: the reason is shown to the patient and kept in the audit log."""
+    fnr = checked_fnr(fnr)
+    if body.begrunnelse not in REASONS:
+        raise HTTPException(422, "Velg en begrunnelse fra listen.")
+    explanation = " ".join(body.forklaring.split())
+    if body.begrunnelse == "Annet" and len(explanation) < 10:
+        raise HTTPException(422, "Skriv kort hvorfor du åpner journalen (minst 10 tegn).")
+    reason = f"{body.begrunnelse}: {explanation}" if explanation else body.begrunnelse
+    record = read_record(fnr, session, reason)
+    audit.record(session["hpr"], "patient_opened_with_reason", {"patient": fnrlib.mask(fnr), "begrunnelse": reason})
     return record
 
 

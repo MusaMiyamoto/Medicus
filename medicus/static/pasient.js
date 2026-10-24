@@ -1,4 +1,5 @@
 let fnr = null;
+let reasonGiven = null;  // for a patient outside the clinician's list: reused when the record is reloaded
 const statusEl = document.getElementById("status");
 
 function setStatus(message, isError = false) {
@@ -37,23 +38,78 @@ function render(record) {
       <pre>${esc(k.notat)}</pre></div>`).join("") || "<p class='muted'>Ingen besøk registrert.</p>";
 }
 
+function show(number, record, reason = null) {
+  fnr = number;
+  reasonGiven = reason;
+  render(record);
+  document.getElementById("search").hidden = true;
+  document.getElementById("record").hidden = false;
+  setStatus("Tilgangen er logget. Pasienten kan se den på Helsenorge.");
+}
+
 async function openRecord(number) {
   try {
-    const record = await api(`/api/pasient/${encodeURIComponent(number)}`);
-    fnr = number;
-    render(record);
-    document.getElementById("search").hidden = true;
-    document.getElementById("record").hidden = false;
-    setStatus("Tilgangen er logget. Pasienten kan se den på Helsenorge.");
+    show(number, await api(`/api/pasient/${encodeURIComponent(number)}`));
   } catch (e) {
-    setStatus(e.message, true);
+    if (e.status === 409 && e.detail && e.detail.begrunnelse_kreves) askReason(number, e.detail.valg);
+    else setStatus(e.message, true);
   }
 }
+
+// --- Patients outside the clinician's own list: ask why --------------------
+const reasonDialog = document.getElementById("why");
+const reasonChoice = document.getElementById("why-choice");
+const reasonText = document.getElementById("why-text");
+const reasonError = document.getElementById("why-error");
+let reasonFor = null;
+
+function openWithReason(number, reason) {
+  return api(`/api/pasient/${encodeURIComponent(number)}/apne`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(reason),
+  });
+}
+
+function askReason(number, choices) {
+  reasonFor = number;
+  reasonChoice.innerHTML = '<option value="">Velg …</option>'
+    + choices.map((c) => `<option>${esc(c)}</option>`).join("");
+  reasonText.value = "";
+  reasonError.textContent = "";
+  document.getElementById("why-hint").textContent = "(valgfri)";
+  reasonDialog.showModal();
+  reasonChoice.focus();
+}
+
+reasonChoice.addEventListener("change", () => {
+  document.getElementById("why-hint").textContent = reasonChoice.value === "Annet" ? "(påkrevd)" : "(valgfri)";
+});
+
+document.getElementById("why-cancel").addEventListener("click", () => {
+  reasonDialog.close();
+  setStatus("Journalen ble ikke åpnet.");
+});
+
+document.getElementById("why-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!reasonChoice.value) {
+    reasonError.textContent = "Velg en begrunnelse.";
+    return;
+  }
+  const reason = { begrunnelse: reasonChoice.value, forklaring: reasonText.value };
+  try {
+    const record = await openWithReason(reasonFor, reason);
+    reasonDialog.close();
+    show(reasonFor, record, reason);
+  } catch (err) {
+    reasonError.textContent = err.message;
+  }
+});
 
 async function post(path, body, done) {
   try {
     await api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    await openRecord(fnr);
+    if (reasonGiven) show(fnr, await openWithReason(fnr, reasonGiven), reasonGiven);
+    else await openRecord(fnr);
     setStatus(done);
   } catch (e) {
     setStatus(e.message, true);
@@ -67,6 +123,7 @@ document.getElementById("find").addEventListener("submit", (e) => {
 
 document.getElementById("close").addEventListener("click", () => {
   fnr = null;
+  reasonGiven = null;
   document.getElementById("record").hidden = true;
   document.getElementById("search").hidden = false;
   setStatus("");

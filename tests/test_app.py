@@ -216,3 +216,49 @@ def test_drafts_expire_can_be_discarded_and_need_a_normal_login(env, monkeypatch
     for who in (IT, EMERGENCY, None):
         login(who)
         assert app.get("/api/utkast").status_code in (401, 403)
+
+
+def test_patient_outside_own_list_needs_a_reason_the_patient_can_see(env, monkeypatch):
+    app, sim, login = env
+    login(NURSE)  # Jonas Lie has seen Ola and Sofie at the legevakt, never Kari
+    assert app.get(f"/api/pasient/{seed.OLA}").status_code == 200
+    start = len(sim.get(f"/api/innsyn/{seed.KARI}").json())
+    refused = app.get(f"/api/pasient/{seed.KARI}")
+    assert refused.status_code == 409 and refused.json()["detail"]["begrunnelse_kreves"]
+    assert "Vakt" in refused.json()["detail"]["valg"]
+    before = len(sim.get(f"/api/innsyn/{seed.KARI}").json())
+    assert before == start  # refusing read nothing and logged nothing
+    url = f"/api/pasient/{seed.KARI}/apne"
+    assert app.post(url, json={"begrunnelse": "Fordi jeg vil"}).status_code == 422
+    assert app.post(url, json={"begrunnelse": "Annet", "forklaring": "  sjekk  "}).status_code == 422
+    opened = app.post(url, json={"begrunnelse": "Vakt", "forklaring": "Ringte  om\nbrystsmerter"})
+    assert opened.status_code == 200 and opened.json()["kritisk"]["implantater"]
+    log = sim.get(f"/api/innsyn/{seed.KARI}").json()
+    assert len(log) == before + 1 and log[0]["begrunnelse"] == "Vakt: Ringte om brystsmerter"
+    last = json.loads(medicus_app.audit.path.read_text().splitlines()[-1])
+    assert last["action"] == "patient_opened_with_reason"
+
+
+def test_reason_is_asked_for_when_the_patient_list_is_unavailable(env, monkeypatch):
+    app, _sim, login = env
+
+    class Down:
+        name = "Test"
+
+        def my_patients(self, who):
+            raise ConnectionError("journal system down")
+    monkeypatch.setattr(medicus_app, "journal", Down)
+    login(DOCTOR)
+    assert app.get(f"/api/pasient/{seed.OLA}").status_code == 409  # not blocked: asked why
+    assert app.post(f"/api/pasient/{seed.OLA}/apne", json={"begrunnelse": "Pasienten er hos meg nå"}).status_code == 200
+    login(IT)
+    assert app.post(f"/api/pasient/{seed.OLA}/apne", json={"begrunnelse": "Vakt"}).status_code == 403
+
+
+def test_patient_data_is_never_cached_and_pages_are_always_revalidated(env):
+    app, _sim, login = env
+    login(DOCTOR)
+    assert app.get(f"/api/pasient/{seed.OLA}").headers["cache-control"] == "no-store"
+    assert app.get("/api/meg").headers["cache-control"] == "no-store"
+    assert app.get("/static/common.js").headers["cache-control"] == "no-cache"
+    assert app.get("/pasient").headers["cache-control"] == "no-cache"

@@ -57,6 +57,13 @@ There are no passwords. Three ways in, all with a card:
   - **Memory:** RAM is encrypted where the CPU supports it (`mem_encrypt=on`, AMD SME; Intel TME is set in
     firmware). Hibernation is switched off, so a held session is never written to disk.
 - **Three wrong PINs block the card**, like a real chip card.
+- **A reason for patients outside your list.** Your own patients (your fastlege list, or people you
+  have seen) open straight away. Anyone else asks *why* first: «Pasienten er hos meg nå», «Tilsyn eller
+  konsultasjon», «Vakt», «Henvisning eller epikrise», or «Annet» with a short explanation. The reason goes
+  into the access log the patient sees on Helsenorge, and into the audit log. If the patient list can't be
+  fetched, you are asked for a reason instead of being locked out.
+- **Nothing cached:** patient data from the API is sent with `Cache-Control: no-store`, so it is never
+  written to the browser's disk cache.
 
 In this prototype the card reader is **simulated**: use *Simulert kortleser* at the bottom of the
 login screen. Demo cards (PIN `1234` for all of them):

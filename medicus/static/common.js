@@ -47,8 +47,12 @@ async function api(path, options = {}) {
     const response = await fetch(path, options);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const detail = Array.isArray(data.detail) ? data.detail.map((d) => d.msg).join(", ") : data.detail;
-      throw new Error(detail || `Feil ${response.status}`);
+      const d = data.detail;
+      const detail = Array.isArray(d) ? d.map((x) => x.msg).join(", ") : d && typeof d === "object" ? d.melding : d;
+      const error = new Error(detail || `Feil ${response.status}`);
+      error.status = response.status;
+      error.detail = d;
+      throw error;
     }
     return data;
   } finally {
