@@ -3,6 +3,6 @@ Type=Application
 Name=IT-håndbok
 Comment=Hvordan Medicus er bygd, hvor ting ligger, og hva du gjør når noe går galt
 Exec=medicus-tekst /usr/share/doc/medicus/IT-handbok.md
-Icon=help-contents
+Icon=help-browser
 Terminal=false
 Categories=System;

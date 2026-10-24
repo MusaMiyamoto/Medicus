@@ -16,6 +16,7 @@ folder directly under /home. Symlinks are removed, never followed.
 
 from __future__ import annotations
 
+import grp
 import os
 import pwd
 import shutil
@@ -28,7 +29,16 @@ from .sessionguard import medicus_users
 
 HOME_ROOT = Path("/home")
 SKEL = Path("/etc/skel")
+# IT staff start from their own copy (amber taskbar, IT favourites), made at build time by it-panel.
+IT_SKEL = Path("/etc/skel-it")
 TEMP_DIRS = (Path("/tmp"), Path("/var/tmp"))
+
+
+def it_staff() -> set[str]:
+    try:
+        return set(grp.getgrnam("medicus-it").gr_mem)
+    except KeyError:
+        return set()
 
 
 def _remove(path: Path) -> None:
@@ -79,7 +89,7 @@ def wipe_temp_files(uid: int, dirs=TEMP_DIRS, owner=lambda path: path.lstat().st
 
 
 def wipe_user(name: str, users=medicus_users, run=subprocess.run, home_root: Path = HOME_ROOT,
-              skel: Path = SKEL, temp_dirs=TEMP_DIRS) -> bool:
+              skel: Path = SKEL, temp_dirs=TEMP_DIRS, it_users=it_staff, it_skel: Path = IT_SKEL) -> bool:
     """Wipe one Medicus person. Anyone else (root, service accounts) is left alone."""
     if name not in users():
         return False
@@ -87,6 +97,8 @@ def wipe_user(name: str, users=medicus_users, run=subprocess.run, home_root: Pat
         account = pwd.getpwnam(name)
     except KeyError:
         return False
+    if name in it_users() and it_skel.is_dir():
+        skel = it_skel
     # Programs still running (a browser closing down) would write their files back.
     run(["/usr/bin/pkill", "-KILL", "-U", str(account.pw_uid)], check=False)
     removed = wipe_home(home_root / name, account.pw_uid, account.pw_gid, skel, home_root)

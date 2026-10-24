@@ -86,6 +86,26 @@ def test_only_medicus_accounts_are_wiped_and_their_programs_stopped_first(machin
     assert not (home / "Nedlastinger").exists()
 
 
+def test_it_staff_get_the_it_skeleton_back(machine, tmp_path):
+    """The amber IT taskbar lives in /etc/skel-it; a wipe must not swap it for the normal one."""
+    home_root, skel, temp, home = machine
+    it_skel = tmp_path / "skel-it"
+    it_skel.mkdir()
+    (it_skel / ".face").write_text("IT")
+    run = lambda cmd, **_: None  # noqa: E731
+    me = lambda: {ME.pw_name}  # noqa: E731
+    rydd.wipe_user(ME.pw_name, users=me, run=run, home_root=home_root, skel=skel, temp_dirs=(temp,),
+                   it_users=me, it_skel=it_skel)
+    assert (home / ".face").read_text() == "IT"
+    rydd.wipe_user(ME.pw_name, users=me, run=run, home_root=home_root, skel=skel, temp_dirs=(temp,),
+                   it_users=set, it_skel=it_skel)
+    assert (home / ".face").read_text() == "avatar"
+    # No IT skeleton on this machine (an older build): the normal one, never an empty home.
+    rydd.wipe_user(ME.pw_name, users=me, run=run, home_root=home_root, skel=skel, temp_dirs=(temp,),
+                   it_users=me, it_skel=tmp_path / "finnes-ikke")
+    assert (home / ".face").read_text() == "avatar"
+
+
 def test_pam_only_wipes_when_a_session_closes(monkeypatch):
     wiped = []
     monkeypatch.setattr(rydd, "wipe_user", lambda name: wiped.append(name))

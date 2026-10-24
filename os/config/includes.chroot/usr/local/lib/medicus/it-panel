@@ -1,27 +1,46 @@
 #!/usr/bin/python3
-"""Build time: give every IT user an amber taskbar and IT favourites in the Start menu.
+"""Build time: give IT users an amber taskbar and IT favourites in the Start menu.
 
-Their home folder was copied from /etc/skel, so this edits that copy of the panel settings.
+Home folders are wiped back to a skeleton at every logout and boot (tilgang/rydd.py), so the IT look
+lives in its own skeleton, /etc/skel-it: a copy of /etc/skel with these panel settings. The IT homes
+that already exist are rebuilt from it too.
 """
 
 import grp
+import os
 import pwd
 import re
+import shutil
 from pathlib import Path
 
+SKEL, IT_SKEL = Path("/etc/skel"), Path("/etc/skel-it")
 PANEL = ".config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml"
 FAVOURITES = ["medicus-sikkerhet.desktop", "medicus-it-terminal.desktop", "medicus-it-oppgaver.desktop",
               "medicus-it-nettverk.desktop", "medicus-it-innstillinger.desktop", "medicus-it-handbok.desktop",
               "medicus-nettleser.desktop", "thunar.desktop", "medicus-tekst.desktop", "medicus-kort-ut.desktop"]
 AMBER = ["0.42", "0.26", "0.02", "0.95"]
 
-for user in grp.getgrnam("medicus-it").gr_mem:
-    path = Path(pwd.getpwnam(user).pw_dir) / PANEL
-    xml = path.read_text(encoding="utf-8")
+
+def it_panel(xml: str) -> str:
     values = "".join(f'        <value type="string" value="{name}"/>\n' for name in FAVOURITES)
-    xml = re.sub(r'(<property name="favorites" type="array">\n).*?(\s*</property>)', lambda m: m[1] + values.rstrip("\n") + m[2],
-                 xml, count=1, flags=re.S)
+    xml, n = re.subn(r'(<property name="favorites" type="array">\n).*?(\s*</property>)',
+                     lambda m: m[1] + values.rstrip("\n") + m[2], xml, count=1, flags=re.S)
     colour = "".join(f'        <value type="double" value="{v}"/>\n' for v in AMBER)
-    xml = re.sub(r'(<property name="background-rgba" type="array">\n).*?(\s*</property>)', lambda m: m[1] + colour.rstrip("\n") + m[2],
-                 xml, count=1, flags=re.S)
-    path.write_text(xml, encoding="utf-8")
+    xml, m = re.subn(r'(<property name="background-rgba" type="array">\n).*?(\s*</property>)',
+                     lambda m: m[1] + colour.rstrip("\n") + m[2], xml, count=1, flags=re.S)
+    if n != 1 or m != 1:
+        raise SystemExit("it-panel: fant ikke favoritter eller bakgrunnsfarge i panelinnstillingene")
+    return xml
+
+
+shutil.rmtree(IT_SKEL, ignore_errors=True)
+shutil.copytree(SKEL, IT_SKEL, symlinks=True)
+(IT_SKEL / PANEL).write_text(it_panel((SKEL / PANEL).read_text(encoding="utf-8")), encoding="utf-8")
+
+for user in grp.getgrnam("medicus-it").gr_mem:
+    account = pwd.getpwnam(user)
+    home = Path(account.pw_dir)
+    shutil.copytree(IT_SKEL, home, symlinks=True, dirs_exist_ok=True)
+    for folder, dirs, files in os.walk(home):
+        for name in [folder, *(os.path.join(folder, x) for x in dirs + files)]:
+            os.lchown(name, account.pw_uid, account.pw_gid)
