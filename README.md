@@ -272,9 +272,18 @@ A GTK 4 desktop app in the Start menu:
   - **BMI** with the WHO class.
   - **eGFR**: CKD-EPI 2021 without race, from creatinine in µmol/L, adults only, with the G1–G5 stage.
   - **CHA₂DS₂-VASc** and **CHA₂DS₂-VA**: the sex-free version used in the ESC 2024 guidelines.
+    The result only shows once the user has ticked that every point was reviewed.
   - **Felleskatalogen**: look up a medicine in Nettleser.
+- **Akutt:** **NEWS2** (with SpO₂ scale 1 or 2, and every sub-score shown), **GCS** (E + V + M) and
+  **CURB-65**.
+- **Lab og EKG:** **Cockcroft-Gault** creatinine clearance (not adjusted to 1.73 m²), **corrected
+  calcium** (Ca + 0.02 × (40 − albumin)) and **QTc** with both Bazett and Fridericia. The limit for
+  prolonged QTc is judged on Fridericia, because Bazett overcorrects at high heart rates.
 
-  The scores only calculate. They never suggest a medicine or a dose.
+  Every score shows its formula and source under the result. **No silent defaults:** sex, SpO₂ scale,
+  oxygen and consciousness all start as «Velg …», and a score stays empty until every field is filled
+  in. The scores only calculate. They never suggest a medicine or a dose. They are decision support,
+  and before clinical use they must be assessed under EU MDR (most likely class IIa).
 
 > ⚠️ The Kalkulator is **not** for medication dosing. Always use the official product information (SPC)
 > and local procedures.

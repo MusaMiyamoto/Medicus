@@ -21,6 +21,8 @@ CSS = """
 .unit-value { font-size: 18px; font-weight: bold; }
 .error { color: #c0392b; }
 .warning { background: #fff4d6; color: #6b4e00; padding: 10px; border-radius: 8px; }
+.source { font-size: 12px; opacity: 0.8; }
+.hint { opacity: 0.75; font-weight: normal; }
 .keypad button { min-height: 48px; font-size: 18px; }
 """
 
@@ -255,56 +257,137 @@ def number_entry(grid, row, label, example) -> Gtk.Entry:
     return entry
 
 
-class ClinicalPage(Gtk.Box):
-    """BMI, eGFR and CHA₂DS₂-VASc, with a Felleskatalogen search. Updates as you type."""
+CHOOSE = "Velg …"
+
+
+def choice(grid, row, label, options) -> Gtk.DropDown:
+    """A dropdown that starts on "Velg …": nothing is assumed until the clinician picks."""
+    grid.attach(Gtk.Label(label=label, xalign=0), 0, row, 1, 1)
+    dropdown = Gtk.DropDown.new_from_strings([CHOOSE, *options])
+    grid.attach(dropdown, 1, row, 1, 1)
+    return dropdown
+
+
+def picked(dropdown) -> int | None:
+    """0-based index of the chosen option, or None while it still says "Velg …"."""
+    selected = dropdown.get_selected()
+    return None if selected in (0, Gtk.INVALID_LIST_POSITION) else selected - 1
+
+
+class Missing(Exception):
+    """Something isn't filled in yet: show the hint, not an error."""
+
+
+class ScorePage(Gtk.Box):
+    """Shared by the clinical pages: every calculation is shown with its formula and source, and
+    updates as you type. Nothing is filled in for you."""
+
+    def __init__(self):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL)
+        scroller = Gtk.ScrolledWindow(vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
+        self.box = page_box()
+        scroller.set_child(self.box)
+        self.append(scroller)
+        warning = Gtk.Label(label=klinisk.DECISION_SUPPORT, xalign=0, wrap=True)
+        warning.add_css_class("warning")
+        self.box.append(warning)
+
+    def section(self, title, source_key) -> Gtk.Grid:
+        self.box.append(heading(title))
+        source = Gtk.Label(label=klinisk.SOURCES[source_key], xalign=0, wrap=True, selectable=True)
+        source.add_css_class("source")
+        self.box.append(source)
+        grid = Gtk.Grid(row_spacing=8, column_spacing=12)
+        self.box.append(grid)
+        return grid
+
+    def result_label(self) -> Gtk.Label:
+        label = Gtk.Label(xalign=0, wrap=True, selectable=True)
+        label.add_css_class("unit-value")
+        self.box.append(label)
+        return label
+
+    def watch(self, *widgets):
+        for widget in widgets:
+            if isinstance(widget, Gtk.Entry):
+                widget.connect("changed", lambda *_: self.update())
+            elif isinstance(widget, Gtk.DropDown):
+                widget.connect("notify::selected", lambda *_: self.update())
+            else:
+                widget.connect("toggled", lambda *_: self.update())
+
+    @staticmethod
+    def number(entry, what) -> float:
+        text = entry.get_text()
+        if not text.strip():
+            raise Missing(f"Fyll inn {what}.")
+        return float(parse_number(text))
+
+    @staticmethod
+    def chosen(dropdown, what) -> int:
+        index = picked(dropdown)
+        if index is None:
+            raise Missing(f"Velg {what}.")
+        return index
+
+    @staticmethod
+    def show(label, compute):
+        """Run one calculation; show its result, what is missing, or the error, without stopping the others."""
+        label.remove_css_class("error")
+        label.remove_css_class("hint")
+        try:
+            label.set_text(compute())
+        except Missing as e:
+            label.set_text(str(e))
+            label.add_css_class("hint")
+        except (NumberError, klinisk.ScoreError) as e:
+            label.set_text(f"✗ {e}")
+            label.add_css_class("error")
+
+    def update(self):
+        raise NotImplementedError
+
+
+def comma(value) -> str:
+    return format_number(Decimal(str(value)))
+
+
+class ClinicalPage(ScorePage):
+    """BMI, eGFR and CHA₂DS₂-VASc, with a Felleskatalogen search."""
 
     RISKS = [("heart_failure", "Hjertesvikt (C)"), ("hypertension", "Hypertensjon (H)"), ("diabetes", "Diabetes (D)"),
              ("stroke_tia", "Hjerneslag, TIA eller tromboemboli (S₂, 2 poeng)"),
              ("vascular", "Karsykdom: hjerteinfarkt, perifer arteriesykdom, aortaplakk (V)")]
 
     def __init__(self):
-        super().__init__(orientation=Gtk.Orientation.VERTICAL)
-        scroller = Gtk.ScrolledWindow(vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
-        box = page_box()
-        scroller.set_child(box)
-        self.append(scroller)
-        warning = Gtk.Label(label="Hjelpeverktøy. Kontroller alltid mot gjeldende retningslinjer og preparatomtalen.",
-                            xalign=0, wrap=True)
-        warning.add_css_class("warning")
-        box.append(warning)
-
-        # Patient: shared by all three, so age and sex are typed once.
-        box.append(heading("Pasient"))
+        super().__init__()
+        self.box.append(heading("Pasient"))
         grid = Gtk.Grid(row_spacing=8, column_spacing=12)
+        self.box.append(grid)
         self.age = number_entry(grid, 0, "Alder (år)", "For eksempel 72")
-        self.sex = Gtk.DropDown.new_from_strings(["Kvinne", "Mann"])
-        grid.attach(Gtk.Label(label="Kjønn", xalign=0), 0, 1, 1, 1)
-        grid.attach(self.sex, 1, 1, 1, 1)
-        box.append(grid)
+        self.sex = choice(grid, 1, "Kjønn", ["Kvinne", "Mann"])
+        self.box.append(Gtk.Label(label="Alder og kjønn brukes av alle skårene på denne siden.", xalign=0))
 
-        box.append(heading("BMI"))
-        grid = Gtk.Grid(row_spacing=8, column_spacing=12)
+        grid = self.section("BMI", "bmi")
         self.weight = number_entry(grid, 0, "Vekt (kg)", "For eksempel 80")
         self.height = number_entry(grid, 1, "Høyde (cm)", "For eksempel 175")
-        box.append(grid)
-        self.bmi = self.result_label(box)
+        self.bmi = self.result_label()
 
-        box.append(heading("eGFR (CKD-EPI 2021)"))
-        grid = Gtk.Grid(row_spacing=8, column_spacing=12)
+        grid = self.section("eGFR (CKD-EPI 2021)", "egfr")
         self.creatinine = number_entry(grid, 0, "Kreatinin (µmol/L)", "For eksempel 95")
-        box.append(grid)
-        self.egfr = self.result_label(box)
+        self.egfr = self.result_label()
 
-        box.append(heading("CHA₂DS₂-VASc (hjerneslagrisiko ved atrieflimmer)"))
+        self.section("CHA₂DS₂-VASc (hjerneslagrisiko ved atrieflimmer)", "cha2ds2")
         self.checks = {}
         for key, text in self.RISKS:
             self.checks[key] = Gtk.CheckButton(label=text)
-            self.checks[key].connect("toggled", lambda *_: self.update())
-            box.append(self.checks[key])
-        box.append(Gtk.Label(label="Alder og kjønn tas fra «Pasient» over.", xalign=0))
-        self.stroke = self.result_label(box)
+            self.box.append(self.checks[key])
+        # An unticked box could mean "no" or "not checked yet": the clinician confirms they went through all.
+        self.reviewed = Gtk.CheckButton(label="Jeg har vurdert alle punktene over for denne pasienten")
+        self.box.append(self.reviewed)
+        self.stroke = self.result_label()
 
-        box.append(heading("Felleskatalogen"))
+        self.box.append(heading("Felleskatalogen"))
         row = Gtk.Box(spacing=8)
         self.drug = Gtk.Entry(placeholder_text="Legemiddel, for eksempel apixaban", hexpand=True)
         self.drug.connect("activate", lambda *_: self.look_up())
@@ -312,57 +395,31 @@ class ClinicalPage(Gtk.Box):
         button.connect("clicked", lambda *_: self.look_up())
         row.append(self.drug)
         row.append(button)
-        box.append(row)
-        self.lookup_message = self.result_label(box)
+        self.box.append(row)
+        self.lookup_message = self.result_label()
 
-        for entry in (self.age, self.weight, self.height, self.creatinine):
-            entry.connect("changed", lambda *_: self.update())
-        self.sex.connect("notify::selected", lambda *_: self.update())
+        self.watch(self.age, self.sex, self.weight, self.height, self.creatinine, self.reviewed, *self.checks.values())
         self.update()
 
-    @staticmethod
-    def result_label(box) -> Gtk.Label:
-        label = Gtk.Label(xalign=0, wrap=True, selectable=True)
-        label.add_css_class("unit-value")
-        box.append(label)
-        return label
-
-    @staticmethod
-    def number(entry) -> float | None:
-        text = entry.get_text()
-        return float(parse_number(text)) if text.strip() else None
-
-    def show(self, label, compute):
-        """Run one calculation; show its result, a hint, or the error, without stopping the others."""
-        try:
-            label.set_text(compute() or "–")
-            label.remove_css_class("error")
-        except (NumberError, klinisk.ScoreError) as e:
-            label.set_text(str(e))
-            label.add_css_class("error")
+    def female(self) -> bool:
+        return self.chosen(self.sex, "kjønn") == 0
 
     def update(self):
-        female = self.sex.get_selected() == 0
-
         def bmi():
-            weight, height = self.number(self.weight), self.number(self.height)
-            if weight is None or height is None:
-                return ""
-            value, group = klinisk.bmi(weight, height)
-            return f"BMI {format_number(Decimal(str(value)))} kg/m² · {group}"
+            value, group = klinisk.bmi(self.number(self.weight, "vekt"), self.number(self.height, "høyde"))
+            return f"BMI {comma(value)} kg/m² · {group}"
 
         def egfr():
-            creatinine, age = self.number(self.creatinine), self.number(self.age)
-            if creatinine is None or age is None:
-                return "Fyll inn alder og kreatinin." if creatinine is not None else ""
-            value, stage = klinisk.egfr(creatinine, int(age), female)
+            creatinine = self.number(self.creatinine, "kreatinin")
+            value, stage = klinisk.egfr(creatinine, int(self.number(self.age, "alder")), self.female())
             return f"eGFR {value} ml/min/1,73 m² · {stage}"
 
         def stroke():
-            age = self.number(self.age)
-            if age is None:
-                return "Fyll inn alder."
-            risk = klinisk.StrokeRisk(age=int(age), female=female,
+            age = int(self.number(self.age, "alder"))
+            female = self.female()
+            if not self.reviewed.get_active():
+                raise Missing("Gå gjennom alle punktene, og kryss av for at du har vurdert dem.")
+            risk = klinisk.StrokeRisk(age=age, female=female,
                                       **{key: check.get_active() for key, check in self.checks.items()})
             return (f"CHA₂DS₂-VASc {klinisk.cha2ds2_vasc(risk)} poeng · CHA₂DS₂-VA {klinisk.cha2ds2_va(risk)} poeng "
                     "(ESC 2024 bruker CHA₂DS₂-VA, uten kjønn)")
@@ -378,6 +435,122 @@ class ClinicalPage(Gtk.Box):
         self.show(self.lookup_message, url)
 
 
+class AcutePage(ScorePage):
+    """NEWS2, GCS and CURB-65: for the ward and the emergency room."""
+
+    def __init__(self):
+        super().__init__()
+        grid = self.section("NEWS2 (tidlig varsling ved forverring)", "news2")
+        self.rr = number_entry(grid, 0, "Respirasjonsfrekvens (/min)", "For eksempel 16")
+        self.spo2 = number_entry(grid, 1, "SpO₂ (%)", "For eksempel 96")
+        self.scale = choice(grid, 2, "SpO₂-skala", ["Skala 1 (vanlig)", "Skala 2 (mål 88–92 %, bestemt av lege)"])
+        self.air = choice(grid, 3, "Luft eller oksygen", ["Romluft", "Får oksygen"])
+        self.sbp = number_entry(grid, 4, "Systolisk blodtrykk (mmHg)", "For eksempel 125")
+        self.pulse = number_entry(grid, 5, "Puls (/min)", "For eksempel 80")
+        self.alert = choice(grid, 6, "Bevissthet", ["Våken (A)", "Ny forvirring, reagerer bare på tiltale, smerte, "
+                                                   "eller ingen respons (CVPU)"])
+        self.temp = number_entry(grid, 7, "Temperatur (°C)", "For eksempel 37,2")
+        self.news = self.result_label()
+
+        grid = self.section("Glasgow Coma Scale", "gcs")
+        self.eyes = choice(grid, 0, "Øyeåpning", klinisk.GCS_EYES)
+        self.verbal = choice(grid, 1, "Verbal respons", klinisk.GCS_VERBAL)
+        self.motor = choice(grid, 2, "Motorisk respons", klinisk.GCS_MOTOR)
+        self.gcs = self.result_label()
+
+        grid = self.section("CURB-65 (alvorlighet ved lungebetennelse)", "curb65")
+        self.confusion = choice(grid, 0, "Ny forvirring", ["Nei", "Ja"])
+        self.urea = number_entry(grid, 1, "Urea (mmol/L)", "For eksempel 6,5")
+        self.c_rr = number_entry(grid, 2, "Respirasjonsfrekvens (/min)", "For eksempel 22")
+        self.c_sbp = number_entry(grid, 3, "Systolisk blodtrykk", "For eksempel 110")
+        self.c_dbp = number_entry(grid, 4, "Diastolisk blodtrykk", "For eksempel 70")
+        self.c_age = number_entry(grid, 5, "Alder (år)", "For eksempel 70")
+        self.curb = self.result_label()
+
+        self.watch(self.rr, self.spo2, self.scale, self.air, self.sbp, self.pulse, self.alert, self.temp,
+                   self.eyes, self.verbal, self.motor,
+                   self.confusion, self.urea, self.c_rr, self.c_sbp, self.c_dbp, self.c_age)
+        self.update()
+
+    def update(self):
+        def news():
+            total, points, risk = klinisk.news2(
+                self.number(self.rr, "respirasjonsfrekvens"), self.number(self.spo2, "SpO₂"),
+                self.chosen(self.scale, "SpO₂-skala") == 1, self.chosen(self.air, "luft eller oksygen") == 1,
+                self.number(self.sbp, "systolisk blodtrykk"), self.number(self.pulse, "puls"),
+                self.chosen(self.alert, "bevissthet") == 0, self.number(self.temp, "temperatur"))
+            details = ", ".join(f"{name} {p}" for name, p in points.items() if p)
+            return f"NEWS2 {total} poeng · {risk}" + (f"\n({details})" if details else "")
+
+        def gcs():
+            total, severity = klinisk.gcs(self.chosen(self.eyes, "øyeåpning") + 1,
+                                          self.chosen(self.verbal, "verbal respons") + 1,
+                                          self.chosen(self.motor, "motorisk respons") + 1)
+            return f"GCS {total} · {severity}"
+
+        def curb():
+            points, risk = klinisk.curb65(
+                self.chosen(self.confusion, "om pasienten er forvirret") == 1, self.number(self.urea, "urea"),
+                self.number(self.c_rr, "respirasjonsfrekvens"), self.number(self.c_sbp, "systolisk blodtrykk"),
+                self.number(self.c_dbp, "diastolisk blodtrykk"), int(self.number(self.c_age, "alder")))
+            return f"CURB-65 {points} poeng · {risk}"
+
+        self.show(self.news, news)
+        self.show(self.gcs, gcs)
+        self.show(self.curb, curb)
+
+
+class LabPage(ScorePage):
+    """Cockcroft-Gault, corrected calcium and QTc."""
+
+    def __init__(self):
+        super().__init__()
+        grid = self.section("Kreatininclearance (Cockcroft-Gault), for dosegrenser", "cg")
+        self.creatinine = number_entry(grid, 0, "Kreatinin (µmol/L)", "For eksempel 110")
+        self.age = number_entry(grid, 1, "Alder (år)", "For eksempel 80")
+        self.weight = number_entry(grid, 2, "Vekt (kg)", "For eksempel 65")
+        self.sex = choice(grid, 3, "Kjønn", ["Kvinne", "Mann"])
+        self.cg = self.result_label()
+
+        grid = self.section("Albuminkorrigert kalsium", "ca")
+        self.calcium = number_entry(grid, 0, "Kalsium (mmol/L)", "For eksempel 2,15")
+        self.albumin = number_entry(grid, 1, "Albumin (g/L)", "For eksempel 32")
+        self.ca = self.result_label()
+
+        grid = self.section("QTc", "qtc")
+        self.qt = number_entry(grid, 0, "QT (ms)", "For eksempel 420")
+        self.hr = number_entry(grid, 1, "Puls (/min)", "For eksempel 75")
+        self.qtc_sex = choice(grid, 2, "Kjønn (for grenseverdien)", ["Kvinne", "Mann"])
+        self.qtc = self.result_label()
+
+        self.watch(self.creatinine, self.age, self.weight, self.sex, self.calcium, self.albumin,
+                   self.qt, self.hr, self.qtc_sex)
+        self.update()
+
+    def update(self):
+        def cg():
+            value = klinisk.cockcroft_gault(self.number(self.creatinine, "kreatinin"),
+                                            int(self.number(self.age, "alder")), self.number(self.weight, "vekt"),
+                                            self.chosen(self.sex, "kjønn") == 0)
+            return f"Kreatininclearance {value} ml/min (ikke justert til 1,73 m²)"
+
+        def ca():
+            value = klinisk.corrected_calcium(self.number(self.calcium, "kalsium"), self.number(self.albumin, "albumin"))
+            return f"Korrigert kalsium {comma(value)} mmol/L"
+
+        def qtc():
+            bazett, fridericia = klinisk.qtc(self.number(self.qt, "QT"), self.number(self.hr, "puls"))
+            index = picked(self.qtc_sex)
+            female = None if index is None else index == 0
+            # Judged on Fridericia, which is more accurate than Bazett at high and low heart rates.
+            return (f"QTc Bazett {bazett} ms · Fridericia {fridericia} ms\n"
+                    f"{klinisk.qtc_text(fridericia, female)} (vurdert med Fridericia)")
+
+        self.show(self.cg, cg)
+        self.show(self.ca, ca)
+        self.show(self.qtc, qtc)
+
+
 class KalkulatorWindow(Gtk.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app, title="Kalkulator")
@@ -390,6 +563,8 @@ class KalkulatorWindow(Gtk.ApplicationWindow):
         self.stack.add_titled(UnitPage(units.MASS, "Vekt", "For eksempel 500"), "vekt", "Vekt (µg – kg)")
         self.stack.add_titled(DensityPage(), "tetthet", "Vekt ↔ volum")
         self.stack.add_titled(ClinicalPage(), "klinisk", "Kliniske skårer")
+        self.stack.add_titled(AcutePage(), "akutt", "Akutt: NEWS2, GCS, CURB-65")
+        self.stack.add_titled(LabPage(), "lab", "Lab og EKG")
 
         sidebar = Gtk.StackSidebar(stack=self.stack)
         sidebar.set_size_request(190, -1)
