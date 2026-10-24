@@ -1,7 +1,9 @@
 [Desktop Entry]
 Type=Application
 Name=Sikkerhetssenter
+Name[en]=Security centre
 Comment=Se at brannmur, virusbeskyttelse, USB-lås og VPN virker
+Comment[en]=Check that the firewall, virus protection, USB lock and VPN work
 Exec=medicus-nettleser http://127.0.0.1:8000/sikkerhet
 Icon=security-high
 Terminal=false

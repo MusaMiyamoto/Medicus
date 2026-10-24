@@ -1,7 +1,9 @@
 [Desktop Entry]
 Type=Application
 Name=Oppgavebehandling
+Name[en]=Task manager
 Comment=Se og stopp programmer som kjører
+Comment[en]=See and stop running programs
 Exec=xfce4-taskmanager
 Icon=utilities-system-monitor
 Terminal=false

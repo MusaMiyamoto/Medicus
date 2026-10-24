@@ -1,7 +1,9 @@
 [Desktop Entry]
 Type=Application
 Name=Medisinsk utstyr (USB)
+Name[en]=Medical devices (USB)
 Comment=Godkjenn diktermikrofoner, spirometre, EKG, dermatoskop og annet USB-utstyr. Bekreftes med PIN på IT-kortet.
+Comment[en]=Approve dictation microphones, spirometers, ECG, dermatoscopes and other USB devices. Confirmed with the IT card PIN.
 Exec=xfce4-terminal --title "Medisinsk utstyr" --hold -x medicus-utstyr meny
 Icon=drive-removable-media
 Terminal=false

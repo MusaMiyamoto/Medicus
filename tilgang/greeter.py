@@ -16,11 +16,9 @@ from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
 from . import EMERGENCY_MINUTES, EMERGENCY_USER, IT_ROLE, SITUATIONS  # noqa: E402
 from .ekg import Ekg  # noqa: E402
+from .sprak import LOCALES, date_text, t  # noqa: E402
 
 BRANDING = Path(__file__).parent.parent / "branding"
-DAYS = ["Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag", "Søndag"]
-MONTHS = ["januar", "februar", "mars", "april", "mai", "juni", "juli", "august",
-          "september", "oktober", "november", "desember"]
 
 CSS = """
 window.medicus { background: linear-gradient(160deg, #06281a 0%, #0f5333 50%, #1f8f55 100%); color: #ffffff; }
@@ -56,6 +54,9 @@ button.emergency-go:hover { background: #8f1d17; }
          background: rgba(255, 255, 255, 0.10); border: 1px solid rgba(255, 255, 255, 0.16); }
 .power:hover { background: rgba(255, 255, 255, 0.22); }
 .sim button.card-toggle { padding: 6px 14px; }
+button.lang { min-height: 54px; border-radius: 999px; padding: 0 20px; font-weight: 600; color: #ffffff;
+              background: rgba(255, 255, 255, 0.10); border: 1px solid rgba(255, 255, 255, 0.16); }
+button.lang:hover { background: rgba(255, 255, 255, 0.22); }
 /* The card and workplace lists: a plain light list, without the dark shadow frame around it. */
 .sim popover > contents { box-shadow: none; border-radius: 10px; padding: 4px; }
 .sim popover { box-shadow: none; margin: 0; }
@@ -101,6 +102,7 @@ class LightDMBackend:
         self.session = None
         self.message = ""
         self.done = None
+        self.language = None  # e.g. "en_GB.UTF-8": the locale the session starts in
 
     def login(self, user, secret, session, done):
         if self.greeter.get_in_authentication():
@@ -118,6 +120,8 @@ class LightDMBackend:
     def _complete(self, _greeter):
         if self.greeter.get_is_authenticated():
             try:
+                if self.language:
+                    self.greeter.set_language(self.language)
                 self.greeter.start_session_sync(self.session)
                 return
             except GLib.Error:
@@ -171,6 +175,7 @@ class DemoBackend:
     def __init__(self):
         self.card = None
         self.site = self.SITES[0]
+        self.language = None
 
     def status(self):
         card = None
@@ -202,9 +207,9 @@ class DemoBackend:
 
 
 class LoginWindow(Gtk.ApplicationWindow):
-    def __init__(self, app, auth, lightdm):
+    def __init__(self, app, auth, lightdm, lang="nb"):
         super().__init__(application=app, title="Medicus")
-        self.auth, self.lightdm = auth, lightdm
+        self.auth, self.lightdm, self.lang = auth, lightdm, lang
         self.card_id = "init"  # differs from every real state, so the first refresh fills in the text
         self.busy = False
         self.add_css_class("medicus")
@@ -221,7 +226,7 @@ class LoginWindow(Gtk.ApplicationWindow):
         wordmark = Gtk.Picture.new_for_filename(str(BRANDING / "wordmark-compact.svg"))
         wordmark.set_can_shrink(False)
         wordmark.set_halign(Gtk.Align.START)
-        tagline = Gtk.Label(label="TRYGG ARBEIDSSTASJON FOR HELSEPERSONELL", xalign=0)
+        tagline = Gtk.Label(label=self.t("TRYGG ARBEIDSSTASJON FOR HELSEPERSONELL"), xalign=0)
         tagline.add_css_class("tagline")
         # This PC's workplace, e.g. "Oslo universitetssykehus, Ullevål".
         self.site_label = Gtk.Label(xalign=0)
@@ -268,9 +273,9 @@ class LoginWindow(Gtk.ApplicationWindow):
         header.append(names)
         panel.append(header)
 
-        self.pin = Gtk.PasswordEntry(placeholder_text="PIN-kode", show_peek_icon=False)
+        self.pin = Gtk.PasswordEntry(placeholder_text=self.t("PIN-kode"), show_peek_icon=False)
         self.pin.connect("activate", lambda *_: self.login())
-        self.login_button = Gtk.Button(label="Logg inn")
+        self.login_button = Gtk.Button(label=self.t("Logg inn"))
         self.login_button.add_css_class("primary")
         self.login_button.connect("clicked", lambda *_: self.login())
         panel.append(self.pin)
@@ -288,12 +293,12 @@ class LoginWindow(Gtk.ApplicationWindow):
         panel.append(self.loading)
 
         panel.append(Gtk.Separator())
-        self.emergency_button = Gtk.Button(label="Nødtilgang")
+        self.emergency_button = Gtk.Button(label=self.t("Nødtilgang"))
         self.emergency_button.add_css_class("emergency")
         self.emergency_button.connect("clicked", lambda *_: self.show_emergency(True))
         panel.append(self.emergency_button)
         # Fixed line breaks: wrapping labels can stretch the panel when the screen is short.
-        self.emergency_info = Gtk.Label(xalign=0, label=(
+        self.emergency_info = Gtk.Label(xalign=0, label=self.t(
             f"Kun livsviktig informasjon i {EMERGENCY_MINUTES} min. Logges med ditt navn.\n"
             "Du skriver en rapport om hvorfor før skiftet er slutt."))
         self.emergency_info.add_css_class("emergency-info")
@@ -303,13 +308,13 @@ class LoginWindow(Gtk.ApplicationWindow):
         # typing and no questions. The situation is filled in on the report afterwards.
         self.emergency = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, visible=False)
         self.emergency.add_css_class("emergency-box")
-        self.emergency.append(Gtk.Label(xalign=0, label="Hva er situasjonen?", css_classes=["emergency-title"]))
+        self.emergency.append(Gtk.Label(xalign=0, label=self.t("Hva er situasjonen?"), css_classes=["emergency-title"]))
         for situation in SITUATIONS:
-            button = Gtk.Button(label=situation)
+            button = Gtk.Button(label=self.t(situation))
             button.add_css_class("emergency-go")
             button.connect("clicked", lambda _b, s=situation: self.start_emergency(s))
             self.emergency.append(button)
-        cancel = Gtk.Button(label="Avbryt")
+        cancel = Gtk.Button(label=self.t("Avbryt"))
         cancel.connect("clicked", lambda *_: self.show_emergency(False))
         self.emergency.append(cancel)
         panel.append(self.emergency)
@@ -323,13 +328,13 @@ class LoginWindow(Gtk.ApplicationWindow):
         sim_text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
         sim_title = Gtk.Label(label="DEMO", xalign=0)
         sim_title.add_css_class("sim-title")
-        sim_label = Gtk.Label(label="Simulering", xalign=0)
+        sim_label = Gtk.Label(label=self.t("Simulering"), xalign=0)
         sim_label.add_css_class("sim-text")
         sim_text.append(sim_title)
         sim_text.append(sim_label)
         self.sim.append(sim_text)
         self.sim_cards = self.auth.cards() if self.auth.status().get("simulert") else []
-        self.sim_choice = Gtk.DropDown.new_from_strings([f"{c['navn']} – {c['rolle']}" for c in self.sim_cards] or ["–"])
+        self.sim_choice = Gtk.DropDown.new_from_strings([f"{c['navn']} – {self.t(c['rolle'])}" for c in self.sim_cards] or ["–"])
         self.sim_choice.set_valign(Gtk.Align.CENTER)
         # One button that follows the reader: "Sett inn kort" when empty, "Ta ut kort" when a card is in.
         self.card_toggle = Gtk.Button(valign=Gtk.Align.CENTER)
@@ -348,7 +353,7 @@ class LoginWindow(Gtk.ApplicationWindow):
         # Demo only: pretend this PC stands at another hospital, to see the workplace change.
         status = self.auth.status()
         self.sim_sites = status.get("arbeidssteder") or []
-        self.site_choice = Gtk.DropDown.new_from_strings([s["navn"] for s in self.sim_sites] or ["–"])
+        self.site_choice = Gtk.DropDown.new_from_strings([self.t(s["navn"]) for s in self.sim_sites] or ["–"])
         self.site_choice.set_valign(Gtk.Align.CENTER)
         current = next((i for i, s in enumerate(self.sim_sites) if s["id"] == status["arbeidssted"]["id"]), 0)
         self.site_choice.set_selected(current)
@@ -362,8 +367,17 @@ class LoginWindow(Gtk.ApplicationWindow):
         self.sim.set_visible(bool(self.sim_cards))
         bottom.append(self.sim)
         bottom.append(Gtk.Box(hexpand=True))
+        # Norsk / English: the screen at once, and the desktop session after login.
+        language = Gtk.Button(label="English" if lang == "nb" else "Norsk", valign=Gtk.Align.CENTER)
+        language.update_property([Gtk.AccessibleProperty.LABEL],
+                                 ["Switch to English" if lang == "nb" else "Bytt til norsk"])
+        language.add_css_class("lang")
+        language.set_focus_on_click(False)
+        language.connect("clicked", lambda *_: app.switch_language())
+        bottom.append(language)
         for label, icon, action in (("Start på nytt", "icons/omstart.svg", self.lightdm.restart),
                                     ("Slå av", "icons/slaa-av.svg", self.lightdm.shutdown)):
+            label = self.t(label)
             button = Gtk.Button(valign=Gtk.Align.CENTER, tooltip_text=label)
             button.update_property([Gtk.AccessibleProperty.LABEL], [label])
             button.add_css_class("power")
@@ -374,13 +388,20 @@ class LoginWindow(Gtk.ApplicationWindow):
 
         self.refresh()
         self.tick()
-        GLib.timeout_add(1000, self.refresh)
-        GLib.timeout_add(1000, self.tick)
+        self.timers = [GLib.timeout_add(1000, self.refresh), GLib.timeout_add(1000, self.tick)]
+
+    def t(self, text):
+        return t(text, self.lang)
+
+    def stop(self):
+        """Before this window is replaced (a change of language)."""
+        for timer in self.timers:
+            GLib.source_remove(timer)
 
     def tick(self):
         now = datetime.now()
         self.clock.set_text(now.strftime("%H:%M"))
-        self.date.set_text(f"{DAYS[now.weekday()]} {now.day}. {MONTHS[now.month - 1]}")
+        self.date.set_text(date_text(now, self.lang))
         return True
 
     def refresh(self):
@@ -389,8 +410,8 @@ class LoginWindow(Gtk.ApplicationWindow):
             card, site = status["kort"], status["arbeidssted"]
         except Exception:
             card, site = None, {"id": "", "navn": ""}
-            self.subtitle.set_text("Får ikke kontakt med innloggingstjenesten.")
-        self.site_label.set_text(site["navn"])
+            self.subtitle.set_text(self.t("Får ikke kontakt med innloggingstjenesten."))
+        self.site_label.set_text(self.t(site["navn"]))
         state = (card["card_id"] if card else None, site["id"])
         if state != self.card_id:
             self.card_id = state
@@ -400,29 +421,29 @@ class LoginWindow(Gtk.ApplicationWindow):
             self.show_emergency(False)
             self.badge.set_visible_child_name("person" if card else "kort")
             self.toggle_icon.set_visible_child_name("ut" if card else "inn")
-            self.toggle_label.set_text("Ta ut kort" if card else "Sett inn kort")
+            self.toggle_label.set_text(self.t("Ta ut kort" if card else "Sett inn kort"))
             self.sim_choice.set_sensitive(card is None)
             if card:
-                self.title.set_text(f"Hei, {card['navn']}")
+                self.title.set_text(self.t(f"Hei, {card['navn']}"))
                 if card.get("rolle") == IT_ROLE:
-                    self.subtitle.set_text(f"IT-modus · {site['navn']}")
+                    self.subtitle.set_text(self.t(f"IT-modus · {site['navn']}"))
                 else:
-                    self.subtitle.set_text(f"{card['stilling']} · {site['navn']}")
+                    self.subtitle.set_text(self.t(f"{card['stilling']} · {site['navn']}"))
                 # Emergency access is for health personnel; IT staff never see patient data.
                 self.emergency_button.set_visible(card.get("rolle") != IT_ROLE)
                 self.emergency_info.set_visible(card.get("rolle") != IT_ROLE)
                 if card.get("rapporter"):
                     first = card["rapporter"][0]
-                    late = "Fristen er ute! " if first["forsinket"] else ""
-                    self.message.set_text(f"{late}Du har en nødtilgangsrapport å skrive (frist kl. {first['frist'][11:16]}).\n"
-                                          "Den åpnes når du logger inn.")
+                    late = self.t("Fristen er ute! ") if first["forsinket"] else ""
+                    due = self.t(f"Du har en nødtilgangsrapport å skrive (frist kl. {first['frist'][11:16]}).")
+                    self.message.set_text(f"{late}{due}\n{self.t('Den åpnes når du logger inn.')}")
                 self.pin.grab_focus()
             else:
-                self.title.set_text("Sett inn helsepersonellkortet")
-                self.subtitle.set_text("Kortleseren står ved siden av skjermen.")
+                self.title.set_text(self.t("Sett inn helsepersonellkortet"))
+                self.subtitle.set_text(self.t("Kortleseren står ved siden av skjermen."))
         problem, normal, emergency = card_problem(card)
         if problem:
-            self.message.set_text(problem)
+            self.message.set_text(self.t(problem))
         for widget in (self.pin, self.login_button):
             widget.set_sensitive(normal and not self.busy)
         self.emergency_button.set_sensitive(emergency and not self.busy)
@@ -435,7 +456,7 @@ class LoginWindow(Gtk.ApplicationWindow):
 
     def set_busy(self, busy, text="Logger inn"):
         self.busy = busy
-        self.loading.update_property([Gtk.AccessibleProperty.LABEL], [text])
+        self.loading.update_property([Gtk.AccessibleProperty.LABEL], [self.t(text)])
         self.loading.set_visible(busy)
         self.message.set_visible(not busy)
         self.refresh()
@@ -443,7 +464,7 @@ class LoginWindow(Gtk.ApplicationWindow):
     def finished(self, ok, message):
         self.set_busy(False)
         if not ok:
-            self.message.set_text(message)
+            self.message.set_text(self.t(message))
             self.pin.set_text("")
         return False
 
@@ -453,6 +474,7 @@ class LoginWindow(Gtk.ApplicationWindow):
         self.message.set_text("")
         self.set_busy(True)
         session = "medicus-it" if self.is_it_card() else "xfce"
+        self.lightdm.language = LOCALES[self.lang]
         self.lightdm.login(self.card["username"], self.pin.get_text(), session, self.finished)
 
     def is_it_card(self):
@@ -464,6 +486,7 @@ class LoginWindow(Gtk.ApplicationWindow):
         self.message.set_text("")
         self.emergency.set_visible(False)
         self.set_busy(True, "Starter nødtilgang")
+        self.lightdm.language = LOCALES[self.lang]
         # LightDM asks PAM for a "password"; for emergency access that answer is the situation.
         self.lightdm.login(EMERGENCY_USER, situation, "medicus-nod", self.finished)
 
@@ -473,7 +496,7 @@ class LoginWindow(Gtk.ApplicationWindow):
         try:
             self.auth.set_site(self.sim_sites[self.site_choice.get_selected()]["id"])
         except Exception as e:
-            self.message.set_text(str(e))
+            self.message.set_text(self.t(str(e)))
         self.refresh()
 
     def sim_toggle(self):
@@ -483,7 +506,7 @@ class LoginWindow(Gtk.ApplicationWindow):
             elif self.sim_cards:
                 self.auth.insert(self.sim_cards[self.sim_choice.get_selected()]["card_id"])
         except Exception as e:
-            self.message.set_text(str(e))
+            self.message.set_text(self.t(str(e)))
         self.refresh()
 
 
@@ -491,6 +514,7 @@ class GreeterApp(Gtk.Application):
     def __init__(self, demo):
         super().__init__(application_id="no.medicus.Greeter")
         self.demo = demo
+        self.lang = "nb"
 
     def do_startup(self):
         Gtk.Application.do_startup(self)
@@ -502,10 +526,20 @@ class GreeterApp(Gtk.Application):
     def do_activate(self):
         if self.demo:
             demo = DemoBackend()
-            auth, lightdm = demo, demo
+            self.auth, self.lightdm = demo, demo
         else:
-            auth, lightdm = AuthdBackend(), LightDMBackend()
-        self.window = LoginWindow(self, auth, lightdm)
+            self.auth, self.lightdm = AuthdBackend(), LightDMBackend()
+        self.show_window()
+
+    def switch_language(self):
+        self.lang = "en" if self.lang == "nb" else "nb"
+        old = self.window
+        old.stop()
+        self.show_window()
+        old.destroy()
+
+    def show_window(self):
+        self.window = LoginWindow(self, self.auth, self.lightdm, self.lang)
         monitor = Gdk.Display.get_default().get_monitors().get_item(0)
         geometry = monitor.get_geometry()
         self.window.set_default_size(geometry.width, geometry.height)

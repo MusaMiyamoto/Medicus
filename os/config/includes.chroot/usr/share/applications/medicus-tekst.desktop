@@ -1,7 +1,9 @@
 [Desktop Entry]
 Type=Application
 Name=Text
+Name[en]=Text
 Comment=Skriv og les enkle tekstfiler og notater
+Comment[en]=Write and read simple text files and notes
 Exec=medicus-tekst %F
 Icon=medicus-tekst
 Terminal=false

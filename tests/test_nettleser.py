@@ -34,7 +34,7 @@ def test_unencrypted_internet_gets_its_own_explanation():
     assert regler.is_unencrypted("http://felleskatalogen.no/")
     assert not regler.is_unencrypted("http://127.0.0.1:8000/")
     assert not regler.is_unencrypted("https://felleskatalogen.no/")
-    assert "ikke kryptert" in sider.blocked("http://felleskatalogen.no/", unencrypted=True)
+    assert "ikke kryptert" in sider.blocked("http://felleskatalogen.no/", unencrypted=True, en=False)
 
 
 def test_only_medicus_apps_get_the_microphone():

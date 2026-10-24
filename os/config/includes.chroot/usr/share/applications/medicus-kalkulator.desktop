@@ -1,7 +1,9 @@
 [Desktop Entry]
 Type=Application
 Name=Kalkulator
+Name[en]=Calculator
 Comment=Kalkulator og omregning av volum, vekt og gram til milliliter
+Comment[en]=Calculator and conversion of volume, weight and grams to millilitres
 Exec=medicus-kalkulator
 Icon=accessories-calculator
 Terminal=false

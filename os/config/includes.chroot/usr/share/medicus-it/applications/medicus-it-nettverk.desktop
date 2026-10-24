@@ -1,7 +1,9 @@
 [Desktop Entry]
 Type=Application
 Name=Nettverk
+Name[en]=Network
 Comment=Sett opp kablet nett, trådløst nett og VPN
+Comment[en]=Set up wired network, Wi-Fi and VPN
 Exec=nm-connection-editor
 Icon=network-wired
 Terminal=false

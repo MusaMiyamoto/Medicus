@@ -1,7 +1,9 @@
 [Desktop Entry]
 Type=Application
 Name=Terminal
+Name[en]=Terminal
 Comment=Kommandolinje for IT-personell. Administratorkommandoer (sudo) bekreftes med PIN på IT-kortet.
+Comment[en]=Command line for IT staff. Administrator commands (sudo) are confirmed with the IT card PIN.
 Exec=xfce4-terminal
 Icon=utilities-terminal
 Terminal=false

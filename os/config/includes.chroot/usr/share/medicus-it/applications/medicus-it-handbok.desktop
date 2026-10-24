@@ -1,7 +1,9 @@
 [Desktop Entry]
 Type=Application
 Name=IT-håndbok
+Name[en]=IT handbook
 Comment=Hvordan Medicus er bygd, hvor ting ligger, og hva du gjør når noe går galt
+Comment[en]=How Medicus is built, where things are, and what to do when something goes wrong
 Exec=medicus-tekst /usr/share/doc/medicus/IT-handbok.md
 Icon=help-browser
 Terminal=false
