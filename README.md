@@ -190,6 +190,10 @@ has nothing to work with:
 - Windows programs (most of what malware-scanning services like VirusTotal see) can't run on Linux at all.
 - **Nothing can be run as a program from home folders, downloads or temporary folders**
   (mounted `noexec`), which is how most downloaded malware starts.
+- **Home folders are emptied when a session ends** (logout, a hold that ran out, or someone else logging
+  in) and again at every boot. Downloads, browser history and copied files are never left for the next
+  person, also on the shared emergency account. Coming back with your card within 15 minutes is not an
+  end, so nothing is lost then. Unsaved journal notes are kept by the Medicus service, not in the home folder.
 - Users have **no terminal and no "run command" box**. Programs start from the Start menu only.
 - Attachments are virus-scanned, USB memory sticks are blocked, and the browser only reaches approved sites.
 - The PDF reader runs in an AppArmor sandbox, and every service runs with minimal rights.

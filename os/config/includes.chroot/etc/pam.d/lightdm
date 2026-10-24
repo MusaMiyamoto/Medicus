@@ -20,6 +20,8 @@ session   required  pam_env.so readenv=1 envfile=/etc/default/locale
 session   required  pam_limits.so
 session   required  pam_loginuid.so
 @include common-session
+# When the session closes (logout, hold ran out, someone else logged in): empty the home folder.
+session   optional  pam_exec.so quiet type=close_session /usr/local/lib/medicus/rydd-hjem
 session  [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so open
 
 # Passwords can't be changed: there are none.

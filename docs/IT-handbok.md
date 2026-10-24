@@ -54,6 +54,7 @@ The rules behind this:
 | `tilgang/greeter.py` | The login screen | Python + GTK 4, LightDM |
 | `tilgang/pam.py` | The bridge from Linux login (PAM) to medicus-authd | Python |
 | `tilgang/sessionguard.py` | **medicus-oktvakt**: ends desktops that have no valid login | Python |
+| `tilgang/rydd.py` | Empties home folders when a session closes (PAM) and at boot (`medicus-rydd-hjem.service`) | Python |
 | `tilgang/nodrapport.py` | Emergency access reports and their deadline | Python |
 | `medicus/` | The web app: patient record, Post, journal assistant, Sikkerhetssenter | Python + FastAPI, plain HTML/CSS/JS |
 | `helsenett/` | One interface to the national health services, plus a simulator | Python + FastAPI |
