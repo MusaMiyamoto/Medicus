@@ -20,7 +20,8 @@ from PIL import Image, ImageDraw
 
 HERE = Path(__file__).parent
 SIZE = 512
-RING = 0.06  # the white ring, as a share of the radius; left out of the wallpaper mark
+RING = 0.13  # the white ring and the light inner rim, as a share of the size; left out of the wallpaper mark
+EDGE = 0.006  # trimmed off the outside, so no background pixel shows along the edge
 WALLPAPER_MARK = re.compile(r'<g transform="translate\(1180 120\) scale\(6\.6\)".*?\n  </g>', re.S)
 
 
@@ -43,7 +44,7 @@ def circle_mask(size: int, inset: float = 0) -> Image.Image:
 
 def round_icon(src: Image.Image) -> Image.Image:
     icon = src.crop(badge_box(src)).convert("RGBA").resize((SIZE, SIZE), Image.LANCZOS)
-    icon.putalpha(circle_mask(SIZE))
+    icon.putalpha(circle_mask(SIZE, EDGE))
     return icon
 
 
