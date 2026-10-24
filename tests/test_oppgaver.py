@@ -1,6 +1,7 @@
 """Task Manager: reading processes, the protection rules, and the root helper that stops them."""
 
 import ast
+import sys
 import re
 import signal
 from pathlib import Path
@@ -211,3 +212,54 @@ def test_the_os_uses_our_task_manager_only_in_it_mode():
 def test_the_stops_are_part_of_the_audit_checks():
     from medicus import revisjon
     assert Path("/var/lib/medicus-oppgaver/audit.jsonl") in revisjon.LOGS
+
+
+GUI_CHECK = r"""
+import sys
+from gi.repository import Gio, GLib
+from oppgaver import app, prosesser
+
+proc = prosesser.Process(pid=4242, ppid=1, comm="python3", cmdline="python3 -I -c from nettleser.app import main",
+                         uid=1, user="annen", state="S", cpu_ticks=0, start=1, rss=0)
+
+class Check(app.OppgaverApp):
+    def __init__(self):
+        super().__init__()
+        self.set_flags(Gio.ApplicationFlags.NON_UNIQUE)  # never hand over to a Task Manager already open
+
+    def do_activate(self):
+        window = app.OppgaverWindow(self)
+        window.present()
+        window.pointer_on_list = True   # rows keep their order while the pointer is on the list
+        window.fill()
+        assert [(p.pid, p.start) for p in window.visible()] == window.order
+        for force in (False, True):
+            dialog = app.ConfirmWindow(window, proc, force, lambda *a: None)
+            dialog.present()
+            dialog.close()
+        print("ok")
+        self.quit()
+
+sys.exit(Check().run([]))
+"""
+
+
+def test_the_window_and_both_dialogs_open(tmp_path):
+    """Builds the real window and the PIN dialogs on a virtual display (GTK's Broadway backend)."""
+    import os
+    import shutil
+    import subprocess
+    import time
+    if not shutil.which("gtk4-broadwayd"):
+        pytest.skip("gtk4-broadwayd not installed")
+    display = ":17"
+    env = {**os.environ, "GDK_BACKEND": "broadway", "BROADWAY_DISPLAY": display, "PYTHONPATH": str(ROOT),
+           "XDG_RUNTIME_DIR": str(tmp_path)}  # the server's socket is here, so both need it
+    server = subprocess.Popen(["gtk4-broadwayd", display], env=env, stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL)
+    try:
+        time.sleep(1)
+        run = subprocess.run([sys.executable, "-c", GUI_CHECK], env=env, capture_output=True, text=True, timeout=60)
+    finally:
+        server.terminate()
+    assert run.returncode == 0 and "ok" in run.stdout, run.stderr[-2000:]

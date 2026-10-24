@@ -105,7 +105,6 @@ class ConfirmWindow(Gtk.Window):
             box.append(Gtk.Label(label=_("Programmet tilhører en annen bruker ({}).").format(p.user), xalign=0))
         box.append(Gtk.Label(label=_("Bekreft med PIN for IT-kortet"), xalign=0))
         self.pin = Gtk.PasswordEntry(show_peek_icon=False)
-        self.pin.set_input_purpose(Gtk.InputPurpose.PIN)
         self.pin.connect("activate", self.confirm)
         box.append(self.pin)
         self.message = Gtk.Label(xalign=0, wrap=True)
@@ -154,6 +153,8 @@ class OppgaverWindow(Gtk.ApplicationWindow):
         self.procs = []
         self.selected = None  # (pid, start)
         self.dialog_open = False
+        self.pointer_on_list = False
+        self.order: list[tuple[int, int]] = []  # (pid, start) as last shown
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin_top=16, margin_bottom=16,
                        margin_start=16, margin_end=16)
@@ -191,6 +192,12 @@ class OppgaverWindow(Gtk.ApplicationWindow):
         self.list.connect("row-selected", self.on_select)
         scroll = Gtk.ScrolledWindow(vexpand=True)
         scroll.set_child(self.list)
+        # While the pointer is over the list, the figures update but the rows stay where they are,
+        # so a row can't move under the pointer just as you click it.
+        motion = Gtk.EventControllerMotion()
+        motion.connect("enter", lambda *_: setattr(self, "pointer_on_list", True))
+        motion.connect("leave", lambda *_: setattr(self, "pointer_on_list", False))
+        scroll.add_controller(motion)
         root.append(scroll)
 
         self.detail = Gtk.Label(label=_("Velg et program i listen."), xalign=0, wrap=True)
@@ -228,6 +235,9 @@ class OppgaverWindow(Gtk.ApplicationWindow):
         q = self.search.get_text().strip().lower()
         shown = [p for p in self.procs
                  if not q or q in _(p.name).lower() or q in p.user.lower() or q == str(p.pid)]
+        if self.pointer_on_list and self.order:
+            where = {key: i for i, key in enumerate(self.order)}
+            return sorted(shown, key=lambda p: where.get((p.pid, p.start), len(where)))  # new ones last
         order = self.sort.get_selected()
         key = ((lambda p: (-p.cpu, -p.rss)), (lambda p: -p.rss), (lambda p: _(p.name).lower()))[order]
         return sorted(shown, key=key)
@@ -235,7 +245,9 @@ class OppgaverWindow(Gtk.ApplicationWindow):
     def fill(self):
         keep = self.selected
         self.list.remove_all()
-        for p in self.visible():
+        shown = self.visible()
+        self.order = [(p.pid, p.start) for p in shown]
+        for p in shown:
             locked = prosesser.protected(p)
             row = Gtk.ListBoxRow()
             row.proc = p
@@ -271,9 +283,9 @@ class OppgaverWindow(Gtk.ApplicationWindow):
         row = self.list.get_selected_row()
         if not row or prosesser.protected(row.proc):
             return
-        self.dialog_open = True
         dialog = ConfirmWindow(self, row.proc, force, self.show_result)
         dialog.connect("close-request", self.dialog_closed)
+        self.dialog_open = True  # only now: if the dialog failed, the list must keep updating
         dialog.present()
 
     def dialog_closed(self, *_args):
@@ -307,4 +319,6 @@ class OppgaverApp(Gtk.Application):
 
 
 def main(argv=None):
+    # Started as "python3 -c ...": without this the window's class (taskbar grouping) would be "-c".
+    GLib.set_prgname("medicus-oppgaver")
     return OppgaverApp().run(argv if argv is not None else sys.argv[:1])
