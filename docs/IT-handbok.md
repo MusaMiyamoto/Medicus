@@ -134,6 +134,16 @@ Search by name, user or PID, and sort by CPU, memory or name.
 - A PID that now belongs to another program (PIDs are reused) is never stopped: the command checks
   the process's start time as well.
 
+**Lukk program som henger** (`medicus-lukk-program`, Ctrl+Shift+Esc, in everyone's Start menu) is the
+version for health personnel. It lists only the user's own *work programs*: Nettleser windows by
+what they show (Pasientjournal, Post, Journalassistent…), the record systems' windows (DIPS, Epic),
+Text, Kalkulator, Files, Pictures and Dokumenter (`work_program` in `oppgaver/prosesser.py`). The
+desktop, taskbar, card lock and everything else are not shown, so nothing the PC needs can be closed
+from it. No PIN: it is the user's own program, and the kernel lets them signal only their own
+processes anyway. Each close is written to the Medicus service's audit log as `program_lukket` under
+the logged-in card (program name, forced or not, and whether it ended). Many closes of one program
+are a sign that it freezes: worth a look.
+
 **How the lock works** (so you can change it safely):
 
 - The tools are owned by the group `medicus-it` with mode 0750 (`dpkg-statoverride` in the build hook).

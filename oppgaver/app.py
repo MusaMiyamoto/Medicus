@@ -1,7 +1,13 @@
-"""GTK 4 window: running programs, and closing them with the IT card PIN.
+"""GTK 4 window: running programs, and closing them. Two versions of the same window:
 
-The list updates every 3 seconds. Closing goes through `sudo medicus-oppgaver stopp`, which asks for
-the PIN and checks and logs everything itself (oppgaver/__main__.py); this window only asks.
+- Oppgavebehandling (IT mode, medicus-oppgaver): every program on the PC. Closing goes through
+  `sudo medicus-oppgaver stopp`, which asks for the IT card PIN and checks and logs everything itself
+  (oppgaver/__main__.py); this window only asks.
+- Lukk program som henger (health personnel, medicus-lukk-program, Ctrl+Shift+Esc): only the user's
+  own work programs (prosesser.user_may_close). No PIN: it is their own program and they are logged
+  in with their card. Each close is logged by the Medicus service.
+
+The list updates every 3 seconds.
 """
 
 import os
@@ -15,10 +21,12 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
+from . import __main__ as helper  # noqa: E402
 from . import prosesser  # noqa: E402
 from .sprak import _  # noqa: E402
 
 APP_ID = "no.medicus.Oppgaver"
+PERSONAL_APP_ID = "no.medicus.LukkProgram"
 COMMAND = "/usr/local/bin/medicus-oppgaver"
 REFRESH_MS = 3000
 # Exit codes from `medicus-oppgaver stopp` (and 1 from sudo when the PIN is wrong).
@@ -43,6 +51,7 @@ button { border-radius: 10px; min-height: 36px; }
 
 COLUMNS = ((_("Program"), 26), (_("PID"), 7), (_("Bruker"), 12), (_("Status"), 16), (_("CPU"), 7),
            (_("Minne"), 9))
+PERSONAL_COLUMNS = ((_("Program"), 34), (_("Status"), 18), (_("CPU"), 7), (_("Minne"), 9))
 
 
 def size(n: int) -> str:
@@ -80,11 +89,12 @@ def _cell(text: str, width: int, right=False) -> Gtk.Label:
 
 
 class ConfirmWindow(Gtk.Window):
-    """Close or force close one program, confirmed with the IT card PIN."""
+    """Close or force close one program: confirmed with the IT card PIN, or (personal) with a click."""
 
-    def __init__(self, parent, p, force: bool, done):
-        super().__init__(transient_for=parent, modal=True, title=_("Oppgavebehandling"))
-        self.p, self.force, self.done = p, force, done
+    def __init__(self, parent, p, force: bool, done, personal=False):
+        super().__init__(transient_for=parent, modal=True,
+                         title=_("Lukk program som henger") if personal else _("Oppgavebehandling"))
+        self.p, self.force, self.done, self.personal = p, force, done, personal
         self.set_default_size(440, -1)
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin_top=18, margin_bottom=18,
                       margin_start=18, margin_end=18)
@@ -92,7 +102,8 @@ class ConfirmWindow(Gtk.Window):
         title = Gtk.Label(label=heading.format(_(p.name)), xalign=0, wrap=True)
         title.add_css_class("title")
         box.append(title)
-        box.append(Gtk.Label(label=_("PID {} · bruker {} · {}").format(p.pid, p.user, _(p.status)), xalign=0))
+        if not personal:
+            box.append(Gtk.Label(label=_("PID {} · bruker {} · {}").format(p.pid, p.user, _(p.status)), xalign=0))
         what = (_("Programmet stoppes med en gang. Alt som ikke er lagret, går tapt.") if force else
                 _("Programmet blir bedt om å lukke, slik at det kan lagre først."))
         box.append(Gtk.Label(label=what, xalign=0, wrap=True))
@@ -103,10 +114,11 @@ class ConfirmWindow(Gtk.Window):
             box.append(warn)
         if p.uid != os.getuid():
             box.append(Gtk.Label(label=_("Programmet tilhører en annen bruker ({}).").format(p.user), xalign=0))
-        box.append(Gtk.Label(label=_("Bekreft med PIN for IT-kortet"), xalign=0))
         self.pin = Gtk.PasswordEntry(show_peek_icon=False)
         self.pin.connect("activate", self.confirm)
-        box.append(self.pin)
+        if not personal:
+            box.append(Gtk.Label(label=_("Bekreft med PIN for IT-kortet"), xalign=0))
+            box.append(self.pin)
         self.message = Gtk.Label(xalign=0, wrap=True)
         self.message.add_css_class("warning")
         box.append(self.message)
@@ -120,20 +132,23 @@ class ConfirmWindow(Gtk.Window):
         buttons.append(self.ok)
         box.append(buttons)
         self.set_child(box)
-        self.pin.grab_focus()
+        (self.ok if personal else self.pin).grab_focus()
 
     def confirm(self, *_args):
         pin = self.pin.get_text()
-        if not pin:
+        if not pin and not self.personal:
             return
         self.pin.set_text("")
         self.ok.set_sensitive(False)
-        self.message.set_text(_("Stopper …"))
-        threading.Thread(target=lambda: GLib.idle_add(self.finished, run_stop(self.p, self.force, pin)),
-                         daemon=True).start()
+        self.message.set_text(_("Lukker …") if self.personal else _("Stopper …"))
+        if self.personal:
+            work = lambda: helper.close_own(self.p.pid, self.p.start, self.force)  # noqa: E731
+        else:
+            work = lambda: run_stop(self.p, self.force, pin)  # noqa: E731
+        threading.Thread(target=lambda: GLib.idle_add(self.finished, work()), daemon=True).start()
 
     def finished(self, code: int):
-        if code == WRONG_PIN:
+        if code == WRONG_PIN and not self.personal:
             self.message.set_text(result_text(code, _(self.p.name))[0])
             self.ok.set_sensitive(True)
             self.pin.grab_focus()
@@ -144,11 +159,15 @@ class ConfirmWindow(Gtk.Window):
 
 
 class OppgaverWindow(Gtk.ApplicationWindow):
-    def __init__(self, app):
-        super().__init__(application=app, title=_("Oppgavebehandling"))
+    def __init__(self, app, personal=False):
+        name = _("Lukk program som henger") if personal else _("Oppgavebehandling")
+        super().__init__(application=app, title=name)
+        self.personal = personal
+        self.columns = PERSONAL_COLUMNS if personal else COLUMNS
+        self.filling = False
         self.add_css_class("oppgaver")
-        self.set_icon_name("utilities-system-monitor")
-        self.set_default_size(900, 640)
+        self.set_icon_name("process-stop" if personal else "utilities-system-monitor")
+        self.set_default_size(720 if personal else 900, 520 if personal else 640)
         self.snapshot = prosesser.Snapshot()
         self.procs = []
         self.selected = None  # (pid, start)
@@ -158,16 +177,19 @@ class OppgaverWindow(Gtk.ApplicationWindow):
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin_top=16, margin_bottom=16,
                        margin_start=16, margin_end=16)
-        title = Gtk.Label(label=_("Oppgavebehandling"), xalign=0)
+        title = Gtk.Label(label=name, xalign=0)
         title.add_css_class("title")
         root.append(title)
-        sub = Gtk.Label(label=_("IT-modus. Å stoppe et program bekreftes med PIN for IT-kortet og skrives i "
-                                "revisjonsloggen."), xalign=0, wrap=True)
+        about = (_("Her ser du bare programmene du jobber i. Lukk et program som har hengt seg opp. Utkast i "
+                   "journalen lagres automatisk.") if personal else
+                 _("IT-modus. Å stoppe et program bekreftes med PIN for IT-kortet og skrives i revisjonsloggen."))
+        sub = Gtk.Label(label=about, xalign=0, wrap=True)
         sub.add_css_class("subtitle")
         root.append(sub)
 
         bar = Gtk.Box(spacing=8)
-        self.search = Gtk.SearchEntry(placeholder_text=_("Søk etter program, bruker eller PID"), hexpand=True)
+        self.search = Gtk.SearchEntry(placeholder_text=_("Søk etter program") if personal else
+                                      _("Søk etter program, bruker eller PID"), hexpand=True)
         self.search.connect("search-changed", lambda *_: self.fill())
         bar.append(self.search)
         self.sort = Gtk.DropDown.new_from_strings([_("Sorter: CPU"), _("Sorter: minne"), _("Sorter: navn")])
@@ -181,8 +203,8 @@ class OppgaverWindow(Gtk.ApplicationWindow):
 
         head = Gtk.Box(spacing=0)
         head.append(Gtk.Box(width_request=24))
-        for i, (name, width) in enumerate(COLUMNS):
-            cell = _cell(name, width, right=i >= 4)
+        for i, (column, width) in enumerate(self.columns):
+            cell = _cell(column, width, right=i >= len(self.columns) - 2)
             cell.add_css_class("head")
             head.append(cell)
         root.append(head)
@@ -223,11 +245,17 @@ class OppgaverWindow(Gtk.ApplicationWindow):
 
     def refresh(self):
         if not self.dialog_open:
-            self.procs = [p for p in self.snapshot.read() if not p.kernel]
-            used, total = prosesser.memory()
-            cpu = sum(p.cpu for p in self.procs)
-            self.summary.set_text(_("{} prosesser · CPU {} % · minne {} av {} brukt").format(
-                len(self.procs), f"{min(cpu, 100):.0f}", size(used), size(total)))
+            everything = [p for p in self.snapshot.read() if not p.kernel]
+            if self.personal:
+                uid = os.getuid()
+                self.procs = [p for p in everything if prosesser.user_may_close(p, uid)]
+                self.summary.set_text(_("{} programmer åpne").format(len(self.procs)))
+            else:
+                self.procs = everything
+                used, total = prosesser.memory()
+                cpu = sum(p.cpu for p in self.procs)
+                self.summary.set_text(_("{} prosesser · CPU {} % · minne {} av {} brukt").format(
+                    len(self.procs), f"{min(cpu, 100):.0f}", size(used), size(total)))
             self.fill()
         return True
 
@@ -243,7 +271,10 @@ class OppgaverWindow(Gtk.ApplicationWindow):
         return sorted(shown, key=key)
 
     def fill(self):
+        # While the list is rebuilt, the selection briefly disappears; on_select ignores that, so the
+        # buttons don't flicker off and on (a click landing just then would be lost).
         keep = self.selected
+        self.filling = True
         self.list.remove_all()
         shown = self.visible()
         self.order = [(p.pid, p.start) for p in shown]
@@ -256,18 +287,22 @@ class OppgaverWindow(Gtk.ApplicationWindow):
             icon.set_size_request(24, -1)
             icon.set_tooltip_text(_("Beskyttet") if locked else None)
             line.append(icon)
-            for i, value in enumerate((_(p.name), str(p.pid), p.user, _(p.status), f"{p.cpu:.1f} %", size(p.rss))):
-                line.append(_cell(value, COLUMNS[i][1], right=i >= 4))
+            values = ((_(p.name), _(p.status), f"{p.cpu:.1f} %", size(p.rss)) if self.personal else
+                      (_(p.name), str(p.pid), p.user, _(p.status), f"{p.cpu:.1f} %", size(p.rss)))
+            for i, value in enumerate(values):
+                line.append(_cell(value, self.columns[i][1], right=i >= len(values) - 2))
             if locked:
                 line.add_css_class("locked")
             row.set_child(line)
             self.list.append(row)
             if keep == (p.pid, p.start):
                 self.list.select_row(row)
-        if keep and not self.list.get_selected_row():
-            self.on_select(self.list, None)
+        self.filling = False
+        self.on_select(self.list, self.list.get_selected_row())
 
     def on_select(self, _list, row):
+        if self.filling:
+            return
         p = row.proc if row else None
         self.selected = (p.pid, p.start) if p else None
         locked = prosesser.protected(p) if p else None
@@ -276,14 +311,15 @@ class OppgaverWindow(Gtk.ApplicationWindow):
         if not p:
             self.detail.set_text(_("Velg et program i listen."))
         else:
-            text = f"{_(p.name)} · " + _("PID {} · bruker {} · {}").format(p.pid, p.user, _(p.status))
+            text = (f"{_(p.name)} · {_(p.status)}" if self.personal else
+                    f"{_(p.name)} · " + _("PID {} · bruker {} · {}").format(p.pid, p.user, _(p.status)))
             self.detail.set_text(f"{text}\n{_('Beskyttet')}: {_(locked)}" if locked else text)
 
     def ask(self, force: bool):
         row = self.list.get_selected_row()
         if not row or prosesser.protected(row.proc):
             return
-        dialog = ConfirmWindow(self, row.proc, force, self.show_result)
+        dialog = ConfirmWindow(self, row.proc, force, self.show_result, personal=self.personal)
         dialog.connect("close-request", self.dialog_closed)
         self.dialog_open = True  # only now: if the dialog failed, the list must keep updating
         dialog.present()
@@ -304,8 +340,9 @@ class OppgaverWindow(Gtk.ApplicationWindow):
 
 
 class OppgaverApp(Gtk.Application):
-    def __init__(self):
-        super().__init__(application_id=APP_ID)
+    def __init__(self, personal=False):
+        super().__init__(application_id=PERSONAL_APP_ID if personal else APP_ID)
+        self.personal = personal
 
     def do_startup(self):
         Gtk.Application.do_startup(self)
@@ -315,10 +352,10 @@ class OppgaverApp(Gtk.Application):
                                                   Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
     def do_activate(self):
-        (self.props.active_window or OppgaverWindow(self)).present()
+        (self.props.active_window or OppgaverWindow(self, self.personal)).present()
 
 
-def main(argv=None):
+def main(argv=None, personal=False):
     # Started as "python3 -c ...": without this the window's class (taskbar grouping) would be "-c".
-    GLib.set_prgname("medicus-oppgaver")
-    return OppgaverApp().run(argv if argv is not None else sys.argv[:1])
+    GLib.set_prgname("medicus-lukk-program" if personal else "medicus-oppgaver")
+    return OppgaverApp(personal).run(argv if argv is not None else sys.argv[:1])

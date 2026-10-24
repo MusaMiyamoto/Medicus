@@ -178,7 +178,8 @@ def test_every_text_has_english(monkeypatch):
     texts = {node.args[0].value for node in ast.walk(ast.parse(source))
              if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "_"
              and node.args and isinstance(node.args[0], ast.Constant)}
-    shown = set(prosesser.STATES.values()) | {t for _, t, _ in prosesser.PROGRAMS}
+    shown = (set(prosesser.STATES.values()) | {t for _, t, _ in prosesser.PROGRAMS}
+             | set(prosesser.PAGES.values()) | set(prosesser.OTHER_WORK.values()))
     reasons = re.findall(r'return "([^"]+)"', (ROOT / "oppgaver/prosesser.py").read_text(encoding="utf-8"))
     same_in_english = {"Program", "PID", "Status", "CPU"}
     missing = (texts | shown | set(reasons)) - set(sprak.EN) - same_in_english
@@ -237,6 +238,14 @@ class Check(app.OppgaverApp):
             dialog = app.ConfirmWindow(window, proc, force, lambda *a: None)
             dialog.present()
             dialog.close()
+        mine = app.OppgaverWindow(self, personal=True)
+        mine.present()
+        assert all(prosesser.user_may_close(p, __import__("os").getuid()) for p in mine.procs)
+        for force in (False, True):
+            dialog = app.ConfirmWindow(mine, proc, force, lambda *a: None, personal=True)
+            dialog.present()
+            assert dialog.pin.get_parent() is None  # no PIN for your own programs
+            dialog.close()
         print("ok")
         self.quit()
 
@@ -263,3 +272,85 @@ def test_the_window_and_both_dialogs_open(tmp_path):
     finally:
         server.terminate()
     assert run.returncode == 0 and "ok" in run.stdout, run.stderr[-2000:]
+
+
+# --- Lukk program som henger: health personnel close their own work programs ------------------------
+
+def personal(proc: Path):
+    add(proc, 2001, "python3", uid=1001, cmdline="python3 -I -c from nettleser.app import main http://127.0.0.1:8000/pasient")
+    add(proc, 2002, "python3", uid=1001, cmdline="python3 -I -c from nettleser.app import main http://127.0.0.1:8000/post")
+    add(proc, 2003, "python3", uid=1001, cmdline="python3 -I -c from nettleser.app import main http://127.0.0.1:8000")
+    add(proc, 2004, "python3", uid=1001, cmdline="python3 -I -c from nettleser.app import main https://www.nrk.no/")
+    add(proc, 2005, "xfreerdp3", uid=1001,
+        cmdline="xfreerdp3 /v:dips.ous.no:3389 /cert:deny /app:program:||dips,name:DIPS Arena +auto-reconnect")
+    add(proc, 2006, "thunar", uid=1001)
+    add(proc, 2007, "python3", uid=1001, cmdline="python3 -m tekst")
+    add(proc, 2008, "xfce4-panel", uid=1001)
+    add(proc, 2009, "nm-applet", uid=1001)
+    add(proc, 2010, "python3", uid=1002, cmdline="python3 -m kalkulator")  # someone else's
+
+
+def test_work_programs_have_the_names_from_the_start_menu(proc):
+    personal(proc)
+    names = {pid: prosesser.read(pid, proc).name for pid in range(2001, 2008)}
+    assert names == {2001: "Pasientjournal", 2002: "Post", 2003: "Journalassistent", 2004: "Nettleser",
+                     2005: "DIPS Arena", 2006: "Files", 2007: "Text"}
+    assert prosesser.read(2005, proc).holds_patient_work  # the record system's window
+
+
+def test_health_personnel_see_only_their_own_work_programs(proc):
+    personal(proc)
+    mine = {p.pid for p in prosesser.Snapshot(proc).read() if prosesser.user_may_close(p, 1001, own_pid=99999)}
+    # Not the taskbar, the network icon, the desktop, system services or someone else's program.
+    assert mine == {1200, 1300, 2001, 2002, 2003, 2004, 2005, 2006, 2007}
+
+
+def test_closing_your_own_program_is_reported_for_the_audit_log(proc):
+    personal(proc)
+    told, kill = [], Killer(proc)
+    code = helper.close_own(2001, 5000, False, proc=proc, kill=kill, uid=1001, tell=lambda *a: told.append(a))
+    assert code == helper.OK and kill.sent == [(2001, signal.SIGTERM)]
+    assert told == [("Pasientjournal", False, True)]  # name, forced, ended: never the command line
+
+
+def test_force_close_and_a_program_that_still_hangs(proc):
+    personal(proc)
+    told = []
+    code = helper.close_own(2005, 5000, True, proc=proc, kill=Killer(proc, ends=False), uid=1001,
+                            tell=lambda *a: told.append(a), wait=0.2)
+    assert code == helper.STILL_RUNNING and told == [("DIPS Arena", True, False)]
+
+
+@pytest.mark.parametrize("pid", [2008, 2009, 2010, 300, 1])
+def test_health_personnel_cannot_close_anything_else(proc, pid):
+    personal(proc)
+    kill = Killer(proc)
+    start = prosesser.read(pid, proc).start
+    assert helper.close_own(pid, start, True, proc=proc, kill=kill, uid=1001, tell=lambda *a: None) == helper.PROTECTED
+    assert kill.sent == []
+
+
+def test_a_reused_pid_is_not_closed(proc):
+    personal(proc)
+    kill = Killer(proc)
+    assert helper.close_own(2001, 1, True, proc=proc, kill=kill, uid=1001, tell=lambda *a: None) == helper.GONE
+    assert kill.sent == []
+
+
+def test_the_report_never_blocks_closing(monkeypatch):
+    def down(*_a, **_k):
+        raise OSError("connection refused")
+    monkeypatch.setattr(helper.urllib.request, "urlopen", down)
+    helper.report("Post", False, True)  # no exception
+
+
+def test_everyone_has_close_a_frozen_program_and_ctrl_shift_esc():
+    entry = (OS / "includes.chroot/usr/share/applications/medicus-lukk-program.desktop").read_text(encoding="utf-8")
+    assert "Exec=medicus-lukk-program" in entry and "Name[en]=Close a frozen program" in entry
+    launcher = (OS / "includes.chroot/usr/local/bin/medicus-lukk-program").read_text()
+    assert "main(personal=True)" in launcher and "-I" in launcher
+    hook = (OS / "hooks/normal/0100-medicus.hook.chroot").read_text()
+    assert "medicus-lukk-program" not in hook  # not locked to IT, unlike the full Task Manager
+    keys = (OS / "includes.chroot/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/"
+                 "xfce4-keyboard-shortcuts.xml").read_text()
+    assert '"&lt;Primary&gt;&lt;Shift&gt;Escape" type="string" value="medicus-lukk-program"' in keys

@@ -4,6 +4,7 @@
     medicus-oppgaver liste                   running processes as text
     medicus-oppgaver stopp PID START         ask the program to close (SIGTERM)
     medicus-oppgaver stopp PID START --tving stop it at once (SIGKILL); unsaved work is lost
+    medicus-lukk-program                     "Lukk program som henger" for health personnel (close_own)
 
 `stopp` only runs as root: the window runs it through sudo, which asks for the IT card's PIN, so
 every stop is confirmed with the card. It checks the protection rules again here (the window is
@@ -13,16 +14,19 @@ and user, never its command line, which can contain file names.
 """
 
 import argparse
+import json
 import os
 import signal
 import sys
 import time
+import urllib.request
 from pathlib import Path
 
 from medicus.audit import AuditLog
 from oppgaver import prosesser
 
 AUDIT = Path("/var/lib/medicus-oppgaver/audit.jsonl")
+REPORT_URL = "http://127.0.0.1:8000/api/program-lukket"
 
 # Exit codes the window turns into messages. sudo itself exits 1 when the PIN is wrong.
 OK, NOT_ROOT, PROTECTED, GONE, STILL_RUNNING = 0, 2, 3, 4, 5
@@ -68,6 +72,39 @@ def stop(pid: int, start: int, force: bool, proc=prosesser.PROC, kill=os.kill, a
         return OK
     out(f"{p.name} svarer ikke. Du kan tvinge den til å avslutte.")
     return STILL_RUNNING
+
+
+def report(program: str, force: bool, ended: bool) -> None:
+    """Tell the Medicus service, which writes it to the audit log under the logged-in card. Never in
+    the way: if the service doesn't answer, the program has still been closed."""
+    body = json.dumps({"program": program, "tvungen": force, "avsluttet": ended}).encode()
+    request = urllib.request.Request(REPORT_URL, data=body, headers={"Content-Type": "application/json"})
+    try:
+        urllib.request.urlopen(request, timeout=3).close()
+    except OSError:
+        pass
+
+
+def close_own(pid: int, start: int, force: bool, proc=prosesser.PROC, kill=os.kill, uid=None,
+              tell=report, wait=5.0) -> int:
+    """'Lukk program som henger': a health worker closes one of their own work programs. No root and
+    no PIN (they are logged in with their card and it is their own program), but the same checks."""
+    uid = os.getuid() if uid is None else uid
+    p = prosesser.read(pid, proc)
+    if p is None or p.start != start:
+        return GONE
+    if not prosesser.user_may_close(p, uid):
+        return PROTECTED
+    try:
+        kill(pid, signal.SIGKILL if force else signal.SIGTERM)
+    except ProcessLookupError:
+        return GONE
+    deadline = time.monotonic() + wait
+    while not _gone(pid, start, proc) and time.monotonic() < deadline:
+        time.sleep(0.1)
+    ended = _gone(pid, start, proc)
+    tell(p.name, force, ended)
+    return OK if ended else STILL_RUNNING
 
 
 def main(argv=None) -> int:

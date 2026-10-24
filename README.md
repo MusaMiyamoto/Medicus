@@ -189,6 +189,10 @@ Medicus toolbar and the heartbeat loader. No other brand is visible anywhere.
 - **Sikkerhetssenter (IT mode only):** a page that shows *live* whether the firewall, USB lock, virus scanner,
   session guard, security log, updates, kernel lockdown, AppArmor and VPN are working, and whether any
   emergency access reports are late, in plain Norwegian.
+- **Lukk program som henger (Close a frozen program, Ctrl+Shift+Esc):** for health personnel. It lists only
+  the programs they work in (patient record, Post, journal assistant, DIPS/Epic, Text, Calculator, Files…),
+  never the desktop or anything the PC needs, and closes one gracefully or by force. Each close is logged
+  under their card, so IT can see which programs freeze.
 - **Oppgavebehandling (Task Manager, IT mode):** our own. It shows every program and closes it gracefully
   or by force, each time confirmed with the IT card PIN and written to an audit log. The kernel, system
   services and the desktop are protected and can't be stopped from it.

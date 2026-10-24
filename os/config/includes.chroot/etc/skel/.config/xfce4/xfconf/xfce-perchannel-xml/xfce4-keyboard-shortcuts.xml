@@ -11,6 +11,7 @@
       <property name="Print" type="string" value="xfce4-screenshooter"/>
       <property name="Super_L" type="string" value="xfce4-popup-whiskermenu"/>
       <property name="&lt;Primary&gt;Escape" type="string" value="xfce4-popup-whiskermenu"/>
+      <property name="&lt;Primary&gt;&lt;Shift&gt;Escape" type="string" value="medicus-lukk-program"/>
     </property>
   </property>
 </channel>

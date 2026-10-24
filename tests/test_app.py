@@ -345,3 +345,18 @@ def test_dns_rebinding_is_refused(env):
     login(DOCTOR)
     assert browser.get("/api/meg", headers={"Host": "evil.example:8000"}).status_code == 403
     assert TestClient(medicus_app.app, base_url="http://localhost:8000").get("/api/meg").status_code == 200
+
+
+def test_closing_a_frozen_program_is_logged_under_the_card(env):
+    browser, _sim, login = env
+    login(DOCTOR)
+    r = browser.post("/api/program-lukket", json={"program": "Pasientjournal", "tvungen": True, "avsluttet": True})
+    assert r.status_code == 200
+    last = json.loads(medicus_app.audit.path.read_text().splitlines()[-1])
+    assert last["user"] == DOCTOR["hpr"] and last["action"] == "program_lukket"
+    assert last["details"] == {"program": "Pasientjournal", "tvungen": True, "avsluttet": True}
+    login(None)
+    assert browser.post("/api/program-lukket", json={"program": "Post", "tvungen": False,
+                                                     "avsluttet": True}).status_code == 401
+    assert browser.post("/api/program-lukket", json={"program": "x" * 61, "tvungen": False,
+                                                     "avsluttet": True}).status_code == 422

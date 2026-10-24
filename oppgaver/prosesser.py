@@ -33,7 +33,7 @@ PROGRAMS = (
     ("oppgaver", "Oppgavebehandling", False),
     ("nettleser", "Nettleser", True),
     ("journalsystem", "Journalsystem", True),
-    ("tekst", "Tekst", True),
+    ("tekst", "Text", True),
     ("kalkulator", "Kalkulator", False),
 )
 
@@ -50,6 +50,33 @@ def _module(cmdline: str, comm: str) -> str | None:
         if started == module or started.startswith(module + "."):
             return module
     return None
+
+
+# What health personnel may close themselves ("Lukk program som henger"): the programs they work in,
+# under the names the Start menu gives them. Nothing else of theirs (the desktop, the taskbar, the
+# card lock) is even listed, so closing one can't break the PC. Medicus' web apps each run in their
+# own Nettleser window, recognised by the address it was opened with.
+PAGES = {"": "Journalassistent", "/pasient": "Pasientjournal", "/post": "Post", "/om": "Om Medicus",
+         "/nod": "Nødtilgang", "/rapport": "Rapport om nødtilgang", "/helsenorge": "Innbyggerportal",
+         "/utlevering": "Utleveringsforespørsler"}
+OTHER_WORK = {"thunar": "Files", "ristretto": "Pictures", "evince": "Dokumenter"}
+RECORD_SYSTEM = "xfreerdp3"  # the hospital's record systems (DIPS, Epic) in their locked-down window
+
+
+def work_program(p: "Process") -> str | None:
+    """The name of the work program this is, if health personnel may close it themselves."""
+    module = _module(p.cmdline, p.comm)
+    if module == "nettleser":
+        page = re.search(r"http://127\.0\.0\.1:(?:8000|8100)(/[a-z]*)?/?(?:\s|$)", p.cmdline)
+        return PAGES.get(page.group(1) or "", "Nettleser") if page else "Nettleser"
+    if module == "tekst":
+        return "Text"
+    if module == "kalkulator":
+        return "Kalkulator"
+    if p.comm == RECORD_SYSTEM:
+        named = re.search(r"name:(.+?)(?= [/+-]|$)", p.cmdline)
+        return named.group(1).strip() if named else "Journalsystem"
+    return OTHER_WORK.get(p.comm)
 
 
 STATES = {"R": "Kjører", "S": "Venter", "D": "Venter på disk", "I": "Inaktiv", "T": "Stoppet",
@@ -79,7 +106,10 @@ class Process:
 
     @property
     def name(self) -> str:
-        """A readable name: the Medicus program it is, or the kernel's name for it."""
+        """A readable name: the work program or Medicus program it is, or the kernel's name for it."""
+        work = work_program(self)
+        if work:
+            return work
         module = _module(self.cmdline, self.comm)
         return next(title for m, title, _ in PROGRAMS if m == module) if module else self.comm
 
@@ -89,6 +119,8 @@ class Process:
 
     @property
     def holds_patient_work(self) -> bool:
+        if self.comm == RECORD_SYSTEM:
+            return True
         module = _module(self.cmdline, self.comm)
         return any(m == module and unsaved for m, _, unsaved in PROGRAMS)
 
@@ -106,6 +138,13 @@ def protected(p: Process, own_pid: int | None = None) -> str | None:
     if p.comm in DESKTOP:
         return "Skrivebordet trenger denne. Logg ut i stedet."
     return None
+
+
+def user_may_close(p: Process, uid: int, own_pid: int | None = None) -> bool:
+    """Whether a health worker with this uid may close this process from "Lukk program som henger".
+    Only their own work programs. (The kernel only lets them signal their own processes anyway; this
+    keeps them from closing their own desktop by mistake.)"""
+    return p.uid == uid and work_program(p) is not None and protected(p, own_pid) is None
 
 
 def _user(uid: int) -> str:

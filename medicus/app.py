@@ -256,6 +256,12 @@ class NoteIn(BaseModel):
     notat: str = Field(min_length=1, max_length=20000)
 
 
+class ClosedIn(BaseModel):
+    program: str = Field(min_length=1, max_length=60)
+    tvungen: bool
+    avsluttet: bool
+
+
 class ReasonIn(BaseModel):
     begrunnelse: str = Field(min_length=1, max_length=40)
     forklaring: str = Field(default="", max_length=300)
@@ -399,6 +405,18 @@ def prescribe(fnr: str, body: PrescriptionIn, session: dict = Depends(normal_ses
 
 
 # --- Medicus Post: messages and image sharing (normal login) ---------------
+
+@app.post("/api/program-lukket")
+def program_closed(body: ClosedIn):
+    # "Lukk program som henger" (oppgaver/) closed one of the user's work programs. Logged under the
+    # card that is logged in, so IT can see which programs freeze, and nobody can close things unseen.
+    session = current_session()
+    if session is None:
+        raise HTTPException(401, "Du er ikke logget inn.")
+    audit.record(session.get("hpr", session.get("navn", "ukjent")), "program_lukket",
+                 {"program": body.program, "tvungen": body.tvungen, "avsluttet": body.avsluttet})
+    return {"ok": True}
+
 
 @app.get("/post")
 def post_page():
