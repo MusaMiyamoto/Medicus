@@ -12,7 +12,8 @@ groupadd -f medicus-it   # IT staff: IT mode, admin rights with the IT card
 
 # --- Python environment for the web services -----------------------------------
 python3 -m venv /opt/medicus/.venv
-/opt/medicus/.venv/bin/pip install --no-cache-dir -r /opt/medicus/requirements.txt
+# Exact versions with hashes (requirements.txt is the lock file): a changed package on PyPI stops the build.
+/opt/medicus/.venv/bin/pip install --no-cache-dir --require-hashes -r /opt/medicus/requirements.txt
 python3 -m compileall -q /opt/medicus/medicus /opt/medicus/helsenett /opt/medicus/tilgang /opt/medicus/kalkulator /opt/medicus/tekst /opt/medicus/oppgaver
 
 # Synthetic X-ray and MR images in every user's "Bilder" folder, for trying image sharing.

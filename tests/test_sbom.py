@@ -40,3 +40,15 @@ def test_command_line(tmp_path, capsys):
     assert sbom.main([str(tmp_path / "deb.tsv"), str(tmp_path / "pip.json"), "v1"]) == 0
     assert json.loads(capsys.readouterr().out)["metadata"]["component"]["version"] == "v1"
     assert sbom.main([]) == 2
+
+
+def test_python_packages_are_locked_with_hashes():
+    """The OS build installs exact versions with hashes, so a changed package on PyPI stops the build."""
+    root = Path(__file__).parent.parent
+    lock = (root / "requirements.txt").read_text()
+    pins = [line for line in lock.splitlines() if line and not line.startswith((" ", "#"))]
+    assert pins and all("==" in p and p.endswith("\\") for p in pins)  # each pin is followed by its hashes
+    assert lock.count("--hash=sha256:") >= len(pins)
+    hook = (root / "os/config/hooks/normal/0100-medicus.hook.chroot").read_text()
+    assert "--require-hashes -r /opt/medicus/requirements.txt" in hook
+    assert "-r requirements.in" in (root / "requirements-dev.txt").read_text()

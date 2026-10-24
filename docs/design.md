@@ -127,11 +127,13 @@ short hold time, and that the PC can't get on the network without its certificat
 
 ## Pinned Python packages
 
-**Today:** `requirements.txt` gives minimum versions, so two builds can get different packages.
-The SBOM shows exactly what each build got.
+**Done (24 Oct 2026):** `requirements.txt` is a lock file with exact versions and hashes, made from
+the version ranges in `requirements.in` with `pip-compile --generate-hashes`. The ISO build installs
+it with `pip install --require-hashes`, so a changed or fake package on PyPI stops the build, and
+GitHub Actions runs every test against exactly these versions on Debian 13. The lock file is
+updated on purpose (the command is at the top of `requirements.in`), with the tests run before it
+is committed.
 
-**Next:** a lock file with exact versions and hashes (`pip-compile --generate-hashes`), installed
-with `pip install --require-hashes`, so a changed or fake package on PyPI stops the build. The lock
-file is updated on purpose, checked against known vulnerabilities, and committed. Even better,
-later: Debian's own packages (`python3-fastapi` etc.) where they're new enough, so all software
+**Next:** check the lock file against known vulnerabilities on every update (`pip-audit`), and
+later use Debian's own packages (`python3-fastapi` etc.) where they're new enough, so all software
 comes signed from Debian.

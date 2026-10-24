@@ -1,0 +1,12 @@
+# Python packages Medicus needs, as version ranges. The lock file requirements.txt is made from this
+# with exact versions and hashes. To update it (on Debian 13, Python 3.13), then run the tests:
+#   pip-compile --generate-hashes --allow-unsafe --strip-extras --no-emit-index-url \
+#     --output-file requirements.txt requirements.in
+fastapi>=0.110
+uvicorn>=0.29
+python-multipart>=0.0.9
+httpx>=0.27
+faster-whisper>=1.0
+pydicom>=2.4
+numpy>=1.26
+pillow>=10
