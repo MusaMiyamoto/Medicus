@@ -13,6 +13,7 @@ import secrets
 import shutil
 import tempfile
 import time
+from collections import deque
 from datetime import date
 from pathlib import Path
 
@@ -102,6 +103,37 @@ def helsenett():
 def journal():
     """Where approved notes go and the doctor's patient list comes from (helsenett or DIPS)."""
     return get_journal()
+
+
+# How long the record system takes to answer (seconds, newest last). Only durations: no people,
+# no patients. Shown as a median in the Sikkerhetssenter, so slowness can be proven and followed up.
+response_times: deque = deque(maxlen=200)
+
+
+def timed(call, *args):
+    start = time.monotonic()
+    try:
+        return call(*args)
+    finally:
+        response_times.append(time.monotonic() - start)
+
+
+# The doctor's patient list, fetched at login (medicus-forhent) so the picker is ready at once.
+# Kept in memory only, for PATIENT_LIST_SECONDS, and only for the same person in the same login.
+PATIENT_LIST_SECONDS = 300
+patient_lists: dict = {}
+
+
+def cached_patient_list(session: dict, refresh: bool = False) -> dict:
+    key = (session["hpr"], session.get("startet"))
+    now = time.monotonic()
+    for old in [k for k, (at, _) in patient_lists.items() if now - at > PATIENT_LIST_SECONDS]:
+        del patient_lists[old]
+    if refresh or key not in patient_lists:
+        j = journal()
+        patient_lists[key] = (now, {"system": j.name, "pasienter": timed(j.my_patients, actor(session))})
+    at, data = patient_lists[key]
+    return {**data, "hentet_for_sekunder": round(now - at)}
 
 
 def checked_fnr(fnr: str) -> str:
@@ -307,7 +339,8 @@ def security_status(_session: dict = Depends(it_session)):
     except AuthError:
         late = None
     devices = sikkerhet.medical_devices(utstyr.connected(), utstyr.load())
-    return sikkerhet.checks() + [sikkerhet.emergency_reports(late), devices, sikkerhet.machine_certificate()]
+    return sikkerhet.checks() + [sikkerhet.emergency_reports(late), devices, sikkerhet.machine_certificate(),
+                                 sikkerhet.response_time(list(response_times))]
 
 
 # --- Emergency access ------------------------------------------------------
@@ -439,16 +472,15 @@ def check_sources(body: SourceCheckIn, _session: dict = Depends(normal_session))
 
 
 @app.get("/api/journal/pasienter")
-def my_patients(session: dict = Depends(normal_session)):
+def my_patients(oppdater: bool = False, session: dict = Depends(normal_session)):
     """The doctor's own patients, for the patient picker. Searching happens in the browser."""
-    j = journal()
-    return {"system": j.name, "pasienter": j.my_patients(actor(session))}
+    return cached_patient_list(session, refresh=oppdater)
 
 
 @app.get("/api/journal/pasient/{fnr}")
 def look_up_patient(fnr: str, session: dict = Depends(normal_session)):
     """A patient who is not on the doctor's list, typed in by fødselsnummer."""
-    patient = journal().find_patient(checked_fnr(fnr))
+    patient = timed(journal().find_patient, checked_fnr(fnr))
     audit.record(session["hpr"], "patient_looked_up", {"patient": fnrlib.mask(fnr)})
     return patient
 
@@ -458,7 +490,7 @@ def approve(body: ApprovalIn, session: dict = Depends(normal_session)):
     saved = None
     if body.fnr:
         j = journal()
-        j.save_note(checked_fnr(body.fnr), actor(session), "Journalnotat", body.note)
+        timed(j.save_note, checked_fnr(body.fnr), actor(session), "Journalnotat", body.note)
         saved = j.name
     audit.record(session["hpr"], "note_approved", {"chars": len(body.note), "samtykke_opptak": has_consent(session),
                                                     "patient": fnrlib.mask(body.fnr) if saved else None,

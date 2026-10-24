@@ -113,6 +113,29 @@ def machine_certificate() -> dict:
     return wlan.certificate_status(wlan.TPM_DEVICE.exists(), end, len(wlan.load()))
 
 
+SLOW_SECONDS, VERY_SLOW_SECONDS = 1.0, 3.0
+
+
+def response_time(seconds: list[float]) -> dict:
+    """How long the record system takes to answer (the survey's second biggest complaint: waiting).
+    Durations only, no people or patients, so this measures the system, not the staff."""
+    name = "Svartid journalsystem"
+    if not seconds:
+        return {"navn": name, "status": INFO, "forklaring": "Ingen kall til journalsystemet siden start ennå."}
+    ordered = sorted(seconds)
+    median = ordered[len(ordered) // 2]
+    slowest = ordered[min(len(ordered) - 1, int(len(ordered) * 0.9))]  # 9 of 10 calls are at most this
+
+    def s(value):
+        return f"{value:.1f}".replace(".", ",")
+    text = f"Median {s(median)} s. 9 av 10 kall tar høyst {s(slowest)} s ({len(ordered)} kall)."
+    if median >= VERY_SLOW_SECONDS:
+        return {"navn": name, "status": FAIL, "forklaring": f"{text} Svært tregt: meld fra til leverandøren."}
+    if median >= SLOW_SECONDS or slowest >= VERY_SLOW_SECONDS:
+        return {"navn": name, "status": WARN, "forklaring": f"{text} Tregt: følg med."}
+    return {"navn": name, "status": OK, "forklaring": text}
+
+
 def emergency_reports(late: list[dict] | None) -> dict:
     """Emergency access must be explained before the shift ends. Late reports go to the security officer."""
     if late is None:

@@ -21,6 +21,8 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(medicus_app, "helsenett", lambda: SimulatedClient("http://sim", http=sim))
     monkeypatch.setattr(medicus_app, "journal", lambda: HelsenettJournal(SimulatedClient("http://sim", http=sim)))
     monkeypatch.setattr(medicus_app, "audit", medicus_app.AuditLog(tmp_path / "audit.jsonl"))
+    monkeypatch.setattr(medicus_app, "patient_lists", {})
+    monkeypatch.setattr(medicus_app, "response_times", medicus_app.deque(maxlen=200))
 
     def login(session):
         if session is None:
@@ -107,6 +109,34 @@ def test_draft_comes_with_its_source_check(env, monkeypatch):
     assert again.json()["uten_kilde"] == 0
     too_long = app.post("/api/kildesjekk", json={"transcript": "x", "seksjoner": {"funn": "x" * 60_000}})
     assert too_long.status_code == 413
+
+
+def test_patient_list_is_fetched_once_per_login_and_timed(env, monkeypatch):
+    app, _sim, login = env
+    calls = []
+
+    class Journal:
+        name = "Test"
+
+        def my_patients(self, who):
+            calls.append(who["hpr"])
+            return [{"fnr": "1", "navn": "A"}]
+    monkeypatch.setattr(medicus_app, "journal", Journal)
+    login({**DOCTOR, "startet": "2026-10-24T08:00:00"})
+    assert app.get("/api/journal/pasienter").json()["pasienter"] == [{"fnr": "1", "navn": "A"}]
+    app.get("/api/journal/pasienter")
+    assert len(calls) == 1  # the second time comes from memory (fetched at login by medicus-forhent)
+    app.get("/api/journal/pasienter?oppdater=true")
+    assert len(calls) == 2
+    login({**DOCTOR, "startet": "2026-10-24T14:00:00"})  # a new login never sees an old list
+    app.get("/api/journal/pasienter")
+    login({**NURSE, "startet": "2026-10-24T14:00:00"})  # nor does another person
+    app.get("/api/journal/pasienter")
+    assert len(calls) == 4 and len(medicus_app.response_times) == 4
+    monkeypatch.setattr(medicus_app.time, "monotonic", lambda: 10**9)  # much later: expired
+    login({**NURSE, "startet": "2026-10-24T14:00:00"})
+    app.get("/api/journal/pasienter")
+    assert len(calls) == 5
 
 
 def test_it_mode_never_sees_patient_data(env):

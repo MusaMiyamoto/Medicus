@@ -111,11 +111,22 @@ list.addEventListener("mousedown", (e) => {
 });
 search.addEventListener("blur", () => openList(false));
 
+// The list was usually fetched at login already (medicus-forhent). If not, say what we are waiting for.
+const listStarted = performance.now();
+const waiting = setTimeout(() => {
+  $("patient-source").textContent = "Henter pasientlisten fra journalsystemet …";
+}, 300);
 api("/api/journal/pasienter").then((data) => {
+  clearTimeout(waiting);
   myPatients = data.pasienter;
+  const seconds = (performance.now() - listStarted) / 1000;
+  const slow = seconds >= 1 ? ` Det tok ${seconds.toFixed(1).replace(".", ",")} s.` : "";
   $("patient-source").textContent =
-    `${myPatients.length} pasienter på listen din, fra ${data.system}. Notatet lagres i pasientens journal når du godkjenner.`;
-}).catch((e) => { $("patient-source").textContent = e.message; });
+    `${myPatients.length} pasienter på listen din, fra ${data.system}.${slow} Notatet lagres i pasientens journal når du godkjenner.`;
+}).catch((e) => {
+  clearTimeout(waiting);
+  $("patient-source").textContent = `${e.message} Du kan fortsatt skrive notat og kopiere det.`;
+});
 
 async function sendAudio(blob, filename) {
   setStatus("Transkriberer … dette kan ta noen minutter på en vanlig PC.");

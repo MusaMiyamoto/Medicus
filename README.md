@@ -303,6 +303,11 @@ comes from in the conversation. Click a sentence to highlight those lines.
   can't invent sources.
 - **Re-checked as you edit.** Approving a note with red sentences asks for confirmation first.
 
+**Less waiting:** the patient list is fetched in the background at login, so the picker is ready when
+the assistant opens. If the record system is slow, the page says what it is waiting for and how long it took.
+The Sikkerhetssenter shows the record system's response time (median, and what 9 of 10 calls stay under).
+Only durations are stored: no people, no patients.
+
 **Pick the patient first.** A search field at the top drops down the doctor's own patients
 (search by name, birth date or fødselsnummer). With a patient chosen, the approved note is saved
 straight into their record: through the health network, or into **DIPS Arena** over FHIR R4.

@@ -79,3 +79,21 @@ def test_audit_rules_never_watch_removed_programs():
     rules = (Path(__file__).parent.parent / "os/config/includes.chroot/etc/audit/rules.d/90-medicus.rules").read_text()
     assert "\n-i\n" in rules
     assert "firefox" not in rules.lower()
+
+
+def test_response_time_line():
+    assert sikkerhet.response_time([])["status"] == sikkerhet.INFO
+    fast = sikkerhet.response_time([0.2] * 9 + [0.4])
+    assert fast["status"] == sikkerhet.OK and "Median 0,2 s" in fast["forklaring"]
+    assert sikkerhet.response_time([0.3] * 8 + [4.0, 5.0])["status"] == sikkerhet.WARN  # mostly fast, a slow tail
+    assert sikkerhet.response_time([3.5] * 10)["status"] == sikkerhet.FAIL
+
+
+def test_prefetch_never_fails_the_login(monkeypatch):
+    from medicus import forhent
+
+    class Down:
+        def open(self, *a, **k):
+            raise OSError("connection refused")
+    monkeypatch.setattr(forhent.urllib.request, "build_opener", lambda *a: Down())
+    assert forhent.main() == 0

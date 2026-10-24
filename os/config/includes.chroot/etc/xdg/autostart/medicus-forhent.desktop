@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Medicus pasientliste
+Comment=Henter pasientlisten din ved innlogging, så journalassistenten er klar med en gang
+Exec=/usr/bin/python3 -I -c "import sys; sys.path.insert(0, '/opt/medicus'); from medicus.forhent import main; sys.exit(main())"
+OnlyShowIn=XFCE;
+NoDisplay=true
+X-XFCE-Autostart-Override=true
