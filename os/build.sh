@@ -72,6 +72,11 @@ cp -r "$ASSETS/plymouth" config/includes.chroot/usr/share/plymouth/themes/medicu
 cp "$ASSETS/avatar.png" config/includes.chroot/etc/skel/.face
 rm -rf "$ASSETS"
 
+# Which source this build is made from, for the SBOM. (The build runs as root on the user's checkout,
+# so git must be told the folder is safe.)
+git -C "$REPO" -c safe.directory="$REPO" describe --always --dirty > config/includes.chroot/etc/medicus/versjon \
+  2>/dev/null || echo ukjent > config/includes.chroot/etc/medicus/versjon
+
 APP=config/includes.chroot/opt/medicus
 mkdir -p "$APP" config/includes.chroot/usr/share/medicus
 rsync -rt --chmod=D755,F644 --exclude __pycache__ \
@@ -95,7 +100,10 @@ chmod 755 config/hooks/normal/*.hook.chroot config/includes.chroot/usr/local/bin
 lb build 2>&1 | tee build.log
 
 ISO=$(ls -t "$WORK"/*.iso | head -1)
+# The SBOM made inside the image (see the end of the build hook), next to the ISO.
+SBOM="${ISO%.hybrid.iso}"; SBOM="${SBOM%.iso}.sbom.cdx.json"
+cp "$WORK/chroot/usr/share/doc/medicus/sbom.cdx.json" "$SBOM"
 if [ "$OUT" != "$WORK" ]; then
-  cp "$ISO" "$OUT/"
+  cp "$ISO" "$SBOM" "$OUT/"
 fi
 echo "Ferdig: $OUT/$(basename "$ISO")"

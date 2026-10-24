@@ -268,6 +268,10 @@ sudo sh os/build.sh /path/to/output-folder
 
 The first build downloads 1–2 GB and takes a while. Later builds reuse the download cache in `/var/tmp/medicus-os`.
 
+Every build also writes an **SBOM** (software bill of materials, CycloneDX 1.5) next to the ISO and into
+the image (`/usr/share/doc/medicus/sbom.cdx.json`): every Debian and Python package with its exact version.
+Check a build against new vulnerabilities with, for example, `grype sbom:medicus-os-amd64.sbom.cdx.json`.
+
 ### Open source and selling Medicus
 
 Medicus is built on free software (Debian, Xfce, WebKitGTK and more). *Om Medicus* in the Start

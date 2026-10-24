@@ -164,3 +164,11 @@ cp /usr/share/medicus/wallpapers/nordlys.svg "$theme/login/background.svg"
 cp /usr/share/medicus/wallpapers/nordlys.svg "$theme/login/background-nologo.svg"
 update-alternatives --install /usr/share/desktop-base/active-theme desktop-theme "$theme" 100
 update-alternatives --set desktop-theme "$theme"
+
+# --- Software bill of materials (SBOM): every Debian and Python package, exact versions --------
+# Last, so it lists what is really in the image. build.sh copies it next to the ISO too.
+dpkg-query -W -f '${Package}\t${Version}\t${Architecture}\n' > /tmp/sbom-deb.tsv
+/opt/medicus/.venv/bin/pip list --format=json > /tmp/sbom-pip.json
+python3 /opt/medicus/deploy/sbom.py /tmp/sbom-deb.tsv /tmp/sbom-pip.json "$(cat /etc/medicus/versjon)" \
+  > /usr/share/doc/medicus/sbom.cdx.json
+rm /tmp/sbom-deb.tsv /tmp/sbom-pip.json
