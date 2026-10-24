@@ -52,11 +52,15 @@ def next_key(key: bytes) -> bytes:
 
 
 class AuditLog:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, sink=None):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.key_path = self.path.with_name(self.path.name + ".nokkel")
         self.anchor_path = self.path.with_name(self.path.name + ".anker")
+        # Optional callable(entry) run after every entry is written: ships it off the machine (central log
+        # server), so a break-in can't erase the trail by deleting the file. It can never block the
+        # clinician: a failure is noted in the log itself and the entry stays here to be sent later.
+        self.sink = sink
         self._lock = threading.Lock()
 
     # --- Writing -----------------------------------------------------------
@@ -106,7 +110,14 @@ class AuditLog:
             if new_series is not None and new_series > 1:
                 key, number, _ = self._append(f, key, number, "system", "audit_key_series_started",
                                            {"fra_linje": new_series})
-            return self._append(f, key, number, user, action, details)[2]
+            entry = self._append(f, key, number, user, action, details)[2]
+        if self.sink is not None:
+            try:
+                self.sink(entry)
+            except Exception as error:  # noqa: BLE001 - never block the clinician
+                if action != "audit_sink_failed":
+                    self.record("system", "audit_sink_failed", {"feil": str(error)[:200], "nr": entry["nr"]})
+        return entry
 
     def _append(self, f, key: bytes, number: int, user: str, action: str, details: dict | None):
         entry = {

@@ -177,3 +177,37 @@ def test_it_moves_the_anchors_off_and_checks_the_logs_with_them(tmp_path):
     assert revisjon.main(["sjekk"], logs, out.append) == 0  # the chain alone is fooled
     assert revisjon.main(["sjekk", str(vault)], logs, out.append) == 1
     assert "ENDRET ved linje 1" in out[-2]
+
+
+def test_downgrade_attack_stripping_fields_is_caught_with_the_anchor(tmp_path):
+    """The hole in a 'keyed lines only' design: remove the key marker and rebuild a plain chain."""
+    log = AuditLog(tmp_path / "audit.jsonl")
+    log.record("anna", "a")
+    log.record("anna", "b")
+    anchor, start = anchor_of(log)
+
+    def strip(entries):
+        for e in entries:
+            e.pop("nr", None)
+    rebuild_chain(log.path, strip)
+    plain = [json.loads(line) for line in log.path.read_text().splitlines()]
+    for entry in plain:
+        entry.pop("mac")  # no signature at all, like an old unkeyed log
+    log.path.write_text("".join(json.dumps(e) + "\n" for e in plain))
+    assert log.verify() == (True, None)  # the plain chain is fooled
+    assert log.verify(anchor, start) == (False, 1)
+
+
+def test_entries_are_shipped_off_the_machine_and_a_failing_sink_never_blocks(tmp_path):
+    shipped = []
+    log = AuditLog(tmp_path / "audit.jsonl", sink=shipped.append)
+    entry = log.record("anna", "login")
+    assert shipped == [entry]
+
+    def down(_entry):
+        raise ConnectionError("log server unreachable")
+    log.sink = down
+    log.record("anna", "patient_opened")  # no exception reaches the clinician
+    actions = [json.loads(line)["action"] for line in log.path.read_text().splitlines()]
+    assert actions == ["login", "patient_opened", "audit_sink_failed"]
+    assert log.verify(*anchor_of(log)) == (True, None)
