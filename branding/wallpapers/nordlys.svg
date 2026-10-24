@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <title>Nordlys</title>
+  <!-- Northern lights over a mountain lake. Drawn for Medicus; free to use within the project. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#020a12"/>
+      <stop offset="0.55" stop-color="#06202a"/>
+      <stop offset="1" stop-color="#0b3a3a"/>
+    </linearGradient>
+    <linearGradient id="aurora1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7cf5c0" stop-opacity="0"/>
+      <stop offset="0.45" stop-color="#5ff0a8" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#1fd28a" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="aurora2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b48cff" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#8fd8ff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#3be0a0" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b3a3a"/>
+      <stop offset="1" stop-color="#020a10"/>
+    </linearGradient>
+    <filter id="blur" filterUnits="userSpaceOnUse" x="-300" y="-300" width="2520" height="1800"><feGaussianBlur stdDeviation="22"/></filter>
+    <filter id="blur2" filterUnits="userSpaceOnUse" x="-300" y="-300" width="2520" height="1800"><feGaussianBlur stdDeviation="9"/></filter>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <!-- stars -->
+  <g fill="#ffffff">
+    <circle cx="120" cy="80" r="1.4" opacity="0.8"/><circle cx="340" cy="150" r="1" opacity="0.6"/>
+    <circle cx="560" cy="60" r="1.6" opacity="0.9"/><circle cx="790" cy="120" r="1" opacity="0.5"/>
+    <circle cx="1010" cy="40" r="1.3" opacity="0.8"/><circle cx="1240" cy="110" r="1" opacity="0.6"/>
+    <circle cx="1460" cy="70" r="1.5" opacity="0.9"/><circle cx="1690" cy="160" r="1.1" opacity="0.6"/>
+    <circle cx="1860" cy="50" r="1.3" opacity="0.7"/><circle cx="230" cy="260" r="0.9" opacity="0.5"/>
+    <circle cx="1580" cy="250" r="0.9" opacity="0.5"/><circle cx="900" cy="230" r="0.8" opacity="0.4"/>
+    <circle cx="1780" cy="300" r="1" opacity="0.5"/><circle cx="60" cy="330" r="1" opacity="0.4"/>
+  </g>
+  <!-- aurora curtains -->
+  <g filter="url(#blur)">
+    <path d="M-100 420 C 250 200, 520 520, 860 300 S 1420 120, 2020 360 L 2020 620 C 1500 400, 1200 640, 860 560 S 300 520, -100 700 Z" fill="url(#aurora1)"/>
+    <path d="M-100 300 C 400 120, 700 380, 1100 220 S 1700 140, 2020 240 L 2020 420 C 1650 320, 1300 480, 1000 400 S 300 380, -100 520 Z" fill="url(#aurora2)"/>
+  </g>
+  <g filter="url(#blur2)" opacity="0.28">
+    <path d="M200 520 C 480 330, 700 560, 980 380 S 1500 260, 1800 420" fill="none" stroke="#9ff7cf" stroke-width="10"/>
+  </g>
+  <!-- mountains -->
+  <path d="M0 760 L 180 640 L 300 700 L 470 560 L 620 690 L 760 620 L 900 720 L 1060 590 L 1220 700 L 1380 610 L 1540 690 L 1700 600 L 1920 720 L 1920 800 L 0 800 Z" fill="#0a1f22"/>
+  <path d="M0 800 L 240 720 L 420 780 L 640 700 L 860 790 L 1100 730 L 1340 790 L 1600 720 L 1920 790 L 1920 820 L 0 820 Z" fill="#06151a"/>
+  <!-- lake with reflection -->
+  <rect y="815" width="1920" height="265" fill="url(#water)"/>
+  <g filter="url(#blur)" opacity="0.35" transform="translate(0 1630) scale(1 -1)">
+    <path d="M-100 420 C 250 200, 520 520, 860 300 S 1420 120, 2020 360 L 2020 620 C 1500 400, 1200 640, 860 560 S 300 520, -100 700 Z" fill="url(#aurora1)"/>
+  </g>
+  <g stroke="#8ff0c4" stroke-opacity="0.12" stroke-width="2">
+    <line x1="300" y1="880" x2="700" y2="880"/><line x1="1100" y1="920" x2="1600" y2="920"/>
+    <line x1="600" y1="980" x2="900" y2="980"/><line x1="1300" y1="1030" x2="1500" y2="1030"/>
+  </g>
+</svg>

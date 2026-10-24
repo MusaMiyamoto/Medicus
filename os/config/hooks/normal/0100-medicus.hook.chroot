@@ -1,0 +1,175 @@
+#!/bin/sh
+# Runs inside the image while it is being built.
+set -e
+
+# --- Service accounts: no login shell, no home folder --------------------------
+for account in medicus medicus-auth medicus-sim; do
+  adduser --system --group --home "/var/lib/$account" --no-create-home "$account"
+done
+groupadd -f medicus-personell
+groupadd -f medicus-nod
+groupadd -f medicus-it   # IT staff: IT mode, admin rights with the IT card
+
+# --- Python environment for the web services -----------------------------------
+python3 -m venv /opt/medicus/.venv
+# Exact versions with hashes (requirements.txt is the lock file): a changed package on PyPI stops the build.
+/opt/medicus/.venv/bin/pip install --no-cache-dir --require-hashes -r /opt/medicus/requirements.txt
+python3 -m compileall -q /opt/medicus/medicus /opt/medicus/helsenett /opt/medicus/tilgang /opt/medicus/kalkulator /opt/medicus/tekst /opt/medicus/oppgaver
+
+# Synthetic X-ray and MR images in every user's "Bilder" folder, for trying image sharing.
+mkdir -p /etc/skel/Bilder
+PYTHONPATH=/opt/medicus /opt/medicus/.venv/bin/python - <<'EOF'
+from helsenett.bilder import synthetic_dicom
+from helsenett.sim import seed
+
+for name, fnr, mod, desc, part, filename in [
+    ("Sofie Hansen", seed.SOFIE, "DX", "Røntgen håndledd", "WRIST", "syntetisk-rontgen.dcm"),
+    ("Kari Nordmann", seed.KARI, "MR", "MR caput", "HEAD", "syntetisk-mr.dcm"),
+]:
+    open(f"/etc/skel/Bilder/{filename}", "wb").write(synthetic_dicom(name, fnr, mod, desc, part))
+EOF
+
+# --- Simulated health-personnel cards ------------------------------------------
+# Hash the demo PINs, delete the plain-text file, and create one account per card.
+# IT cards go in medicus-it (IT mode), everyone else in medicus-personell.
+PYTHONPATH=/opt/medicus python3 - <<'EOF'
+import json, subprocess
+from tilgang.cards import build_cards_file
+
+build_cards_file("/etc/medicus/simkort-demo.json", "/etc/medicus/simkort.json")
+for card in json.load(open("/etc/medicus/simkort.json", encoding="utf-8")):
+    subprocess.run(["adduser", "--disabled-password", "--comment", card["navn"], card["username"]], check=True)
+    group = "medicus-it" if card["rolle"] == "IT" else "medicus-personell"
+    subprocess.run(["usermod", "-aG", f"{group},audio,video", card["username"]], check=True)
+EOF
+rm /etc/medicus/simkort-demo.json
+chown medicus-auth:medicus-auth /etc/medicus/simkort.json
+chmod 600 /etc/medicus/simkort.json
+
+# The shared emergency account. Who used it is recorded by the card, not the account.
+adduser --disabled-password --comment "Nødtilgang" nodtilgang
+usermod -aG medicus-nod nodtilgang
+
+# --- Medicus Nettleser: the web filter and the browser allowlist come from one list --
+PYTHONPATH=/opt/medicus python3 - <<'EOF'
+import json
+from medicus import nettsteder
+
+open("/etc/tinyproxy/filter", "w").write(nettsteder.proxy_filter())
+EOF
+
+# --- Virus database: included in the image so scanning works from the first boot ----
+freshclam --quiet || echo "freshclam failed: the virus database will download at first boot"
+
+# --- Services -------------------------------------------------------------------
+install -m 644 /opt/medicus/deploy/medicus.service /etc/systemd/system/medicus.service
+systemctl enable medicus.service medicus-auth.service medicus-oktvakt.service medicus-helsenett-sim.service
+systemctl enable nftables.service apparmor.service usbguard.service auditd.service \
+  clamav-daemon.service clamav-freshclam.service tinyproxy.service
+systemctl enable home.mount var-tmp.mount medicus-journalsystem.timer medicus-rydd-hjem.service
+
+# --- Hardening: switch off what a clinical workstation doesn't need -------------
+systemctl mask avahi-daemon.service avahi-daemon.socket bluetooth.service \
+  ctrl-alt-del.target getty@.service autovt@.service serial-getty@.service \
+  debug-shell.service hibernate.target hybrid-sleep.target suspend-then-hibernate.target 2>/dev/null || true
+chmod 700 /root
+chmod 600 /etc/usbguard/rules.conf
+chmod 700 /etc/wireguard
+sed -i 's/^ImplicitPolicyTarget=.*/ImplicitPolicyTarget=block/; s/^PresentDevicePolicy=.*/PresentDevicePolicy=apply-policy/' \
+  /etc/usbguard/usbguard-daemon.conf
+# Medical USB devices approved by IT (medicus-utstyr) get their rules in rules.d.
+mkdir -p /etc/usbguard/rules.d
+chmod 700 /etc/usbguard/rules.d
+sed -i '/^#\?RuleFolder=/d' /etc/usbguard/usbguard-daemon.conf
+echo "RuleFolder=/etc/usbguard/rules.d/" >> /etc/usbguard/usbguard-daemon.conf
+[ -f /etc/medicus/medisinsk-utstyr.json ] || echo "[]" > /etc/medicus/medisinsk-utstyr.json
+chmod 644 /etc/medicus/medisinsk-utstyr.json
+# Machine certificate: the TPM token store and its PIN are root only (medicus-wlan).
+mkdir -p /etc/medicus/tpm
+chmod 700 /etc/medicus/tpm
+[ -f /etc/medicus/wlan.json ] || echo "[]" > /etc/medicus/wlan.json
+
+# Desktop shortcuts link to these files, so they must be executable (see medicus-skrivebord).
+chmod 755 /usr/share/applications/medicus-*.desktop /usr/share/medicus-it/applications/*.desktop
+
+# --- IT mode: tools only IT staff can start -------------------------------------------
+# Hiding them from the menu is not enough, so the programs themselves belong to medicus-it.
+for tool in /usr/bin/xfce4-terminal /usr/local/bin/medicus-oppgaver /usr/bin/xfce4-settings-manager \
+            /usr/bin/nm-connection-editor; do
+  dpkg-statoverride --update --add root medicus-it 0750 "$tool"
+done
+# sudo: only IT staff can even start it, and it asks for the IT card PIN (etc/pam.d/sudo).
+dpkg-statoverride --update --add root medicus-it 4750 /usr/bin/sudo
+chmod 440 /etc/sudoers.d/medicus-it
+# IT users get an amber taskbar (so you see at once that this is IT mode) and IT favourites.
+python3 /usr/local/lib/medicus/it-panel
+
+# --- Our own identity: no terminals, no other brands in what users see ----------------
+# xterm and vim come in as dependencies; a terminal would undo the "no command line" rule.
+apt-get purge -y xterm vim vim-runtime vim-tiny 2>/dev/null || true
+# Window titles say Pictures, Files and Dokumenter, not Ristretto, Thunar, Evince. (Text is our own editor.)
+python3 /usr/local/lib/medicus/rebrand-apps
+# The system calls itself Medicus OS (ID_LIKE=debian keeps Debian tools working).
+dpkg-divert --quiet --add --rename --divert /usr/lib/os-release.debian /usr/lib/os-release
+cp /usr/lib/medicus/os-release /usr/lib/os-release
+printf 'Medicus OS \\n \\l\n\n' > /etc/issue
+printf 'Medicus OS\n' > /etc/issue.net
+gtk-update-icon-cache -q -f /usr/share/icons/hicolor 2>/dev/null || true
+gtk-update-icon-cache -q -f /usr/share/icons/Medicus 2>/dev/null || true
+update-desktop-database -q /usr/share/applications /usr/local/share/applications 2>/dev/null || true
+
+# --- Start-up animation: the heartbeat theme, built into the boot image ---------------
+for f in bullet.png capslock.png entry.png keyboard.png keymap-render.png lock.png; do
+  cp -n "/usr/share/plymouth/themes/spinner/$f" /usr/share/plymouth/themes/medicus/
+done
+# Make Medicus the default everywhere Plymouth looks, so it never falls back to Debian's theme.
+# Debian's Plymouth shows debian-logo.png in every theme. Replace it with our watermark, which is
+# empty: only the heartbeat is shown while booting.
+dpkg-divert --quiet --add --rename --divert /usr/share/plymouth/debian-logo.png.debian \
+  /usr/share/plymouth/debian-logo.png
+cp /usr/share/plymouth/themes/medicus/watermark.png /usr/share/plymouth/debian-logo.png
+# Plymouth's initramfs hook also overwrites every two-step theme's watermark with this
+# "debian 13" image, so replace it (and its sizes) too.
+for size in 64 128 256; do
+  logo="/usr/share/desktop-base/debian-logos/logo-text-version-$size.png"
+  dpkg-divert --quiet --add --rename --divert "$logo.debian" "$logo"
+  cp /usr/share/plymouth/themes/medicus/watermark.png "$logo"
+done
+plymouth-set-default-theme medicus
+sed -i 's/^Theme=.*/Theme=medicus/' /usr/share/plymouth/plymouthd.defaults
+update-initramfs -u
+
+# --- Look: Medicus wallpapers --------------------------------------------------------
+# XFCE's default wallpaper (xfce-x.svg) becomes "Nordlys", safely across updates. All Medicus
+# wallpapers go in the same folder, so they show up in Settings → Desktop.
+dpkg-divert --quiet --add --rename --divert /usr/share/backgrounds/xfce/xfce-x.svg.debian \
+  /usr/share/backgrounds/xfce/xfce-x.svg
+cp /usr/share/medicus/wallpapers/nordlys.svg /usr/share/backgrounds/xfce/xfce-x.svg
+for w in /usr/share/medicus/wallpapers/*.svg /usr/share/medicus/wallpaper.svg; do
+  cp "$w" "/usr/share/backgrounds/xfce/medicus-$(basename "$w")"
+done
+# Debian's own theme (desktop-base) is what the lock screen and other programs fall back to. Give
+# it a Medicus theme with the same layout and make that the active one, so Debian's art never shows.
+theme=/usr/share/desktop-base/medicus-theme
+mkdir -p "$theme/wallpaper/contents/images" "$theme/lockscreen/contents/images" "$theme/login"
+for part in wallpaper lockscreen; do
+  files=""
+  for size in 1280x800 1280x1024 1920x1080 1920x1200 2520x1080 1080x2160; do
+    cp /usr/share/medicus/wallpapers/nordlys.svg "$theme/$part/contents/images/$size.svg"
+    files="$files<size width=\"${size%x*}\" height=\"${size#*x}\">$theme/$part/contents/images/$size.svg</size>"
+  done
+  printf '<background><static><duration>8640000.0</duration><file>%s</file></static></background>\n' \
+    "$files" > "$theme/$part/gnome-background.xml"
+done
+cp /usr/share/medicus/wallpapers/nordlys.svg "$theme/login/background.svg"
+cp /usr/share/medicus/wallpapers/nordlys.svg "$theme/login/background-nologo.svg"
+update-alternatives --install /usr/share/desktop-base/active-theme desktop-theme "$theme" 100
+update-alternatives --set desktop-theme "$theme"
+
+# --- Software bill of materials (SBOM): every Debian and Python package, exact versions --------
+# Last, so it lists what is really in the image. build.sh copies it next to the ISO too.
+dpkg-query -W -f '${Package}\t${Version}\t${Architecture}\n' > /tmp/sbom-deb.tsv
+/opt/medicus/.venv/bin/pip list --format=json > /tmp/sbom-pip.json
+python3 /opt/medicus/deploy/sbom.py /tmp/sbom-deb.tsv /tmp/sbom-pip.json "$(cat /etc/medicus/versjon)" \
+  > /usr/share/doc/medicus/sbom.cdx.json
+rm /tmp/sbom-deb.tsv /tmp/sbom-pip.json

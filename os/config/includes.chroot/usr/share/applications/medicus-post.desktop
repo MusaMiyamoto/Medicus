@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Post
+Name[en]=Mail
+Comment=Sikre meldinger og bildedeling (røntgen, CT, MR) i helsenettet, med varsel om svindel-e-post
+Comment[en]=Secure messages and image sharing (X-ray, CT, MRI) in the health network, with scam email warnings
+Exec=medicus-nettleser http://127.0.0.1:8000/post
+Icon=/usr/share/medicus/post.svg
+Terminal=false
+Categories=Office;Network;Email;
+Keywords=post;e-post;melding;røntgen;mr;ct;bilde;dicom;

@@ -1,0 +1,5 @@
+#!/bin/sh
+# Wipes a Medicus home folder: by pam_exec when a desktop session closes, and with --alle at boot.
+# Runs as root. -I ignores PYTHON* variables and the current folder, so the environment can't make
+# root load other code.
+exec /usr/bin/python3 -I -c "import sys; sys.path.insert(0, '/opt/medicus'); from tilgang.rydd import main; sys.exit(main())" "$@"

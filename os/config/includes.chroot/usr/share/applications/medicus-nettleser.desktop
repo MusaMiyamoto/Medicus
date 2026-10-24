@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Nettleser
+Name[en]=Browser
+Comment=Sikker nettleser for godkjente helsenettsteder
+Comment[en]=Secure browser for approved health websites
+Exec=medicus-nettleser %u
+Icon=medicus-nettleser
+Terminal=false
+Categories=Network;WebBrowser;
+MimeType=text/html;x-scheme-handler/http;x-scheme-handler/https;
+Keywords=nett;internett;nettleser;helsenorge;felleskatalogen;
+StartupWMClass=no.medicus.Nettleser

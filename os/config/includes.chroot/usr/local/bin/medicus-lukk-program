@@ -1,0 +1,4 @@
+#!/bin/sh
+# "Lukk program som henger" for health personnel (Ctrl+Shift+Esc): close one of your own work programs
+# if it freezes. See oppgaver/app.py. Not locked to IT: it can only close the user's own work programs.
+exec /usr/bin/python3 -I -c "import sys; sys.path.insert(0, '/opt/medicus'); from oppgaver.app import main; sys.exit(main(personal=True))"

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <title>Nettleser</title>
+  <!-- A light-blue Earth with a rocket flying around it. Drawn for Medicus. -->
+  <defs>
+    <radialGradient id="sea" cx="0.38" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#d4f1ff"/>
+      <stop offset="0.45" stop-color="#7cccf7"/>
+      <stop offset="1" stop-color="#3a9fe0"/>
+    </radialGradient>
+    <clipPath id="earth"><circle cx="64" cy="64" r="36"/></clipPath>
+  </defs>
+
+  <!-- Back half of the orbit, behind the planet -->
+  <g transform="rotate(-24 64 64)">
+    <path d="M6 64 A58 19 0 0 1 122 64" fill="none" stroke="#bfe6ff" stroke-width="3.5" stroke-opacity="0.75"/>
+  </g>
+
+  <!-- The planet -->
+  <circle cx="64" cy="64" r="36" fill="url(#sea)"/>
+  <g clip-path="url(#earth)" fill="#eefaff" fill-opacity="0.85">
+    <path d="M38 40 C46 33 58 34 60 41 C62 47 54 49 55 55 C56 61 48 64 43 60 C38 56 32 47 38 40 Z"/>
+    <path d="M70 34 C80 32 92 38 94 46 C95 51 88 52 84 50 C79 48 76 52 72 50 C67 47 64 37 70 34 Z"/>
+    <path d="M66 62 C74 58 84 62 86 70 C88 80 80 92 72 94 C66 95 66 86 64 80 C62 74 60 66 66 62 Z"/>
+    <path d="M36 72 C40 70 46 74 45 79 C44 83 39 83 37 80 C35 77 33 74 36 72 Z"/>
+  </g>
+  <circle cx="64" cy="64" r="36" fill="none" stroke="#2a86c9" stroke-width="2" stroke-opacity="0.6"/>
+
+  <!-- Front half of the orbit, and the rocket climbing along it -->
+  <g transform="rotate(-24 64 64)">
+    <path d="M122 64 A58 19 0 0 1 6 64" fill="none" stroke="#ffffff" stroke-width="3.5"/>
+    <g transform="translate(118.5 70.5) rotate(46) scale(1.15)">
+      <path d="M-3 7 L0 15 L3 7 Z" fill="#ffb347"/>
+      <path d="M-5 1 L-10 9 L-5 7.5 Z M5 1 L10 9 L5 7.5 Z" fill="#1f7ac4"/>
+      <path d="M0 -15 C5.5 -9.5 6.5 -2 5 7 L-5 7 C-6.5 -2 -5.5 -9.5 0 -15 Z" fill="#ffffff" stroke="#1f7ac4" stroke-width="1.2"/>
+      <circle cx="0" cy="-3.5" r="2.6" fill="#3a9fe0" stroke="#1f7ac4" stroke-width="1"/>
+    </g>
+  </g>
+
+  <!-- A few stars -->
+  <g fill="#9fdcff">
+    <circle cx="18" cy="22" r="2"/>
+    <circle cx="106" cy="18" r="1.6"/>
+    <circle cx="22" cy="108" r="1.6"/>
+  </g>
+</svg>

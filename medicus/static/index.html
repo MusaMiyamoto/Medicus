@@ -2,14 +2,22 @@
 <html lang="nb">
 <head>
   <meta charset="utf-8">
+  <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Medicus</title>
   <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/i18n.js"></script>
 </head>
 <body>
-  <header>
-    <h1>Medicus</h1>
-    <p class="tagline">Journalassistent – alt kjører lokalt på denne maskinen</p>
+  <header class="topbar">
+    <div class="brand"><img src="/logo.svg" alt="">Medicus</div>
+    <nav>
+      <a href="/pasient">Pasientjournal</a>
+      <a href="/post">Post</a>
+      <a href="/" aria-current="page">Journalassistent</a>
+      <a href="/overforing">Overføring</a>
+    </nav>
+    <div class="who" id="who"></div>
   </header>
 
   <div class="warning" role="alert">
@@ -18,6 +26,30 @@
   </div>
 
   <main>
+    <div id="draft-banner" class="warning" role="alert" hidden>
+      <p><strong>⚠ Du har et notat som ikke ble godkjent</strong> (lagret kl. <span id="draft-time"></span>), for
+        eksempel fordi økten ble avsluttet. Det ligger bare i minnet på denne PC-en.</p>
+      <div class="row">
+        <button id="draft-restore" type="button">Hent utkastet</button>
+        <button id="draft-discard" type="button" class="secondary">Forkast det</button>
+      </div>
+    </div>
+
+    <section class="card">
+      <h2>Pasient</h2>
+      <div class="picker">
+        <input id="patient-search" type="search" role="combobox" autocomplete="off" spellcheck="false"
+               aria-expanded="false" aria-controls="patient-list" aria-autocomplete="list"
+               placeholder="Søk blant dine pasienter: navn, fødselsdato eller fødselsnummer">
+        <ul id="patient-list" class="picker-list" role="listbox" hidden></ul>
+      </div>
+      <div id="patient-chosen" class="patient-chosen" hidden>
+        <div><strong id="chosen-name"></strong> <span id="chosen-details" class="muted"></span></div>
+        <button id="patient-clear" type="button" class="secondary">Bytt pasient</button>
+      </div>
+      <p id="patient-source" class="muted small"></p>
+    </section>
+
     <section class="card">
       <h2>1. Konsultasjon</h2>
       <div class="row">
@@ -28,6 +60,10 @@
         </label>
         <button id="sample" type="button" class="secondary">Bruk eksempelsamtale</button>
       </div>
+      <div id="recording" class="recording-bar" hidden role="status">
+        <span class="dot" aria-hidden="true"></span> Opptak <span id="elapsed">00:00</span>
+        <button id="discard" type="button" class="secondary">Pasienten ombestemte seg – slett opptaket</button>
+      </div>
       <label for="transcript">Transkripsjon (kan redigeres)</label>
       <textarea id="transcript" rows="10" placeholder="Ta opp, last opp lyd, eller lim inn tekst her …"></textarea>
       <button id="generate" type="button">Lag journalnotat</button>
@@ -36,6 +72,20 @@
     <section class="card">
       <h2>2. Journalnotat (utkast)</h2>
       <div id="sections"><p class="muted">Ingen notat ennå.</p></div>
+      <div id="source-panel" hidden>
+        <h3>Kildesjekk</h3>
+        <p class="muted small">Under hvert felt står setningene i notatet. Trykk på en setning for å se hvor i
+          samtalen den kommer fra. Sjekken er vanlig ordsammenligning, ikke språkmodellen.</p>
+        <ul class="source-legend small">
+          <li><span class="source-chip støttet">✓ Sagt</span> står i samtalen</li>
+          <li><span class="source-chip svak">◐ Delvis</span> bare delvis – les den mot samtalen</li>
+          <li><span class="source-chip ukjent">✗ Ikke funnet</span> ikke i samtalen, eller et tall som ikke ble sagt</li>
+          <li><span class="source-chip mangler">– Ikke nevnt</span> fyll inn eller la stå</li>
+        </ul>
+        <h4>Samtalen</h4>
+        <ol id="source-lines" class="source-lines"></ol>
+      </div>
+      <p id="source-summary" class="source-summary" hidden></p>
       <div class="row">
         <button id="copy" type="button" class="secondary" disabled>Kopier notat</button>
         <button id="approve" type="button" disabled>Godkjenn</button>
@@ -45,6 +95,22 @@
     <p id="status" class="status" role="status" aria-live="polite"></p>
   </main>
 
+  <!-- Shown before every recording: a reminder of what to tell the patient, and their answer. -->
+  <dialog id="consent" class="consent">
+    <h2>Før du tar opp samtalen</h2>
+    <p>Spør pasienten, for eksempel:</p>
+    <blockquote>«Jeg vil gjerne ta opp samtalen vår, slik at maskinen kan skrive et utkast til journalnotatet.
+      Opptaket blir bare på denne maskinen og slettes så snart teksten er laget. Det er frivillig,
+      og du kan si nei eller ombestemme deg når som helst. Er det greit for deg?»</blockquote>
+    <label class="check"><input type="checkbox" id="consent-yes"> Pasienten er informert og har sagt ja</label>
+    <div class="row">
+      <button type="button" id="consent-cancel" class="secondary">Avbryt</button>
+      <button type="button" id="consent-no" class="secondary">Pasienten sa nei</button>
+      <button type="button" id="consent-start" disabled>● Start opptak</button>
+    </div>
+  </dialog>
+
+  <script src="/static/common.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

@@ -1,0 +1,13 @@
+# Temporary files can't be run as programs.
+[Unit]
+Description=Midlertidige filer uten programkjøring
+Before=systemd-user-sessions.service
+
+[Mount]
+What=/var/tmp
+Where=/var/tmp
+Type=none
+Options=bind,nosuid,nodev,noexec
+
+[Install]
+WantedBy=local-fs.target

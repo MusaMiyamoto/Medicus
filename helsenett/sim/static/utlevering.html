@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Utleveringsforespørsler (simulert)</title>
+  <link rel="stylesheet" href="static/sim.css">
+  <script src="static/i18n.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Utlevering av helseopplysninger</h1>
+    <p>Forespørsler fra myndigheter – vurderes alltid av et menneske før noe utleveres</p>
+  </header>
+  <div class="sim">Simulering. Lovhjemlene er eksempler og må kvalitetssikres juridisk.</div>
+  <main>
+    <nav>
+      <button type="button" data-view="behandle" aria-pressed="true">Virksomheten: behandle</button>
+      <button type="button" data-view="ny">Myndighet: ny forespørsel</button>
+    </nav>
+
+    <section id="behandle">
+      <div id="queue"></div>
+    </section>
+
+    <section id="ny" class="card" hidden>
+      <h2>Ny forespørsel</h2>
+      <p class="muted">Helsepersonell har taushetsplikt. Forespørselen må ha gyldig lovhjemmel og et konkret formål,
+        og ber bare om de opplysningene som er nødvendige.</p>
+      <form id="form">
+        <label for="myndighetstype">Type myndighet</label>
+        <select id="myndighetstype" required></select>
+        <p id="merknad" class="muted"></p>
+        <label for="myndighet">Myndighet og kontor</label>
+        <input id="myndighet" required placeholder="F.eks. Testby politistasjon">
+        <label for="saksbehandler">Saksbehandler og kontaktinformasjon</label>
+        <input id="saksbehandler" required>
+        <label for="fnr">Pasientens fødselsnummer</label>
+        <input id="fnr" required inputmode="numeric" pattern="[0-9]{11}" placeholder="11 siffer">
+        <label for="hjemmel">Lovhjemmel (bare de som gjelder for denne myndigheten)</label>
+        <select id="hjemmel" required></select>
+        <label for="formal">Formål og begrunnelse</label>
+        <textarea id="formal" rows="4" required minlength="20"></textarea>
+        <label>Hvilke opplysninger (minst mulig)</label>
+        <div id="categories"></div>
+        <label for="periode">Tidsrom (valgfritt, f.eks. 2026-06 eller 2026-06-18)</label>
+        <input id="periode">
+        <p><button type="submit">Send forespørsel</button></p>
+        <p id="form-status" class="status" role="status"></p>
+      </form>
+    </section>
+  </main>
+  <script src="static/common.js"></script>
+  <script src="static/utlevering.js"></script>
+</body>
+</html>

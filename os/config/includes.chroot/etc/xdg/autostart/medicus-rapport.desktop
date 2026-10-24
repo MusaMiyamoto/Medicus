@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Medicus nødtilgangsrapport
+Comment=Åpner rapporten med en gang hvis du har brukt nødtilgang og ikke har skrevet den ennå
+Exec=medicus-rapportsjekk
+OnlyShowIn=XFCE;
+NoDisplay=true
+X-XFCE-Autostart-Override=true

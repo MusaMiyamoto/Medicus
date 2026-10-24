@@ -1,0 +1,38 @@
+# Hvor Medicus OS henter og sender helseopplysninger.
+# Se docs/helsenorge-integrasjon.md for hva som trengs for å koble til ekte tjenester.
+#
+#   modus = "simulert"   lokal simulator med syntetiske testpasienter (standard)
+#   modus = "nhn"        Norsk helsenett – krever avtale, HelseID-klient og godkjenning
+
+modus = "simulert"
+
+[simulert]
+url = "http://127.0.0.1:8100"
+
+[nhn]
+# Fylles ut når en avtale er på plass. Adressene må bekreftes med Norsk helsenett.
+miljo = "test"
+helseid_authority = ""
+helseid_client_id = ""
+helseid_private_key = "/etc/medicus/nhn/helseid-klient.jwk"
+kjernejournal_url = ""
+eresept_url = ""
+dokumentdeling_url = ""
+helsenorge_url = ""
+
+[journal]
+# Hvor godkjente journalnotater lagres, og hvor «Mine pasienter» kommer fra.
+# Se docs/journalsystemer.md.
+#   system = "helsenett"   notatet deles via helsenettet (standard; simulatoren i demo)
+#   system = "dips"        DIPS Arena via FHIR R4 – krever avtale med helseforetaket og DIPS
+system = "helsenett"
+
+[dips]
+# Til test uten ekte DIPS: fhir_url = "http://127.0.0.1:8100/fhir" og en hvilken som helst token_fil.
+fhir_url = ""
+token_fil = "/etc/medicus/dips/token"
+
+[epic]
+# For å hente journal direkte fra Epic (FHIR R4). Overføring fra en eksportfil virker uten dette.
+fhir_url = ""
+token_fil = "/etc/medicus/epic/token"

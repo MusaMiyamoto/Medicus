@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Health-personnel chip card. -->
+  <rect x="4" y="10" width="40" height="28" rx="5" fill="none" stroke="#ffffff" stroke-width="3"/>
+  <rect x="10" y="17" width="10" height="8" rx="1.5" fill="#7fe0ad"/>
+  <path d="M10 31 H 30 M26 17 H 38 M26 22 H 34" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"/>
+</svg>

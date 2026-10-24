@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Overføring – Medicus</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/i18n.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img src="/logo.svg" alt="">Medicus</div>
+    <nav>
+      <a href="/pasient">Pasientjournal</a>
+      <a href="/post">Post</a>
+      <a href="/">Journalassistent</a>
+      <a href="/overforing" aria-current="page">Overføring</a>
+    </nav>
+    <div class="who" id="who"></div>
+  </header>
+
+  <div class="warning" role="alert">Prototype. Bruk kun oppdiktede data – ikke ekte pasientopplysninger.</div>
+
+  <main>
+    <section class="card">
+      <h2>Overføring av journal fra Epic</h2>
+      <p>For pasienter som kommer fra et sykehus eller en kommune som bruker Epic. Medicus leser eksporten,
+        viser deg hva som er med, og lagrer det i pasientens journal først når du har kontrollert det.</p>
+      <div class="grid">
+        <div>
+          <h3>Fra eksportfil</h3>
+          <label class="drop" id="drop">
+            Velg eller slipp eksportfilen her (FHIR, .json)
+            <input id="file" type="file" accept=".json,application/json,application/fhir+json" hidden>
+          </label>
+          <p class="muted small">Eksempel med oppdiktet pasient: <code>samples/epic-eksport-eksempel.json</code></p>
+        </div>
+        <div>
+          <h3>Direkte fra Epic</h3>
+          <label for="fetch-fnr">Pasientens fødselsnummer</label>
+          <input id="fetch-fnr" inputmode="numeric" maxlength="11" autocomplete="off">
+          <div class="row"><button id="fetch" type="button" class="secondary">Hent fra Epic</button></div>
+          <p class="muted small">Krever at virksomheten har koblet Medicus til Epic.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="preview" hidden>
+      <h2>Kontroller før overføring</h2>
+      <div id="who-is-it" class="patient-chosen"></div>
+      <div id="warnings"></div>
+      <div class="grid">
+        <div><h3>Allergier</h3><ul class="transfer-list" id="allergies"></ul></div>
+        <div><h3>Diagnoser og problemer</h3><ul class="transfer-list" id="conditions"></ul></div>
+      </div>
+      <h3>Legemidler</h3><ul class="transfer-list" id="medicines"></ul>
+      <h3>Dokumenter</h3><div id="documents"></div>
+      <div class="banner warn">Allergier og legemidler blir lagt inn som tekst i journalen, merket «må kontrolleres».
+        De blir ikke kritisk informasjon før du selv har registrert dem.</div>
+      <label class="check"><input type="checkbox" id="confirm"> <span id="confirm-text"></span></label>
+      <div class="row">
+        <button id="cancel" type="button" class="secondary">Avbryt</button>
+        <button id="import" type="button" disabled>Overfør til journalen</button>
+      </div>
+    </section>
+
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+  </main>
+
+  <script src="/static/common.js"></script>
+  <script src="/static/overforing.js"></script>
+</body>
+</html>

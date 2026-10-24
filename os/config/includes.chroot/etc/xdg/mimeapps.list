@@ -1,0 +1,5 @@
+[Default Applications]
+x-scheme-handler/http=medicus-nettleser.desktop
+x-scheme-handler/https=medicus-nettleser.desktop
+text/html=medicus-nettleser.desktop
+inode/directory=thunar.desktop

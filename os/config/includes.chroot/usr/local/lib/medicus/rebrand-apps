@@ -1,0 +1,81 @@
+#!/usr/bin/python3
+"""Give the standard programs their plain Medicus names in titles and menus.
+
+Mousepad, Ristretto, Thunar and Evince take their window titles from their Norwegian translation
+files. This rewrites those files so the names are Text, Pictures, Files and Dokumenter. Each
+original is kept with dpkg-divert, so a package update can't bring the old name back.
+
+    rebrand-apps          (run once, as root, while building the image)
+"""
+
+import gettext
+import struct
+import subprocess
+from pathlib import Path
+
+LOCALE = Path("/usr/share/locale/nb/LC_MESSAGES")
+NAMES = {
+    "mousepad": {"Mousepad": "Text"},
+    "ristretto": {"Ristretto bildefremviser": "Pictures", "Ristretto": "Pictures", "Bildefremviser": "Pictures",
+                  "bildefremviser": "Pictures"},
+    "thunar": {"Thunar Filbehandler": "Files", "Thunar": "Files"},
+    "evince": {"Evince dokumentvisning": "Dokumenter", "Evince": "Dokumenter"},
+}
+
+
+def write_mo(path: Path, catalog: dict[bytes, bytes]) -> None:
+    """Write a GNU .mo file (no hash table, which gettext doesn't need)."""
+    keys = sorted(catalog)
+    ids = b"".join(k + b"\0" for k in keys)
+    strs = b"".join(catalog[k] + b"\0" for k in keys)
+    start = 7 * 4 + 16 * len(keys)
+    offsets, pos = [], start
+    for k in keys:
+        offsets += [len(k), pos]
+        pos += len(k) + 1
+    for k in keys:
+        offsets += [len(catalog[k]), pos]
+        pos += len(catalog[k]) + 1
+    header = struct.pack("Iiiiiii", 0x950412DE, 0, len(keys), 7 * 4, 7 * 4 + 8 * len(keys), 0, 0)
+    table = struct.pack(f"{len(offsets)}i", *offsets)
+    # ids and strs are laid out in the order the offsets above assume
+    path.write_bytes(header + table + ids + strs)
+
+
+def read_mo(path: Path) -> dict[bytes, bytes]:
+    """All entries, raw (keeps plural forms and context exactly as they were)."""
+    data = path.read_bytes()
+    _, _, n, o_ids, o_strs, _, _ = struct.unpack("Iiiiiii", data[:28])
+    out = {}
+    for i in range(n):
+        ln, off = struct.unpack("ii", data[o_ids + 8 * i: o_ids + 8 * i + 8])
+        ls, offs = struct.unpack("ii", data[o_strs + 8 * i: o_strs + 8 * i + 8])
+        out[data[off:off + ln]] = data[offs:offs + ls]
+    return out
+
+
+def main():
+    for domain, names in NAMES.items():
+        mo = LOCALE / f"{domain}.mo"
+        original = mo.with_name(mo.name + ".debian")
+        if not original.exists():
+            if not mo.exists():
+                continue
+            subprocess.run(["dpkg-divert", "--quiet", "--add", "--rename", "--divert", str(original), str(mo)],
+                           check=True)
+        catalog = read_mo(original)
+        # Untranslated app names get a translation too, so the title never falls back to English.
+        for brand, plain in names.items():
+            catalog.setdefault(brand.encode(), plain.encode())
+        for key, value in catalog.items():
+            if not key:
+                continue  # the header
+            text = value.decode("utf-8")
+            for brand, plain in names.items():
+                text = text.replace(brand, plain)
+            catalog[key] = text.encode("utf-8")
+        write_mo(mo, catalog)
+        gettext.GNUTranslations(mo.open("rb"))  # fails loudly if the file is broken
+
+
+main()

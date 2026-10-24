@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <title>Post</title>
+  <!-- An envelope with a check mark: verified messages. Drawn for Medicus. -->
+  <defs>
+    <linearGradient id="env" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#36ad74"/>
+      <stop offset="1" stop-color="#0d4f2e"/>
+    </linearGradient>
+  </defs>
+  <rect x="10" y="26" width="108" height="76" rx="12" fill="url(#env)"/>
+  <path d="M14 34 L 64 70 L 114 34" fill="none" stroke="#ffffff" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
+  <circle cx="98" cy="92" r="20" fill="#ffffff"/>
+  <path d="M88 92 L 95 99 L 109 85" fill="none" stroke="#1a7f4b" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

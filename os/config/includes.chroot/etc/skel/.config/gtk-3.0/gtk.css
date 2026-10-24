@@ -1,0 +1,16 @@
+/* The Start button: the Medicus logo, bigger than the other taskbar icons (20 px) so it is easy to find
+   and hit. The panel is 44 px tall; the logo is drawn at about 34 px, on a soft light background. */
+#whiskermenu-button {
+  min-width: 52px;
+  padding: 0 6px;
+  margin: 0 4px 0 2px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+}
+#whiskermenu-button:hover,
+#whiskermenu-button:checked {
+  background: rgba(255, 255, 255, 0.18);
+}
+#whiskermenu-button image {
+  -gtk-icon-transform: scale(1.7);
+}

@@ -1,0 +1,50 @@
+#!/bin/sh
+# Always-on VPN to the health network, with a kill switch.
+#
+#   medicus-vpn på       start the tunnel and block every other way out
+#   medicus-vpn av       stop the tunnel and remove the kill switch
+#   medicus-vpn status
+#
+# Needs /etc/wireguard/helsenett.conf (see helsenett.conf.eksempel). The real endpoint and keys
+# come from Norsk helsenett or the institution's IT department once an agreement is in place.
+set -eu
+
+CONF=/etc/wireguard/helsenett.conf
+
+case "${1:-status}" in
+  på|pa|on)
+    [ -f "$CONF" ] || { echo "Mangler $CONF. Se $CONF.eksempel." >&2; exit 1; }
+    wg-quick up helsenett
+    endpoint=$(wg show helsenett endpoints | awk '{print $2}' | head -1)
+    host=${endpoint%:*}
+    port=${endpoint##*:}
+    # Kill switch: a second firewall table. A packet must be allowed by BOTH tables to leave.
+    nft -f - <<EOF
+table inet medicus_killswitch {
+  chain output {
+    type filter hook output priority filter - 10; policy drop;
+    oif "lo" accept
+    oifname "helsenett" accept
+    ct state established,related accept
+    ip daddr $host udp dport $port accept
+    udp dport 67 accept
+    meta l4proto { icmp, ipv6-icmp } accept
+  }
+}
+EOF
+    echo "VPN til helsenettet er på. All annen trafikk er blokkert."
+    ;;
+  av|off)
+    nft delete table inet medicus_killswitch 2>/dev/null || true
+    wg-quick down helsenett 2>/dev/null || true
+    echo "VPN er av."
+    ;;
+  status)
+    if wg show helsenett >/dev/null 2>&1; then echo "VPN: på"; else echo "VPN: av"; fi
+    if nft list table inet medicus_killswitch >/dev/null 2>&1; then echo "Kill switch: på"; else echo "Kill switch: av"; fi
+    ;;
+  *)
+    echo "Bruk: medicus-vpn på | av | status" >&2
+    exit 2
+    ;;
+esac

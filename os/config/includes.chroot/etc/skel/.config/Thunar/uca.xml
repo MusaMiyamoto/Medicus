@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- No custom actions: removes "Open Terminal Here" and the like from the right-click menu. -->
+<actions>
+</actions>

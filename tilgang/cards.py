@@ -1,0 +1,148 @@
+"""Health-personnel cards.
+
+`SimulatedReader` stands in for a real chip-card reader so the system can be tested without
+hardware. The real reader (PC/SC + PKCS#11 through OpenSC) plugs in behind the same interface:
+`inserted()` and `verify_pin()`. Like a real card, three wrong PINs block it.
+"""
+
+import hashlib
+import hmac
+import json
+import secrets
+from dataclasses import asdict, dataclass, field
+from datetime import date
+from pathlib import Path
+
+MAX_TRIES = 3
+PBKDF2_ROUNDS = 200_000
+# Why IT revoked a card. A revoked card is refused everywhere, emergency access included.
+REVOKE_REASONS = {"tapt": "meldt tapt", "stjålet": "meldt stjålet", "erstattet": "erstattet av et nytt kort"}
+
+
+@dataclass(frozen=True)
+class Card:
+    """Who the person is. Where they work comes from the workstation (tilgang/arbeidssted.py)."""
+
+    card_id: str
+    navn: str
+    rolle: str          # authorization from the health personnel register, e.g. "Lege"
+    hpr: str
+    username: str
+    stillinger: dict = field(default_factory=dict)  # position per workplace id
+    gyldig_til: str = ""  # last day the card is valid (ISO date); empty = no end date
+
+    def public(self) -> dict:
+        return asdict(self)
+
+    def expired(self, today: date) -> bool:
+        try:
+            return bool(self.gyldig_til) and today > date.fromisoformat(self.gyldig_til)
+        except ValueError:
+            return True  # an end date that can't be read is treated as passed
+
+
+def hash_pin(pin: str, salt: bytes | None = None) -> dict:
+    salt = salt or secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", pin.encode(), salt, PBKDF2_ROUNDS)
+    return {"salt": salt.hex(), "hash": digest.hex()}
+
+
+def check_pin(pin: str, stored: dict) -> bool:
+    digest = hashlib.pbkdf2_hmac("sha256", pin.encode(), bytes.fromhex(stored["salt"]), PBKDF2_ROUNDS)
+    return hmac.compare_digest(digest.hex(), stored["hash"])
+
+
+class CardError(Exception):
+    pass
+
+
+class SimulatedReader:
+    """Cards from a root-owned JSON file. 'Inserting' a card is a command to medicus-authd."""
+
+    def __init__(self, cards_file: Path, state_file: Path):
+        self.state_file = Path(state_file)
+        raw = json.loads(Path(cards_file).read_text(encoding="utf-8"))
+        self.cards = {c["card_id"]: c for c in raw}
+        self.current: str | None = None
+        self.tries = json.loads(self.state_file.read_text()) if self.state_file.exists() else {}
+        self.revoked_file = self.state_file.with_name("kort-tilbakekalt.json")
+        self.revoked = json.loads(self.revoked_file.read_text()) if self.revoked_file.exists() else {}
+
+    def list_cards(self) -> list[dict]:
+        return [self._card(c).public() | {"sperret": self.is_blocked(cid), "tilbakekalt": self.revoked_reason(cid)}
+                for cid, c in self.cards.items()]
+
+    def _card(self, raw: dict) -> Card:
+        return Card(**{k: raw[k] for k in Card.__dataclass_fields__ if k in raw})
+
+    def insert(self, card_id: str):
+        if card_id not in self.cards:
+            raise CardError("Ukjent kort.")
+        self.current = card_id
+
+    def remove(self):
+        self.current = None
+
+    def inserted(self) -> Card | None:
+        return self._card(self.cards[self.current]) if self.current else None
+
+    def is_blocked(self, card_id: str) -> bool:
+        return self.tries.get(card_id, 0) >= MAX_TRIES
+
+    def verify_pin(self, pin: str) -> bool:
+        if self.current is None:
+            raise CardError("Ingen kort i leseren.")
+        if self.is_blocked(self.current):
+            raise CardError("Kortet er sperret etter for mange feil PIN-forsøk.")
+        ok = check_pin(pin, self.cards[self.current]["pin"])
+        self.tries[self.current] = 0 if ok else self.tries.get(self.current, 0) + 1
+        self._save()
+        if not ok and self.is_blocked(self.current):
+            raise CardError("Feil PIN. Kortet er nå sperret.")
+        return ok
+
+    def unblock(self, card_id: str):
+        """IT has checked the person's ID: the card gets three new tries."""
+        if card_id not in self.cards:
+            raise CardError("Ukjent kort.")
+        self.tries.pop(card_id, None)
+        self._save()
+
+    def revoke(self, card_id: str, reason: str, when: str, by: str):
+        if card_id not in self.cards:
+            raise CardError("Ukjent kort.")
+        if reason not in REVOKE_REASONS:
+            raise CardError(f"Grunnen må være en av: {', '.join(REVOKE_REASONS)}.")
+        self.revoked[card_id] = {"grunn": reason, "tid": when, "it_bruker": by}
+        self._save_revoked()
+
+    def restore(self, card_id: str):
+        if card_id not in self.revoked:
+            raise CardError("Kortet er ikke tilbakekalt.")
+        del self.revoked[card_id]
+        self._save_revoked()
+
+    def revoked_reason(self, card_id: str) -> str | None:
+        entry = self.revoked.get(card_id)
+        return entry["grunn"] if entry else None
+
+    def _save_revoked(self):
+        self.revoked_file.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.revoked_file.with_name(self.revoked_file.name + ".ny")
+        tmp.write_text(json.dumps(self.revoked, ensure_ascii=False))
+        tmp.replace(self.revoked_file)
+
+    def tries_left(self) -> int:
+        return MAX_TRIES - self.tries.get(self.current, 0) if self.current else 0
+
+    def _save(self):
+        self.state_file.parent.mkdir(parents=True, exist_ok=True)
+        self.state_file.write_text(json.dumps(self.tries))
+
+
+def build_cards_file(demo_file: Path, out_file: Path):
+    """Turn the demo card list (with plain PINs) into the hashed file the reader uses."""
+    cards = json.loads(Path(demo_file).read_text(encoding="utf-8"))
+    for card in cards:
+        card["pin"] = hash_pin(card.pop("demo_pin"))
+    Path(out_file).write_text(json.dumps(cards, ensure_ascii=False, indent=1), encoding="utf-8")

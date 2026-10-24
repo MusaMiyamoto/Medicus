@@ -1,0 +1,4 @@
+#!/bin/sh
+# Started by LightDM as the login screen.
+export GSK_RENDERER=cairo
+exec /usr/bin/python3 -I -c "import sys; sys.path.insert(0, '/opt/medicus'); from tilgang.greeter import main; sys.exit(main())"

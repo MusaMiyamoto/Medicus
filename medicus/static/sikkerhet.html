@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sikkerhetssenter – Medicus</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/i18n.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img src="/logo.svg" alt="">Medicus</div>
+    <nav>
+      <a href="/sikkerhet" aria-current="page">Sikkerhetssenter</a>
+    </nav>
+    <div class="who" id="who"></div>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Sikkerhetssenter</h2>
+      <p class="muted">IT-modus. Sjekker beskyttelsen på denne maskinen akkurat nå. Hver sjekk har et symbol og et ord:
+        ✓ OK, ! Bør sjekkes, ✕ Må følges opp.</p>
+      <p id="summary" class="summary"></p>
+      <ul id="checks" class="checks"></ul>
+    </section>
+    <section class="card">
+      <h2>Slik holder du deg trygg</h2>
+      <ul>
+        <li>Ta alltid ut kortet når du går fra maskinen. Da låses skjermen med en gang.</li>
+        <li>Ekte helsetjenester ber aldri om passord, PIN eller BankID på e-post.</li>
+        <li>E-post merket <span class="badge mistenkelig">⚠ Mistenkelig</span>: ikke svar, trykk «Rapporter».</li>
+        <li>Del pasientbilder bare gjennom Post, aldri på vanlig e-post eller minnepinne.</li>
+      </ul>
+    </section>
+  </main>
+  <script src="/static/common.js"></script>
+  <script>
+    const ICON = { ok: "✓", advarsel: "!", feil: "✕", info: "i" };
+    const WORD = { ok: "OK", advarsel: "Bør sjekkes", feil: "Må følges opp", info: "Info" };
+    async function load() {
+      try {
+        const checks = await api("/api/sikkerhet");
+        document.getElementById("checks").innerHTML = checks.map((c) => `
+          <li class="check ${c.status}"><span class="icon" aria-hidden="true">${ICON[c.status]}</span>
+            <div><b>${esc(c.navn)}</b> <span class="state">${WORD[c.status]}</span>
+              <div class="muted">${esc(c.forklaring)}</div></div></li>`).join("");
+        const bad = checks.filter((c) => c.status === "feil").length;
+        const warn = checks.filter((c) => c.status === "advarsel").length;
+        const summary = document.getElementById("summary");
+        summary.className = "summary " + (bad ? "feil" : warn ? "advarsel" : "ok");
+        summary.textContent = bad ? `✕ ${bad} ting må følges opp.`
+          : warn ? `! ${warn} ting bør sjekkes.` : "✓ Alt er i orden. Maskinen er beskyttet.";
+      } catch (e) {
+        document.getElementById("summary").textContent = e.message;
+      }
+    }
+    load();
+    setInterval(load, 15000);
+  </script>
+</body>
+</html>

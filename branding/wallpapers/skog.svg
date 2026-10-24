@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <title>Skog</title>
+  <!-- A misty spruce forest in the morning. Drawn for Medicus; free to use within the project. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#cfe6d8"/>
+      <stop offset="1" stop-color="#eef6ee"/>
+    </linearGradient>
+    <linearGradient id="mist" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eef6ee" stop-opacity="0"/>
+      <stop offset="1" stop-color="#eef6ee" stop-opacity="0.85"/>
+    </linearGradient>
+    <radialGradient id="light" cx="0.78" cy="0.12" r="0.5">
+      <stop offset="0" stop-color="#fffbe6" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#fffbe6" stop-opacity="0"/>
+    </radialGradient>
+    <!-- one spruce, reused at different sizes and shades -->
+    <path id="tree" d="M0 -200 L 22 -150 L 12 -150 L 38 -100 L 22 -100 L 52 -45 L 32 -45 L 66 10 L 6 10 L 6 30 L -6 30 L -6 10 L -66 10 L -32 -45 L -52 -45 L -22 -100 L -38 -100 L -12 -150 L -22 -150 Z"/>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <rect width="1920" height="1080" fill="url(#light)"/>
+  <!-- far row -->
+  <g fill="#9fbfae">
+    <use href="#tree" transform="translate(80 560) scale(1.2)"/><use href="#tree" transform="translate(220 590) scale(1)"/>
+    <use href="#tree" transform="translate(360 550) scale(1.3)"/><use href="#tree" transform="translate(520 600) scale(0.9)"/>
+    <use href="#tree" transform="translate(680 560) scale(1.2)"/><use href="#tree" transform="translate(840 590) scale(1)"/>
+    <use href="#tree" transform="translate(1000 550) scale(1.3)"/><use href="#tree" transform="translate(1160 600) scale(0.9)"/>
+    <use href="#tree" transform="translate(1320 560) scale(1.2)"/><use href="#tree" transform="translate(1480 590) scale(1)"/>
+    <use href="#tree" transform="translate(1640 550) scale(1.3)"/><use href="#tree" transform="translate(1800 600) scale(0.9)"/>
+  </g>
+  <rect y="420" width="1920" height="260" fill="url(#mist)"/>
+  <!-- middle row -->
+  <g fill="#5e8a73">
+    <use href="#tree" transform="translate(30 760) scale(1.9)"/><use href="#tree" transform="translate(260 800) scale(1.6)"/>
+    <use href="#tree" transform="translate(470 750) scale(2)"/><use href="#tree" transform="translate(720 810) scale(1.5)"/>
+    <use href="#tree" transform="translate(1210 790) scale(1.7)"/><use href="#tree" transform="translate(1440 750) scale(2)"/>
+    <use href="#tree" transform="translate(1680 800) scale(1.6)"/><use href="#tree" transform="translate(1900 760) scale(1.9)"/>
+  </g>
+  <rect y="640" width="1920" height="220" fill="url(#mist)" opacity="0.6"/>
+  <!-- near row and ground -->
+  <path d="M0 1000 C 400 950, 800 990, 1200 960 S 1700 980, 1920 950 L 1920 1080 L 0 1080 Z" fill="#1f3d2e"/>
+  <g fill="#244a37">
+    <use href="#tree" transform="translate(120 1010) scale(3.2)"/>
+    <use href="#tree" transform="translate(1760 1000) scale(3.4)"/>
+    <use href="#tree" transform="translate(1540 1040) scale(2.4)"/>
+  </g>
+</svg>

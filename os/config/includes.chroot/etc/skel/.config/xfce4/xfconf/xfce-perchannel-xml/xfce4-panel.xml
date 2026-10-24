@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- One bottom panel: Start menu, pinned Nettleser and Files, open windows, tray, clock, log out. -->
+<channel name="xfce4-panel" version="1.0">
+  <property name="configver" type="int" value="2"/>
+  <property name="panels" type="array">
+    <value type="int" value="1"/>
+    <property name="dark-mode" type="bool" value="true"/>
+    <property name="panel-1" type="empty">
+      <property name="position" type="string" value="p=10;x=0;y=0"/>
+      <property name="length" type="uint" value="100"/>
+      <property name="position-locked" type="bool" value="true"/>
+      <property name="size" type="uint" value="44"/>
+      <property name="icon-size" type="uint" value="20"/>
+      <property name="background-style" type="uint" value="1"/>
+      <property name="background-rgba" type="array">
+        <value type="double" value="0.04"/>
+        <value type="double" value="0.2"/>
+        <value type="double" value="0.12"/>
+        <value type="double" value="0.95"/>
+      </property>
+      <property name="plugin-ids" type="array">
+        <value type="int" value="1"/>
+        <value type="int" value="8"/>
+        <value type="int" value="9"/>
+        <value type="int" value="2"/>
+        <value type="int" value="3"/>
+        <value type="int" value="10"/>
+        <value type="int" value="4"/>
+        <value type="int" value="5"/>
+        <value type="int" value="6"/>
+        <value type="int" value="7"/>
+      </property>
+    </property>
+  </property>
+  <property name="plugins" type="empty">
+    <property name="plugin-1" type="string" value="whiskermenu">
+      <!-- Only the Medicus logo on the Start button; "Start" stays as the tooltip. -->
+      <property name="button-title" type="string" value="Start"/>
+      <property name="show-button-title" type="bool" value="false"/>
+      <property name="show-button-icon" type="bool" value="true"/>
+      <property name="button-icon" type="string" value="/usr/share/medicus/medicus-logo.svg"/>
+      <!-- No settings-manager or menu-editor button: those reach tools users should not change. -->
+      <property name="show-command-settings" type="bool" value="false"/>
+      <property name="show-command-menueditor" type="bool" value="false"/>
+      <property name="show-command-switchuser" type="bool" value="false"/>
+      <property name="show-command-hibernate" type="bool" value="false"/>
+      <!-- Tall enough that every favourite fits without scrolling. -->
+      <property name="menu-width" type="int" value="480"/>
+      <property name="menu-height" type="int" value="620"/>
+      <property name="favorites" type="array">
+        <value type="string" value="medicus-pasient.desktop"/>
+        <value type="string" value="medicus-post.desktop"/>
+        <value type="string" value="medicus-nettleser.desktop"/>
+        <value type="string" value="medicus-journal.desktop"/>
+        <value type="string" value="medicus-kalkulator.desktop"/>
+        <value type="string" value="medicus-innbygger.desktop"/>
+        <value type="string" value="medicus-utlevering.desktop"/>
+        <value type="string" value="thunar.desktop"/>
+        <value type="string" value="medicus-tekst.desktop"/>
+        <value type="string" value="medicus-kort-ut.desktop"/>
+      </property>
+    </property>
+    <!-- Pinned shortcuts next to Start: the browser, and Files (documents, pictures, downloads).
+         The .desktop files are in ~/.config/xfce4/panel/launcher-8 and launcher-9. -->
+    <property name="plugin-8" type="string" value="launcher">
+      <property name="items" type="array">
+        <value type="string" value="medicus-nettleser.desktop"/>
+      </property>
+      <property name="disable-tooltips" type="bool" value="false"/>
+    </property>
+    <property name="plugin-9" type="string" value="launcher">
+      <property name="items" type="array">
+        <value type="string" value="files.desktop"/>
+      </property>
+      <property name="disable-tooltips" type="bool" value="false"/>
+    </property>
+    <property name="plugin-2" type="string" value="tasklist">
+      <property name="grouping" type="uint" value="1"/>
+      <!-- no drag handle (the little lines next to the Start button) -->
+      <property name="show-handle" type="bool" value="false"/>
+    </property>
+    <property name="plugin-3" type="string" value="separator">
+      <property name="expand" type="bool" value="true"/>
+      <property name="style" type="uint" value="0"/>
+    </property>
+    <!-- Keyboard layout: Norwegian or Northern Sámi (Alt+Shift), shown as text: "no" for Norwegian,
+         "no" with a small dot for Northern Sámi (a variant of the Norwegian layout). display-scale keeps
+         the text about the size of the clock instead of filling the whole panel height. -->
+    <property name="plugin-10" type="string" value="xkb">
+      <property name="display-type" type="uint" value="1"/>
+      <property name="display-name" type="uint" value="1"/>
+      <property name="display-scale" type="uint" value="45"/>
+      <property name="group-policy" type="uint" value="0"/>
+    </property>
+    <property name="plugin-4" type="string" value="systray">
+      <property name="square-icons" type="bool" value="true"/>
+    </property>
+    <property name="plugin-5" type="string" value="pulseaudio"/>
+    <property name="plugin-6" type="string" value="clock"/>
+    <!-- Log-out menu (click your name). No "switch user" (cards decide who's logged in) and no
+         hibernate (it writes memory, including patient data, to disk). -->
+    <property name="plugin-7" type="string" value="actions">
+      <property name="items" type="array">
+        <value type="string" value="+lock-screen"/>
+        <value type="string" value="-switch-user"/>
+        <value type="string" value="+separator"/>
+        <value type="string" value="+suspend"/>
+        <value type="string" value="-hibernate"/>
+        <value type="string" value="-hybrid-sleep"/>
+        <value type="string" value="+separator"/>
+        <value type="string" value="+restart"/>
+        <value type="string" value="+shutdown"/>
+        <value type="string" value="+separator"/>
+        <value type="string" value="+logout"/>
+        <value type="string" value="-logout-dialog"/>
+      </property>
+    </property>
+  </property>
+</channel>

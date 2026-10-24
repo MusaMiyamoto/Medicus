@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lock the screen after 5 minutes without activity, also when the card is left in the reader;
+     unlocking needs the PIN again. System-wide and locked="*": users can't switch it off or make it
+     longer. IT changes the delay (minutes) here. -->
+<channel name="xfce4-screensaver" version="1.0" locked="*">
+  <property name="saver" type="empty">
+    <property name="enabled" type="bool" value="true"/>
+    <property name="idle-activation" type="empty">
+      <property name="enabled" type="bool" value="true"/>
+      <property name="delay" type="int" value="5"/>
+    </property>
+  </property>
+  <property name="lock" type="empty">
+    <property name="enabled" type="bool" value="true"/>
+    <property name="saver-activation" type="empty">
+      <property name="enabled" type="bool" value="true"/>
+      <property name="delay" type="int" value="0"/>
+    </property>
+  </property>
+</channel>

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Innbyggerportal (simulert)</title>
+  <link rel="stylesheet" href="static/sim.css">
+  <script src="static/i18n.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Innbyggerportal</h1>
+    <p>Slik ser pasienten det på Helsenorge – simulert</p>
+  </header>
+  <div class="sim">Simulering med syntetiske testpersoner. Ikke koblet til ekte Helsenorge.</div>
+  <main>
+    <section id="login" class="card">
+      <h2>Logg inn (simulert BankID)</h2>
+      <p class="muted">Velg en syntetisk testperson.</p>
+      <div id="people" class="patients"></div>
+    </section>
+
+    <section id="portal" hidden>
+      <div class="row" style="justify-content: space-between; margin-bottom: 10px">
+        <h2 id="name" style="margin: 0"></h2>
+        <button id="logout" class="secondary" type="button">Logg ut</button>
+      </div>
+      <nav>
+        <button type="button" data-tab="varsler" aria-pressed="true">Hvem har sett journalen min</button>
+        <button type="button" data-tab="resepter">Resepter</button>
+        <button type="button" data-tab="kontakter">Besøk og notater</button>
+        <button type="button" data-tab="utleveringer">Utleveringer til myndigheter</button>
+      </nav>
+      <section class="card" id="tab"></section>
+    </section>
+  </main>
+  <script src="static/common.js"></script>
+  <script src="static/helsenorge.js"></script>
+</body>
+</html>

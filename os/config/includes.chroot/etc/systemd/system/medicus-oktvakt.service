@@ -1,0 +1,29 @@
+# Ends desktop sessions the moment the card login no longer allows them.
+# Needs root only to terminate login sessions; everything else is locked down.
+[Unit]
+Description=Medicus øktvakt (logg ut når kortet tas ut)
+After=medicus-auth.service systemd-logind.service
+Requires=medicus-auth.service
+
+[Service]
+ExecStart=/usr/bin/python3 -I -c "import sys; sys.path.insert(0, '/opt/medicus'); from tilgang.sessionguard import main; main()"
+Restart=always
+PrivateNetwork=true
+RestrictAddressFamilies=AF_UNIX
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallFilter=@system-service
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

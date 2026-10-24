@@ -1,0 +1,6 @@
+#%PAM-1.0
+# Medicus: automatic login is never allowed.
+auth      requisite pam_deny.so
+account   requisite pam_deny.so
+session   requisite pam_deny.so
+password  requisite pam_deny.so

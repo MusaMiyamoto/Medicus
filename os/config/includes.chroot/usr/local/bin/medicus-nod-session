@@ -1,0 +1,4 @@
+#!/bin/sh
+# The emergency-access session: a window manager for full screen, and the emergency page.
+xfwm4 --compositor=off &
+exec /usr/bin/python3 -I -c "import sys; sys.path.insert(0, '/opt/medicus'); from tilgang.nodokt import main; sys.exit(main())"

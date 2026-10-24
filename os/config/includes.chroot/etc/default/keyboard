@@ -1,0 +1,8 @@
+# Norwegian, with Northern Sámi (davvisámegiella) as the second layout: á č đ ŋ š ŧ ž.
+# Alt+Shift switches; the taskbar shows which one is in use. The live system sets the same at boot
+# (live-config.keyboard-* in os/build.sh).
+XKBMODEL="pc105"
+XKBLAYOUT="no,no"
+XKBVARIANT=",smi"
+XKBOPTIONS="grp:alt_shift_toggle"
+BACKSPACE="guess"

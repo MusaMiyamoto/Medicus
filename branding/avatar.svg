@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <title>Helsepersonell</title>
+  <!-- A neutral health worker: white coat and stethoscope, stylized face. Drawn for Medicus. -->
+  <defs>
+    <radialGradient id="bg" cx="0.35" cy="0.3" r="0.85">
+      <stop offset="0" stop-color="#36ad74"/>
+      <stop offset="1" stop-color="#0d4f2e"/>
+    </radialGradient>
+    <clipPath id="circle"><circle cx="64" cy="64" r="64"/></clipPath>
+  </defs>
+  <circle cx="64" cy="64" r="64" fill="url(#bg)"/>
+  <g clip-path="url(#circle)">
+    <!-- head and hair, resting directly on the collar -->
+    <circle cx="64" cy="60" r="23" fill="#cfe9da"/>
+    <path d="M41 58 C 40 38, 53 32, 64 32 C 76 32, 89 39, 87 58 C 83 49, 75 45, 64 45 C 53 45, 45 49, 41 58 Z" fill="#0f5a35"/>
+    <!-- shoulders: white coat over a green shirt, drawn over the chin so there's no gap -->
+    <path d="M14 128 C 16 99, 36 86, 64 86 C 92 86, 112 99, 114 128 Z" fill="#f4faf6"/>
+    <path d="M53 86 L 64 106 L 75 86 Z" fill="#2f8f5c"/>
+    <path d="M53 86 L 60 103 L 50 111 L 44 91 Z M75 86 L 68 103 L 78 111 L 84 91 Z" fill="#dfeee5"/>
+    <!-- stethoscope -->
+    <path d="M50 89 C 46 100, 48 112, 58 114" fill="none" stroke="#123b28" stroke-width="3.2" stroke-linecap="round"/>
+    <path d="M78 89 C 82 100, 80 112, 70 114" fill="none" stroke="#123b28" stroke-width="3.2" stroke-linecap="round"/>
+    <circle cx="64" cy="116" r="5" fill="#123b28"/>
+    <circle cx="64" cy="116" r="2.2" fill="#9fd8b8"/>
+    <!-- green cross on the pocket -->
+    <path transform="translate(92 104)" fill="#1a7f4b" stroke="#1a7f4b" stroke-width="1" stroke-linejoin="round"
+          d="M-1.5 -5.5 H1.5 V-1.5 H5.5 V1.5 H1.5 V5.5 H-1.5 V1.5 H-5.5 V-1.5 H-1.5 Z"/>
+  </g>
+</svg>

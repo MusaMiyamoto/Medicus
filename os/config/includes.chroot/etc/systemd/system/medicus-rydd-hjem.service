@@ -1,0 +1,13 @@
+# Empties every Medicus home folder before anyone can log in, in case a session never closed
+# properly (power cut, crash). The same wipe runs at every logout (etc/pam.d/lightdm).
+[Unit]
+Description=Tøm hjemmemappene før innlogging
+After=home.mount local-fs.target
+Before=systemd-user-sessions.service display-manager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/medicus/rydd-hjem --alle
+
+[Install]
+WantedBy=multi-user.target

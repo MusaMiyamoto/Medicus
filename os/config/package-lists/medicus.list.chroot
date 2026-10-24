@@ -1,0 +1,85 @@
+# Desktop: XFCE parts listed one by one, so the "run command" box (xfce4-appfinder) is left
+# out. Users start programs from the Start menu only.
+xorg
+libxfce4ui-utils
+thunar
+tumbler
+xdg-user-dirs
+xfce4-panel
+xfce4-session
+xfce4-settings
+xfconf
+xfdesktop4
+xfwm4
+xfce4-whiskermenu-plugin
+xfce4-pulseaudio-plugin
+xfce4-xkb-plugin
+xfce4-notifyd
+xfce4-screensaver
+xfce4-power-manager
+arc-theme
+papirus-icon-theme
+lightdm
+gir1.2-lightdm-1
+gvfs
+network-manager
+network-manager-gnome
+xdg-utils
+pipewire-audio
+pavucontrol
+fonts-noto-core
+fonts-dejavu
+
+# Standard programs (Medicus Nettleser is our own, on the WebKit engine)
+gir1.2-webkit-6.0
+adwaita-icon-theme
+ristretto
+evince
+xfce4-screenshooter
+
+# Norwegian language and keyboard
+locales
+keyboard-configuration
+console-setup
+
+# Medicus apps
+python3
+python3-venv
+python3-pip
+python3-gi
+python3-gi-cairo
+gir1.2-gtk-4.0
+
+# Chip-card readers (for real health-personnel cards)
+pcscd
+opensc
+
+# Security
+nftables
+wireguard-tools
+apparmor
+apparmor-utils
+apparmor-profiles
+usbguard
+unattended-upgrades
+auditd
+clamav
+clamav-daemon
+tinyproxy
+lynis
+cryptsetup
+
+# IT mode only: these programs belong to the medicus-it group (see the build hook)
+sudo
+xfce4-terminal
+
+# Start-up animation (heartbeat)
+plymouth
+plymouth-themes
+# Machine certificate in the TPM for Wi-Fi (802.1X EAP-TLS), see wlan/
+tpm2-tools
+libtpm2-pkcs11-1
+libtpm2-pkcs11-tools
+pkcs11-provider
+libengine-pkcs11-openssl
+freerdp3-x11

@@ -1,0 +1,4 @@
+# Medicus IT mode: IT staff may run admin commands. Every command asks for the IT card PIN
+# (no remembered "sudo session") and is written to the security log by medicus-authd.
+Defaults:%medicus-it passprompt="PIN for IT-kortet: ", timestamp_timeout=0, lecture=never
+%medicus-it ALL=(ALL:ALL) ALL

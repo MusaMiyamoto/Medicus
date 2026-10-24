@@ -1,0 +1,35 @@
+desktop-image: "../splash.png"
+title-text: ""
+message-font: "Unifont Regular 16"
+terminal-font: "Unifont Regular 16"
+
++ boot_menu {
+        left = 30%
+        width = 40%
+        top = 70%
+        height = 15%
+        item_color = "#d8efe2"
+        item_font = "Unifont Regular 16"
+        selected_item_color = "#ffffff"
+        selected_item_font = "Unifont Regular 16"
+        item_height = 20
+        item_padding = 4
+        item_spacing = 6
+        icon_width = 0
+        icon_height = 0
+        item_icon_space = 0
+}
+
++ progress_bar {
+        id = "__timeout__"
+        left = 35%
+        width = 30%
+        top = 90%
+        height = 16
+        text = "Medicus starter om %d sekunder"
+        font = "Unifont Regular 16"
+        text_color = "#b0d8c4"
+        fg_color = "#1a7f4b"
+        bg_color = "#0b3b24"
+        border_color = "#0b3b24"
+}

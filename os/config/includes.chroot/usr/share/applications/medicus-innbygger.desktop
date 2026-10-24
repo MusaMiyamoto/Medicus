@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Innbyggerportal (simulert)
+Name[en]=Citizen portal (simulated)
+Comment=Slik ser pasienten varsler, resepter og besøk på Helsenorge – simulert
+Comment[en]=How the patient sees notices, prescriptions and visits on Helsenorge – simulated
+Exec=medicus-nettleser http://127.0.0.1:8100/helsenorge
+Icon=avatar-default
+Terminal=false
+Categories=Office;

@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Medicus OS demo</title>
+<meta name="description" content="Prøv Medicus OS: en trygg arbeidsstasjon for helsepersonell. Prototype med syntetiske data.">
+<link rel="icon" href="logo.svg">
+<style>
+:root {
+  --bg: #f4f7f5; --surface: #ffffff; --text: #17251f; --muted: #52645b; --line: #d8e2dc;
+  --brand: #0f5b3a; --brand-2: #157a4e; --on-brand: #ffffff; --warn-bg: #fff6dc; --warn: #6b5200;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1713; --surface: #14211b; --text: #e6efe9; --muted: #a2b5ab; --line: #26372f;
+    --brand: #1f8a5a; --brand-2: #2aa36c; --on-brand: #ffffff; --warn-bg: #3a3214; --warn: #f1d98a;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1713; --surface: #14211b; --text: #e6efe9; --muted: #a2b5ab; --line: #26372f;
+  --brand: #1f8a5a; --brand-2: #2aa36c; --on-brand: #ffffff; --warn-bg: #3a3214; --warn: #f1d98a;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--text);
+       font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif; }
+a { color: var(--brand-2); }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+html[lang="en"] .no, html[lang="nb"] .en { display: none !important; }
+
+header.top { background: var(--brand); color: var(--on-brand); }
+header.top .wrap { display: flex; align-items: center; gap: 12px; padding-top: 10px; padding-bottom: 10px; }
+header.top img { width: 36px; height: 36px; }
+header.top strong { font-size: 18px; letter-spacing: .04em; }
+header.top nav { margin-left: auto; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+header.top nav a { color: var(--on-brand); text-decoration: none; font-size: 15px; }
+header.top nav a:hover { text-decoration: underline; }
+button.lang { background: transparent; color: var(--on-brand); border: 1px solid rgba(255,255,255,.6);
+              border-radius: 6px; padding: 4px 10px; font: inherit; font-size: 14px; cursor: pointer; }
+
+.hero { max-width: 1560px; margin: 0 auto; padding: 48px 24px 40px; display: grid;
+        grid-template-columns: minmax(180px, 280px) minmax(300px, 400px) minmax(0, 1fr); gap: 40px; align-items: center; }
+.hero img.logo { width: 100%; max-width: 280px; height: auto; display: block; margin: 0 auto;
+                 filter: drop-shadow(0 8px 24px rgba(0,0,0,.25)); }
+.hero h1 { font-size: 36px; line-height: 1.15; margin: 0 0 12px; }
+.hero p { color: var(--muted); font-size: 18px; margin: 0 0 20px; }
+.hero img.shot { width: 100%; height: auto; aspect-ratio: 16 / 10; display: block; cursor: zoom-in; border-radius: 10px; border: 1px solid var(--line); box-shadow: 0 6px 24px rgba(0,0,0,.12); }
+.btn { display: inline-block; background: var(--brand); color: var(--on-brand); text-decoration: none;
+       padding: 10px 18px; border-radius: 8px; font-weight: 600; margin: 0 8px 8px 0; }
+.btn.ghost { background: transparent; color: var(--brand-2); border: 1px solid var(--brand-2); }
+
+.notice { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 12px 16px; margin: 0 0 32px; }
+
+section { padding: 24px 0; }
+section h2 { font-size: 26px; margin: 0 0 6px; }
+section > .wrap > p.lead { color: var(--muted); margin: 0 0 20px; }
+
+ol.steps { padding-left: 22px; }
+ol.steps li { margin-bottom: 10px; }
+code { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; font-size: 14px; }
+
+.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+.card h3 { margin: 0 0 2px; font-size: 17px; }
+.card .role { color: var(--brand-2); font-weight: 600; font-size: 14px; }
+.card p { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
+
+.checks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; list-style: none; padding: 0; margin: 0; }
+.checks label { display: flex; gap: 10px; align-items: flex-start; background: var(--surface);
+                border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; cursor: pointer; }
+.checks input { margin-top: 4px; accent-color: var(--brand-2); }
+.checks small { display: block; color: var(--muted); }
+.progress { color: var(--muted); font-size: 14px; margin-top: 10px; }
+
+.tour { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.tour figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.tour img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; cursor: zoom-in; }
+.tour figcaption { padding: 10px 12px; font-size: 14px; }
+.tour figcaption b { display: block; font-size: 15px; }
+
+dialog.zoom { border: 0; padding: 0; background: transparent; max-width: 96vw; }
+dialog.zoom::backdrop { background: rgba(0,0,0,.8); }
+dialog.zoom img { max-width: 96vw; max-height: 90vh; display: block; border-radius: 6px; }
+
+footer { border-top: 1px solid var(--line); margin-top: 32px; padding: 20px 0 40px; color: var(--muted); font-size: 14px; }
+
+@media (max-width: 1200px) {
+  .hero { grid-template-columns: 200px minmax(0, 1fr); }
+  .hero img.shot { grid-column: 1 / -1; }
+}
+@media (max-width: 860px) {
+  .hero { grid-template-columns: 1fr; padding-top: 28px; }
+  .hero img.logo { max-width: 140px; }
+  .hero h1 { font-size: 28px; }
+  .cards { grid-template-columns: 1fr 1fr; }
+  .tour { grid-template-columns: 1fr 1fr; }
+  .checks { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  header.top nav a.hide-s { display: none; }
+  .cards, .tour { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <img src="logo.svg" alt="">
+    <strong>MEDICUS</strong>
+    <nav>
+      <a class="hide-s" href="#try"><span class="no">Prøv</span><span class="en">Try it</span></a>
+      <a class="hide-s" href="#checklist"><span class="no">Hva du kan teste</span><span class="en">What to test</span></a>
+      <a class="hide-s" href="#tour"><span class="no">Omvisning</span><span class="en">Tour</span></a>
+      <button class="lang" id="lang" type="button">English</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <img class="logo" src="logo.svg" alt="Medicus">
+    <div>
+      <h1>
+        <span class="no">Medicus OS: en trygg arbeidsstasjon for helsepersonell</span>
+        <span class="en">Medicus OS: a secure workstation for health personnel</span>
+      </h1>
+      <p>
+        <span class="no">Logg inn med helsepersonellkort, åpne pasientjournalen, skriv notat med journalassistenten,
+          og la maskinen passe på resten: låst skjerm når kortet tas ut, bare godkjente nettsteder,
+          og revisjonslogg for alt som skjer.</span>
+        <span class="en">Log in with a health-personnel card, open the patient record, write a note with the journal
+          assistant, and let the machine take care of the rest: the screen locks when the card is removed, only approved
+          websites open, and everything is written to an audit log.</span>
+      </p>
+      <a class="btn" href="#try"><span class="no">Kom i gang</span><span class="en">Get started</span></a>
+      <a class="btn ghost" href="https://github.com/MusaMiyamoto/Medicus/issues/new" rel="noopener">
+        <span class="no">Gi tilbakemelding</span><span class="en">Give feedback</span></a>
+    </div>
+    <img class="shot" src="img/desktop.jpg" alt="Medicus OS desktop" width="1280" height="800">
+  </div>
+
+<div class="wrap">
+  <p class="notice">
+    <span class="no"><b>Prototype.</b> Alle pasienter, kort og journaler er syntetiske. Medicus er ikke et medisinsk
+      utstyr og skal ikke brukes på ekte pasienter. Det er laget for maskiner som eies av en helseinstitusjon eller det offentlige.</span>
+    <span class="en"><b>Prototype.</b> All patients, cards and records are synthetic. Medicus is not a medical device and
+      must not be used for real patients. It is made for machines owned by a health institution or the government.</span>
+  </p>
+</div>
+
+<section id="try">
+  <div class="wrap">
+    <h2><span class="no">Prøv det selv</span><span class="en">Try it yourself</span></h2>
+    <p class="lead">
+      <span class="no">Medicus OS starter fra en ISO-fil i en virtuell maskin. Det tar rundt ti minutter.</span>
+      <span class="en">Medicus OS runs from an ISO file in a virtual machine. It takes about ten minutes.</span>
+    </p>
+    <ol class="steps">
+      <li>
+        <span class="no">Last ned <code>medicus-os-amd64.hybrid.iso</code> (omtrent 1,9 GB) fra
+          <a href="https://github.com/MusaMiyamoto/Medicus/releases" rel="noopener">utgivelsene på GitHub</a>.</span>
+        <span class="en">Download <code>medicus-os-amd64.hybrid.iso</code> (about 1.9 GB) from
+          <a href="https://github.com/MusaMiyamoto/Medicus/releases" rel="noopener">the releases on GitHub</a>.</span>
+      </li>
+      <li>
+        <span class="no">Lag en ny virtuell maskin: type Linux, Debian 64-bit, minst 4 GB minne, 2 prosessorer og 20 GB disk.
+          Velg ISO-filen som startdisk.</span>
+        <span class="en">Create a new virtual machine: type Linux, Debian 64-bit, at least 4 GB of memory, 2 processors and a
+          20 GB disk. Choose the ISO file as the boot disk.</span>
+      </li>
+      <li>
+        <span class="no">Start maskinen og velg <b>Start Medicus</b>. Etter oppstart ser du innloggingen.</span>
+        <span class="en">Start the machine and choose <b>Start Medicus</b>. After booting you see the login screen.</span>
+      </li>
+      <li>
+        <span class="no">Velg et demokort nedenfor i listen nederst, trykk <b>Sett inn kort</b>, og skriv PIN <code>1234</code>.
+          Knappen «English» nederst til høyre bytter språk.</span>
+        <span class="en">Pick a demo card below from the list at the bottom, press <b>Insert card</b>, and type PIN <code>1234</code>.
+          The «English» button at the bottom right switches the language.</span>
+      </li>
+    </ol>
+
+    <h3 style="margin-top:28px"><span class="no">Demokort</span><span class="en">Demo cards</span></h3>
+    <div class="cards">
+      <div class="card"><h3>Ingrid Berg</h3><div class="role"><span class="no">Lege</span><span class="en">Doctor</span></div>
+        <p><span class="no">Overlege. Journal, notater, røntgen, post og rapporter.</span>
+           <span class="en">Consultant. Record, notes, X-ray, mail and reports.</span></p></div>
+      <div class="card"><h3>Jonas Lie</h3><div class="role"><span class="no">Sykepleier</span><span class="en">Nurse</span></div>
+        <p><span class="no">Ser det en sykepleier trenger, ikke mer.</span>
+           <span class="en">Sees what a nurse needs, nothing more.</span></p></div>
+      <div class="card"><h3>Amir Haddad</h3><div class="role"><span class="no">Ambulansearbeider</span><span class="en">Paramedic</span></div>
+        <p><span class="no">Prøv nødtilgang når det haster.</span>
+           <span class="en">Try emergency access when it is urgent.</span></p></div>
+      <div class="card"><h3>Eirik Strand</h3><div class="role">IT</div>
+        <p><span class="no">IT-verktøy: terminal, oppgavebehandling og innstillinger.</span>
+           <span class="en">IT tools: terminal, Task Manager and settings.</span></p></div>
+    </div>
+    <p class="progress"><span class="no">Alle kort har PIN 1234. Tre feil PIN sperrer kortet.</span>
+      <span class="en">Every card has PIN 1234. Three wrong PINs block the card.</span></p>
+  </div>
+</section>
+
+<section id="checklist">
+  <div class="wrap">
+    <h2><span class="no">Hva du kan teste</span><span class="en">What to test</span></h2>
+    <p class="lead"><span class="no">Kryss av mens du går. Avkrysningene lagres bare i din nettleser.</span>
+      <span class="en">Tick them off as you go. Your ticks are saved only in your browser.</span></p>
+    <ul class="checks" id="checks">
+      <li><label><input type="checkbox" data-k="login">
+        <span><span class="no">Logg inn med kort og PIN</span><span class="en">Log in with card and PIN</span>
+        <small><span class="no">Prøv også feil PIN.</span><span class="en">Try a wrong PIN too.</span></small></span></label></li>
+      <li><label><input type="checkbox" data-k="lock">
+        <span><span class="no">Ta ut kortet</span><span class="en">Remove the card</span>
+        <small><span class="no">Skjermen låses med en gang.</span><span class="en">The screen locks at once.</span></small></span></label></li>
+      <li><label><input type="checkbox" data-k="record">
+        <span><span class="no">Åpne en pasientjournal</span><span class="en">Open a patient record</span>
+        <small><span class="no">Kritisk informasjon, legemidler, notater.</span><span class="en">Critical information, medicines, notes.</span></small></span></label></li>
+      <li><label><input type="checkbox" data-k="assistant">
+        <span><span class="no">Skriv notat med journalassistenten</span><span class="en">Write a note with the journal assistant</span>
+        <small><span class="no">Fra en eksempelkonsultasjon til et utkast du godkjenner.</span><span class="en">From a sample consultation to a draft you approve.</span></small></span></label></li>
+      <li><label><input type="checkbox" data-k="post">
+        <span><span class="no">Finn svindelen i Post</span><span class="en">Spot the scam in Mail</span>
+        <small><span class="no">Varselet forklarer hvorfor meldingen er farlig.</span><span class="en">The warning explains why the message is dangerous.</span></small></span></label></li>
+      <li><label><input type="checkbox" data-k="browser">
+        <span><span class="no">Prøv nettleseren</span><span class="en">Try the browser</span>
+        <small><span class="no">Bare godkjente nettsteder åpnes.</span><span class="en">Only approved websites open.</span></small></span></label></li>
+      <li><label><input type="checkbox" data-k="emergency">
+        <span><span class="no">Nødtilgang</span><span class="en">Emergency access</span>
+        <small><span class="no">Kort tidsbegrenset tilgang, og en rapport etterpå.</span><span class="en">Short, time-limited access, then a report.</span></small></span></label></li>
+      <li><label><input type="checkbox" data-k="frozen">
+        <span><span class="no">Lukk program som henger (Ctrl+Shift+Esc)</span><span class="en">Close a frozen program (Ctrl+Shift+Esc)</span>
+        <small><span class="no">Bare dine egne arbeidsprogrammer vises.</span><span class="en">Only your own work programs are shown.</span></small></span></label></li>
+      <li><label><input type="checkbox" data-k="citizen">
+        <span><span class="no">Innbyggerportal og utlevering</span><span class="en">Citizen portal and disclosure</span>
+        <small><span class="no">Hvem har sett journalen, og forespørsler fra myndigheter.</span><span class="en">Who viewed the record, and requests from authorities.</span></small></span></label></li>
+      <li><label><input type="checkbox" data-k="security">
+        <span><span class="no">Sikkerhetssenteret</span><span class="en">Security center</span>
+        <small><span class="no">Brannmur, USB, oppdateringer.</span><span class="en">Firewall, USB, updates.</span></small></span></label></li>
+      <li><label><input type="checkbox" data-k="it">
+        <span><span class="no">IT-modus med Eirik Strand</span><span class="en">IT mode as Eirik Strand</span>
+        <small><span class="no">Oppgavebehandling: stopp et program med PIN; systemprosesser er beskyttet.</span>
+          <span class="en">Task Manager: stop a program with the PIN; system processes are protected.</span></small></span></label></li>
+      <li><label><input type="checkbox" data-k="english">
+        <span><span class="no">Bytt til engelsk</span><span class="en">Switch to English</span>
+        <small><span class="no">På innloggingen, før du setter inn kortet.</span><span class="en">On the login screen, before inserting the card.</span></small></span></label></li>
+    </ul>
+    <p class="progress" id="progress"></p>
+  </div>
+</section>
+
+<section id="tour">
+  <div class="wrap">
+    <h2><span class="no">Omvisning</span><span class="en">Tour</span></h2>
+    <p class="lead"><span class="no">Skjermbilder fra Medicus OS i en virtuell maskin. Klikk for større bilde.</span>
+      <span class="en">Screenshots of Medicus OS in a virtual machine. Click to enlarge.</span></p>
+    <div class="tour" id="gallery">
+      <figure><img loading="lazy" src="img/boot.jpg" alt="">
+        <figcaption><b><span class="no">Oppstart</span><span class="en">Boot</span></b>
+        <span class="no">Start Medicus, eller i sikker modus.</span><span class="en">Start Medicus, or in safe mode.</span></figcaption></figure>
+      <figure><img loading="lazy" src="img/login.jpg" alt="">
+        <figcaption><b><span class="no">Innlogging</span><span class="en">Login</span></b>
+        <span class="no">Sett inn helsepersonellkortet og skriv PIN.</span><span class="en">Insert the health-personnel card and type the PIN.</span></figcaption></figure>
+      <figure><img loading="lazy" src="img/login-en.jpg" alt="">
+        <figcaption><b><span class="no">På engelsk</span><span class="en">In English</span></b>
+        <span class="no">Samme innlogging på engelsk.</span><span class="en">The same login in English.</span></figcaption></figure>
+      <figure><img loading="lazy" src="img/heartbeat.jpg" alt="">
+        <figcaption><b><span class="no">Velkommen</span><span class="en">Welcome</span></b>
+        <span class="no">Hjerteslaget mens skrivebordet åpnes.</span><span class="en">The heartbeat while the desktop opens.</span></figcaption></figure>
+      <figure><img loading="lazy" src="img/start.jpg" alt="">
+        <figcaption><b><span class="no">Startmenyen</span><span class="en">Start menu</span></b>
+        <span class="no">Bare programmene helsepersonell trenger.</span><span class="en">Only the programs health personnel need.</span></figcaption></figure>
+      <figure><img loading="lazy" src="img/record.jpg" alt="">
+        <figcaption><b><span class="no">Pasientjournal</span><span class="en">Patient record</span></b>
+        <span class="no">Kritisk informasjon og legemidler øverst.</span><span class="en">Critical information and medicines at the top.</span></figcaption></figure>
+      <figure><img loading="lazy" src="img/journal.jpg" alt="">
+        <figcaption><b><span class="no">Journalassistent</span><span class="en">Journal assistant</span></b>
+        <span class="no">Utkast fra konsultasjonen, hver setning med kilde.</span><span class="en">A draft from the consultation, each sentence with its source.</span></figcaption></figure>
+      <figure><img loading="lazy" src="img/xray.jpg" alt="">
+        <figcaption><b><span class="no">Røntgen</span><span class="en">X-ray</span></b>
+        <span class="no">Lysstyrke, kontrast og invertering.</span><span class="en">Brightness, contrast and invert.</span></figcaption></figure>
+      <figure><img loading="lazy" src="img/post.jpg" alt="">
+        <figcaption><b>Post</b>
+        <span class="no">Svindel blir merket og forklart.</span><span class="en">Scams are flagged and explained.</span></figcaption></figure>
+      <figure><img loading="lazy" src="img/browser.jpg" alt="">
+        <figcaption><b><span class="no">Nettleser</span><span class="en">Browser</span></b>
+        <span class="no">Bare godkjente nettsteder.</span><span class="en">Approved websites only.</span></figcaption></figure>
+      <figure><img loading="lazy" src="img/emergency.jpg" alt="">
+        <figcaption><b><span class="no">Nødtilgang</span><span class="en">Emergency access</span></b>
+        <span class="no">Kun kritisk informasjon, med nedtelling.</span><span class="en">Critical information only, with a countdown.</span></figcaption></figure>
+      <figure><img loading="lazy" src="img/report.jpg" alt="">
+        <figcaption><b><span class="no">Rapport</span><span class="en">Report</span></b>
+        <span class="no">Etter nødtilgang skriver du hvorfor.</span><span class="en">After emergency access you write why.</span></figcaption></figure>
+      <figure><img loading="lazy" src="img/lock.jpg" alt="">
+        <figcaption><b><span class="no">Låst skjerm</span><span class="en">Locked screen</span></b>
+        <span class="no">Når kortet tas ut.</span><span class="en">When the card is removed.</span></figcaption></figure>
+      <figure><img loading="lazy" src="img/citizen.jpg" alt="">
+        <figcaption><b><span class="no">Innbyggerportal</span><span class="en">Citizen portal</span></b>
+        <span class="no">Pasienten ser hvem som har åpnet journalen.</span><span class="en">The patient sees who opened their record.</span></figcaption></figure>
+      <figure><img loading="lazy" src="img/disclosure.jpg" alt="">
+        <figcaption><b><span class="no">Utlevering</span><span class="en">Disclosure</span></b>
+        <span class="no">Forespørsler fra myndigheter, med hjemmel.</span><span class="en">Requests from authorities, with the legal basis.</span></figcaption></figure>
+      <figure><img loading="lazy" src="img/security.jpg" alt="">
+        <figcaption><b><span class="no">Sikkerhetssenter</span><span class="en">Security center</span></b>
+        <span class="no">Status for maskinen på ett sted.</span><span class="en">The machine's status in one place.</span></figcaption></figure>
+      <figure><img loading="lazy" src="img/calculator.jpg" alt="">
+        <figcaption><b><span class="no">Kalkulator</span><span class="en">Calculator</span></b>
+        <span class="no">Omregning av mengder og kliniske skårer.</span><span class="en">Unit conversion and clinical scores.</span></figcaption></figure>
+      <figure><img loading="lazy" src="img/files.jpg" alt="">
+        <figcaption><b><span class="no">Filer</span><span class="en">Files</span></b>
+        <span class="no">Brukerens egne mapper.</span><span class="en">The user's own folders.</span></figcaption></figure>
+      <figure><img loading="lazy" src="img/it-desktop.jpg" alt="">
+        <figcaption><b><span class="no">IT-modus</span><span class="en">IT mode</span></b>
+        <span class="no">Egne verktøy for IT-kortet.</span><span class="en">Tools of its own for the IT card.</span></figcaption></figure>
+      <figure><img loading="lazy" src="img/task-manager.jpg" alt="">
+        <figcaption><b><span class="no">Oppgavebehandling</span><span class="en">Task Manager</span></b>
+        <span class="no">Systemprosesser er beskyttet; stopp krever PIN.</span><span class="en">System processes are protected; stopping needs the PIN.</span></figcaption></figure>
+      <figure><img loading="lazy" src="img/services.jpg" alt="">
+        <figcaption><b><span class="no">Tjenester</span><span class="en">Services</span></b>
+        <span class="no">IT kan starte en tjeneste på nytt med PIN; sikkerhetstjenestene er låst.</span><span class="en">IT can restart a service with the PIN; the security services are locked.</span></figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="feedback">
+  <div class="wrap">
+    <h2><span class="no">Tilbakemelding</span><span class="en">Feedback</span></h2>
+    <p>
+      <span class="no">Fant du en feil, eller savner du noe? Skriv en sak på
+        <a href="https://github.com/MusaMiyamoto/Medicus/issues/new" rel="noopener">GitHub</a>. Si hvilket kort du brukte,
+        hva du gjorde, og hva som skjedde. Ikke skriv ekte pasientopplysninger.</span>
+      <span class="en">Found a bug, or missing something? Open an issue on
+        <a href="https://github.com/MusaMiyamoto/Medicus/issues/new" rel="noopener">GitHub</a>. Say which card you used,
+        what you did and what happened. Never write real patient information.</span>
+    </p>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="no">Medicus OS, prototype. Syntetiske data. Ikke medisinsk utstyr.</span>
+    <span class="en">Medicus OS, prototype. Synthetic data. Not a medical device.</span>
+    · <a href="https://github.com/MusaMiyamoto/Medicus" rel="noopener"><span class="no">Kildekode</span><span class="en">Source code</span></a>
+  </div>
+</footer>
+
+<dialog class="zoom" id="zoom"><img alt=""></dialog>
+
+<script>
+(function () {
+  function get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+  var html = document.documentElement, btn = document.getElementById("lang");
+  function lang(l) {
+    html.lang = l;
+    btn.textContent = l === "en" ? "Norsk" : "English";
+    set("medicus-lang", l);
+    count();
+  }
+  btn.addEventListener("click", function () { lang(html.lang === "en" ? "nb" : "en"); });
+
+  var boxes = document.querySelectorAll("#checks input"), progress = document.getElementById("progress");
+  function count() {
+    var done = 0;
+    boxes.forEach(function (b) { if (b.checked) done++; });
+    progress.textContent = html.lang === "en" ? done + " of " + boxes.length + " tested"
+                                              : done + " av " + boxes.length + " testet";
+  }
+  boxes.forEach(function (b) {
+    b.checked = get("medicus-check-" + b.dataset.k) === "1";
+    b.addEventListener("change", function () { set("medicus-check-" + b.dataset.k, b.checked ? "1" : "0"); count(); });
+  });
+
+  var zoom = document.getElementById("zoom");
+  function enlarge(e) {
+    if (e.target.tagName !== "IMG" || !zoom.showModal) return;
+    zoom.querySelector("img").src = e.target.src;
+    zoom.showModal();
+  }
+  document.getElementById("gallery").addEventListener("click", enlarge);
+  document.querySelector(".hero img.shot").addEventListener("click", enlarge);
+  zoom.addEventListener("click", function () { zoom.close(); });
+
+  var saved = get("medicus-lang");
+  lang(saved || (/^en/i.test(navigator.language || "") ? "en" : "nb"));
+})();
+</script>
+</body>
+</html>

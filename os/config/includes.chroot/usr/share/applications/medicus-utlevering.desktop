@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Utleveringsforespørsler (simulert)
+Name[en]=Disclosure requests (simulated)
+Comment=Forespørsler fra myndigheter, vurdert av personvernombud
+Comment[en]=Requests from authorities, assessed by the data protection officer
+Exec=medicus-nettleser http://127.0.0.1:8100/utlevering
+Icon=security-high
+Terminal=false
+Categories=Office;

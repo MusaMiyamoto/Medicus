@@ -1,0 +1,4 @@
+#!/bin/sh
+# The hospital's record systems next to Medicus. See journalsystem/__init__.py. -I: the environment
+# can't make this load other code, which matters because `oppdater` runs as root through sudo.
+exec /usr/bin/python3 -I -c "import sys; sys.path.insert(0, '/opt/medicus'); from journalsystem.__main__ import main; sys.exit(main())" "$@"

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <title>Fjord</title>
+  <!-- A Norwegian fjord at sunset. Drawn for Medicus; free to use within the project. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d3557"/>
+      <stop offset="0.5" stop-color="#e9a26b"/>
+      <stop offset="0.72" stop-color="#f6d6a0"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.5" cy="0.62" r="0.18">
+      <stop offset="0" stop-color="#fff4d6" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#ffd59a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c58a64"/>
+      <stop offset="0.25" stop-color="#3d5a73"/>
+      <stop offset="1" stop-color="#0f2236"/>
+    </linearGradient>
+    <linearGradient id="haze" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6d6a0" stop-opacity="0"/>
+      <stop offset="1" stop-color="#f6d6a0" stop-opacity="0.45"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <rect width="1920" height="1080" fill="url(#sun)"/>
+  <!-- far mountains -->
+  <path d="M0 560 L 200 470 L 380 540 L 560 430 L 760 560 L 960 640 L 1160 560 L 1360 420 L 1540 520 L 1720 450 L 1920 540 L 1920 700 L 0 700 Z" fill="#8b6f83" opacity="0.75"/>
+  <rect y="430" width="1920" height="270" fill="url(#haze)"/>
+  <!-- fjord walls -->
+  <path d="M0 360 L 160 300 L 330 420 L 520 520 L 700 600 L 840 660 L 900 700 L 0 700 Z" fill="#3e4f63"/>
+  <path d="M1920 330 L 1760 280 L 1580 400 L 1400 500 L 1220 590 L 1080 660 L 1020 700 L 1920 700 Z" fill="#33445a"/>
+  <path d="M0 520 L 220 480 L 420 580 L 640 650 L 820 700 L 0 700 Z" fill="#253546"/>
+  <path d="M1920 500 L 1700 470 L 1480 570 L 1260 650 L 1100 700 L 1920 700 Z" fill="#1f2e3f"/>
+  <!-- water with reflections -->
+  <rect y="700" width="1920" height="380" fill="url(#water)"/>
+  <g fill="#fff1d0">
+    <rect x="900" y="712" width="120" height="3" opacity="0.7"/>
+    <rect x="860" y="740" width="200" height="3" opacity="0.5"/>
+    <rect x="820" y="780" width="280" height="3" opacity="0.35"/>
+    <rect x="770" y="830" width="380" height="3" opacity="0.22"/>
+    <rect x="720" y="900" width="480" height="3" opacity="0.14"/>
+  </g>
+  <path d="M0 700 L 0 760 C 300 740, 600 720, 820 700 Z" fill="#162434" opacity="0.8"/>
+  <path d="M1920 700 L 1920 770 C 1600 745, 1300 720, 1100 700 Z" fill="#132131" opacity="0.8"/>
+</svg>

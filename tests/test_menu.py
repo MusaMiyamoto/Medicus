@@ -1,0 +1,61 @@
+import importlib.util
+from pathlib import Path
+
+spec = importlib.util.spec_from_file_location("menu", Path(__file__).parent.parent / "os" / "menu.py")
+menu = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(menu)
+
+BRANDS = ("firefox", "thunar", "mousepad", "ristretto", "xfce", "debian", "gnome", "mozilla", "evince")
+
+
+def test_menu_names_carry_no_other_brands(tmp_path):
+    menu.main(tmp_path)
+    for f in (tmp_path / "usr/local/share/applications").glob("*.desktop"):
+        text = f.read_text(encoding="utf-8")
+        name = next(line for line in text.splitlines() if line.startswith("Name="))
+        icon = next((line for line in text.splitlines() if line.startswith("Icon=")), "Icon=")
+        assert not any(b in name.lower() for b in BRANDS), f"{f.name}: {name}"
+        assert not any(b in icon.lower() for b in BRANDS), f"{f.name}: {icon}"
+
+
+def test_the_names_the_user_asked_for(tmp_path):
+    assert menu.RENAME["thunar.desktop"][0] == "Files"
+    assert menu.RENAME["org.xfce.ristretto.desktop"][0] == "Pictures"
+    assert menu.RENAME["xfce-mouse-settings.desktop"][0] == "Mouse"
+
+
+def test_every_renamed_entry_has_english(tmp_path):
+    assert set(menu.ENGLISH) == set(menu.RENAME)
+    assert all(menu.ENGLISH[f][1] for f in menu.COMMENTS)  # a description in English wherever there is one
+    menu.main(tmp_path)
+    files = (tmp_path / "usr/local/share/applications/thunar.desktop").read_text(encoding="utf-8")
+    assert "Comment[en]=Folders and files: documents, pictures and downloads\n" in files
+
+
+def test_text_is_our_own_editor():
+    desktop = Path(__file__).parent.parent / "os/config/includes.chroot/usr/share/applications/medicus-tekst.desktop"
+    assert "Name=Text\n" in desktop.read_text(encoding="utf-8")
+    assert "org.xfce.mousepad.desktop" in menu.HIDE
+
+
+def test_terminals_and_command_tools_are_hidden():
+    for f in ("debian-xterm.desktop", "debian-uxterm.desktop", "xfce4-settings-editor.desktop",
+              "xfce-keyboard-settings.desktop", "xfce4-terminal-emulator.desktop"):
+        assert f in menu.HIDE
+
+
+IT_APPS = Path(__file__).parent.parent / "os/config/includes.chroot/usr/share/medicus-it/applications"
+
+
+def test_it_tools_are_hidden_outside_it_mode():
+    for f in ("xfce4-terminal.desktop", "xfce4-taskmanager.desktop", "nm-connection-editor.desktop"):
+        assert f in menu.HIDE
+    normal = Path(__file__).parent.parent / "os/config/includes.chroot/usr/share/applications"
+    assert not (normal / "medicus-sikkerhet.desktop").exists()
+    assert (IT_APPS / "medicus-sikkerhet.desktop").exists()
+
+
+def test_it_mode_has_its_own_tools_and_handbook():
+    names = {f.name for f in IT_APPS.glob("*.desktop")}
+    assert {"medicus-it-terminal.desktop", "medicus-it-handbok.desktop", "medicus-sikkerhet.desktop"} <= names
+    assert (Path(__file__).parent.parent / "docs/IT-handbok.md").exists()

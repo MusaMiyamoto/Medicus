@@ -1,0 +1,23 @@
+## Medicus security log (auditd). Read with: ausearch -k <key>
+## Keep loading if one rule fails (for example a watched folder that doesn't exist): without
+## this, a single bad line stops every rule, and auditd won't start without its rules.
+-i
+## Changes to who can log in
+-w /etc/passwd -p wa -k identitet
+-w /etc/group -p wa -k identitet
+-w /etc/shadow -p wa -k identitet
+-w /etc/pam.d/ -p wa -k innlogging
+## Changes to Medicus and its protections (/opt/medicus includes Medicus Nettleser)
+-w /etc/medicus/ -p wa -k medicus-oppsett
+-w /opt/medicus/ -p wa -k medicus-program
+-w /usr/local/ -p wa -k medicus-program
+-w /etc/nftables.conf -p wa -k brannmur
+-w /etc/usbguard/ -p wa -k usb
+-w /etc/wireguard/ -p wa -k vpn
+-w /etc/tinyproxy/ -p wa -k nettfilter
+## Kernel modules, clock and mounts
+-a always,exit -F arch=b64 -S init_module,finit_module,delete_module -k kjernemoduler
+-a always,exit -F arch=b64 -S clock_settime,settimeofday,adjtimex -k klokke
+-a always,exit -F arch=b64 -S mount,umount2 -F auid>=1000 -F auid!=4294967295 -k montering
+## Anything run as root by a logged-in person
+-a always,exit -F arch=b64 -S execve -F euid=0 -F auid>=1000 -F auid!=4294967295 -k root-kommando

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Om Medicus</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/i18n.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img src="/logo.svg" alt="">Medicus</div>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Om Medicus</h2>
+      <p>Medicus er en sikker arbeidsstasjon for helsepersonell. Den skal bare brukes på maskiner som
+        eies og driftes av helseforetaket, kommunen eller annen offentlig virksomhet, aldri på private PC-er.</p>
+      <p class="muted">Prototype med syntetiske data. Ikke godkjent for ekte pasientopplysninger.</p>
+    </section>
+    <section class="card">
+      <h2>Åpen kildekode</h2>
+      <p>Medicus er bygget på fri programvare. Vi takker utviklerne bak disse prosjektene. Lisensene
+        gir deg rett til å få kildekoden; kontakt IT eller leverandøren.</p>
+      <table class="licenses">
+        <thead><tr><th>Komponent</th><th>Brukes til</th><th>Lisens</th></tr></thead>
+        <tbody>
+          <tr><td>Debian GNU/Linux</td><td>Grunnsystemet</td><td>Flere fri lisenser, mest GPL</td></tr>
+          <tr><td>Linux-kjernen</td><td>Kjernen</td><td>GPL-2.0</td></tr>
+          <tr><td>Xfce (panel, vindusbehandler, Files, Pictures)</td><td>Skrivebordet</td><td>GPL-2.0 / LGPL</td></tr>
+          <tr><td>LightDM</td><td>Innloggingsskjermen</td><td>GPL-3.0</td></tr>
+          <tr><td>GTK og GLib</td><td>Vinduer og knapper</td><td>LGPL-2.1</td></tr>
+          <tr><td>WebKitGTK</td><td>Motoren i Nettleser</td><td>LGPL-2.1 / BSD</td></tr>
+          <tr><td>Evince</td><td>Dokumenter (PDF)</td><td>GPL-2.0</td></tr>
+          <tr><td>Plymouth</td><td>Oppstartsanimasjonen</td><td>GPL-2.0</td></tr>
+          <tr><td>ClamAV</td><td>Virusskanning</td><td>GPL-2.0</td></tr>
+          <tr><td>nftables, WireGuard, USBGuard, auditd, AppArmor</td><td>Sikkerhet</td><td>GPL-2.0</td></tr>
+          <tr><td>tinyproxy</td><td>Nettfilteret</td><td>GPL-2.0</td></tr>
+          <tr><td>Python, FastAPI, Pydantic, Uvicorn</td><td>Medicus-appene</td><td>PSF / MIT / BSD</td></tr>
+          <tr><td>pydicom, NumPy, Pillow</td><td>Røntgen- og MR-bilder</td><td>MIT / BSD / HPND</td></tr>
+          <tr><td>faster-whisper og Ollama</td><td>Journalassistenten</td><td>MIT</td></tr>
+          <tr><td>Arc-tema, Papirus-ikoner, Noto-skrift</td><td>Utseendet</td><td>GPL-3.0 / OFL-1.1</td></tr>
+        </tbody>
+      </table>
+      <p class="muted">Den fullstendige lisensteksten for hver pakke ligger på maskinen i
+        <code>/usr/share/doc/&lt;pakke&gt;/copyright</code>. Medicus-logoen, bakgrunnsbildene og
+        Medicus-appene er laget for dette prosjektet.</p>
+    </section>
+  </main>
+</body>
+</html>
