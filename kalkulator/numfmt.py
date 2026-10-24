@@ -1,6 +1,8 @@
-"""Reading and writing numbers the Norwegian way: decimal comma, space between thousands."""
+"""Reading and writing numbers: decimal comma in Norwegian, decimal point in English, space between thousands."""
 
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation, localcontext
+
+from .sprak import _, english
 
 DISPLAY_DECIMALS = 10
 MAX_INPUT = Decimal("1e15")
@@ -12,21 +14,26 @@ class NumberError(ValueError):
 
 
 def parse_number(text: str) -> Decimal:
-    """Accept '1,5', '1.5', '1 500' and '1 500,25'. Reject anything ambiguous."""
+    """Accept '1,5', '1.5', '1 500' and '1 500,25'. Reject anything ambiguous.
+
+    In English a comma is refused: '1,500' means 1500 there, and guessing is not safe.
+    """
     shown = text.strip()
     cleaned = shown.replace(" ", "").replace(THIN_SPACE, "").replace(" ", "")
     if not cleaned:
-        raise NumberError("Skriv inn et tall.")
+        raise NumberError(_("Skriv inn et tall."))
+    if english() and "," in cleaned:
+        raise NumberError(_("Bruk punktum som desimaltegn, for eksempel 1.5. Komma er ikke tillatt."))
     if cleaned.count(",") + cleaned.count(".") > 1:
-        raise NumberError("Bruk bare ett desimaltegn, for eksempel 1,5.")
+        raise NumberError(_("Bruk bare ett desimaltegn, for eksempel 1,5."))
     try:
         value = Decimal(cleaned.replace(",", "."))
     except InvalidOperation:
-        raise NumberError(f"«{shown}» er ikke et tall.") from None
+        raise NumberError(_("«{}» er ikke et tall.").format(shown)) from None
     if not value.is_finite():
-        raise NumberError(f"«{shown}» er ikke et tall.")
+        raise NumberError(_("«{}» er ikke et tall.").format(shown))
     if abs(value) >= MAX_INPUT:
-        raise NumberError("Tallet er for stort.")
+        raise NumberError(_("Tallet er for stort."))
     return value
 
 
@@ -48,4 +55,5 @@ def format_number(value: Decimal) -> str:
         whole = whole[:-3]
     groups.insert(0, whole)
     result = sign + THIN_SPACE.join(groups)
-    return f"{result},{fraction}" if fraction else result
+    decimal_sign = "." if english() else ","
+    return f"{result}{decimal_sign}{fraction}" if fraction else result

@@ -7,6 +7,8 @@ product information (Felleskatalogen / SPC) and current guidelines.
 from dataclasses import dataclass
 from urllib.parse import quote
 
+from .sprak import _
+
 FELLESKATALOGEN = "https://www.felleskatalogen.no/medisin/sok?sokord="
 CREATININE_MG_DL = 88.4  # µmol/L per mg/dL
 
@@ -19,13 +21,13 @@ def felleskatalogen(term: str) -> str:
     """A search in Felleskatalogen (opens in Nettleser, where felleskatalogen.no is allowed)."""
     term = " ".join(term.split())[:80]
     if not term:
-        raise ScoreError("Skriv navnet på legemiddelet.")
+        raise ScoreError(_("Skriv navnet på legemiddelet."))
     return FELLESKATALOGEN + quote(term)
 
 
 def _check(value: float, low: float, high: float, what: str) -> float:
     if not low <= value <= high:
-        raise ScoreError(f"{what} må være mellom {low:g} og {high:g}.")
+        raise ScoreError(_("{} må være mellom {} og {}.").format(_(what), f"{low:g}", f"{high:g}"))
     return value
 
 
@@ -210,7 +212,8 @@ def news2(resp_rate: float, spo2: float, scale2: bool, oxygen: bool, systolic: f
     return total, points, risk
 
 
-# What each calculator is based on, shown on screen under it.
+# What each calculator is based on, shown on screen under it. The words here and in the lists above
+# stay Norwegian; the window translates them with sprak._ when it shows them.
 SOURCES = {
     "bmi": "Vekt / høyde². Klasser: WHO, voksne.",
     "egfr": "CKD-EPI 2021 uten etnisitet (Inker m.fl., NEJM 2021). Sjekk hvilken ligning laboratoriet ditt "

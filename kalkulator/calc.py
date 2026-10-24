@@ -5,6 +5,7 @@ import operator
 from decimal import Decimal, DivisionByZero, InvalidOperation, localcontext
 
 from .numfmt import MAX_INPUT, NumberError, parse_number
+from .sprak import _, english
 
 MAX_LENGTH = 200
 
@@ -28,14 +29,17 @@ def _normalize(expression: str) -> str:
 
 def calculate(expression: str) -> Decimal:
     if not expression.strip():
-        raise CalcError("Skriv inn et regnestykke.")
+        raise CalcError(_("Skriv inn et regnestykke."))
     if len(expression) > MAX_LENGTH:
-        raise CalcError("Regnestykket er for langt.")
+        raise CalcError(_("Regnestykket er for langt."))
+    if english() and "," in expression:
+        # "1,500" means 1500 in English and 1.5 in Norwegian: refuse rather than guess.
+        raise CalcError(_("Bruk punktum som desimaltegn, for eksempel 1.5. Komma er ikke tillatt."))
     source = _normalize(expression)
     try:
         tree = ast.parse(source, mode="eval")
     except SyntaxError:
-        raise CalcError("Regnestykket er ikke fullstendig.") from None
+        raise CalcError(_("Regnestykket er ikke fullstendig.")) from None
 
     def evaluate(node):
         if isinstance(node, ast.Expression):
@@ -51,7 +55,7 @@ def calculate(expression: str) -> Decimal:
         if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
             value = evaluate(node.operand)
             return -value if isinstance(node.op, ast.USub) else value
-        raise CalcError("Bare tall, + − × ÷ og parenteser er tillatt.")
+        raise CalcError(_("Bare tall, + − × ÷ og parenteser er tillatt."))
 
     with localcontext() as ctx:
         ctx.prec = 34
@@ -60,7 +64,7 @@ def calculate(expression: str) -> Decimal:
         try:
             result = evaluate(tree)
         except (DivisionByZero, InvalidOperation):
-            raise CalcError("Kan ikke dele på null.") from None
+            raise CalcError(_("Kan ikke dele på null.")) from None
     if abs(result) >= MAX_INPUT:
-        raise CalcError("Svaret er for stort.")
+        raise CalcError(_("Svaret er for stort."))
     return result

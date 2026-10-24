@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from decimal import Decimal
 
+from .sprak import _
+
 
 @dataclass(frozen=True)
 class Unit:
@@ -73,7 +75,7 @@ class AmountError(ValueError):
 def check_amount(amount: Decimal) -> Decimal:
     """A volume or weight can't be negative."""
     if amount < 0:
-        raise AmountError("Mengden kan ikke være negativ.")
+        raise AmountError(_("Mengden kan ikke være negativ."))
     return amount
 
 
@@ -83,9 +85,9 @@ class DensityError(ValueError):
 
 def check_density(density: Decimal) -> None:
     if density <= 0:
-        raise DensityError("Tettheten må være større enn 0.")
+        raise DensityError(_("Tettheten må være større enn 0."))
     if density > MAX_DENSITY:
-        raise DensityError("Tettheten virker urimelig høy. Sjekk tallet (g/ml).")
+        raise DensityError(_("Tettheten virker urimelig høy. Sjekk tallet (g/ml)."))
 
 
 def grams_to_ml(grams: Decimal, density: Decimal) -> Decimal:
@@ -109,7 +111,7 @@ def across(value: Decimal, source: Unit, target: Unit, density: Decimal) -> Deci
         return convert(grams_to_ml(convert(value, source, GRAM), density), ML, target)
     if source in VOLUME and target in MASS:
         return convert(ml_to_grams(convert(value, source, ML), density), GRAM, target)
-    raise ValueError("Velg én vektenhet og én volumenhet.")
+    raise ValueError(_("Velg én vektenhet og én volumenhet."))
 
 
 def across_to_all(value: Decimal, source: Unit, density: Decimal) -> list[tuple[Unit, Decimal]]:
