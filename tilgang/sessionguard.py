@@ -19,6 +19,7 @@ from .client import AuthError, call
 
 GROUPS = ("medicus-personell", "medicus-nod", "medicus-it")
 GRACE_SECONDS = 15
+REMOTE_CLIENT = "xfreerdp3"  # journalsystem/: the hospital's record systems in remote windows
 
 
 def medicus_users() -> set[str]:
@@ -75,6 +76,9 @@ def main() -> int:
         held = to_lock(login, sessions)
         for session_id in set(held) - locked:
             subprocess.run(["loginctl", "lock-session", session_id], check=False)
+            # The hospital's record systems too: disconnect the remote windows. The server keeps the
+            # remote session, so the same card reconnects to it; nobody can use it from this screen.
+            subprocess.run(["pkill", "-TERM", "-u", login["linux_bruker"], "-x", REMOTE_CLIENT], check=False)
         locked = set(held)
         if login and not has_desktop:
             alone_since = alone_since or time.monotonic()

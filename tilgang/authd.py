@@ -224,6 +224,16 @@ class Authority:
             raise CardError(f"Feil PIN. {self.reader.tries_left()} forsøk igjen.")
         self.audit.record(card.hpr, "admin_confirmed", {"user": card.username, "command": str(req.get("command", ""))[:200]})
 
+    def cmd_unblock(self, req, uid):
+        """IT lifts a PIN block after checking the person's ID (medicus-kort opphev-sperre, via sudo, so the
+        IT card PIN was confirmed first). Logged with who did it."""
+        self._require_root(uid)
+        card_id = str(req.get("card_id", ""))
+        if not self.reader.is_blocked(card_id):
+            raise CardError("Kortet er ikke sperret (eller finnes ikke).")
+        self.reader.unblock(card_id)
+        self.audit.record(str(req.get("it_bruker", "root"))[:64], "card_unblocked", {"card": card_id[:64]})
+
     def cmd_emergency(self, req, uid):
         self._require_root(uid)
         card = self.reader.inserted()

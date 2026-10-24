@@ -136,7 +136,7 @@ hide the package's own menu entry in `os/menu.py` (`HIDE`).
 
 | What the screen says | What to do |
 |---|---|
-| *Kortet er sperret* (card blocked) | Three wrong PINs. In IT mode: `sudo nano /var/lib/medicus-auth/pin-forsok.json` and remove the card's line, after checking it is really the owner. |
+| *Kortet er sperret* (card blocked) | Three wrong PINs. **Check the person's ID first**, then in IT mode: `medicus-kort opphev-sperre <kort-id>` (asks for your IT card PIN, logged as `card_unblocked`). A real health personnel card that blocks itself is reset by the card issuer with the PUK code. |
 | *Får ikke kontakt med innloggingstjenesten* | `sudo systemctl status medicus-auth`, then `sudo journalctl -u medicus-auth -n 50`. |
 | *Kortet tilhører en annen bruker* | The card in the reader isn't the one the screen shows. Take it out and put it back in. |
 | *PC-en er ikke koblet til sykehusets kliniske nett* | Check the cable / Wi-Fi and `medicus-wlan` (certificate valid?). See "Network ports and the clinical VLAN". |

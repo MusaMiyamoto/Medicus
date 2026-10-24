@@ -88,6 +88,13 @@ class SimulatedReader:
             raise CardError("Feil PIN. Kortet er nå sperret.")
         return ok
 
+    def unblock(self, card_id: str):
+        """IT has checked the person's ID: the card gets three new tries."""
+        if card_id not in self.cards:
+            raise CardError("Ukjent kort.")
+        self.tries.pop(card_id, None)
+        self._save()
+
     def tries_left(self) -> int:
         return MAX_TRIES - self.tries.get(self.current, 0) if self.current else 0
 

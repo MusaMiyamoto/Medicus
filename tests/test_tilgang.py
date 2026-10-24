@@ -404,3 +404,18 @@ def test_screen_unlock_only_for_own_session(setup, monkeypatch):
     assert "unlock_failed" in audit.path.read_text()
     ask(authority, ROOT, cmd="end")
     assert not ask(authority, INGRID, cmd="unlock", username="ingrid-berg", pin="1234")["ok"]  # logged out
+
+
+def test_it_lifts_a_pin_block_and_it_is_logged(setup):
+    authority, _clock, audit, _ = setup
+    ask(authority, cmd="insert", card_id="lege")
+    for _ in range(3):
+        ask(authority, ROOT, cmd="login", username="ingrid-berg", pin="0000")
+    assert ask(authority, cmd="status")["kort"]["sperret"]
+    assert not ask(authority, STRANGER, cmd="unblock", card_id="lege")["ok"]       # only root (sudo + IT card)
+    assert not ask(authority, ROOT, cmd="unblock", card_id="spl", it_bruker="eirik-strand")["ok"]  # not blocked
+    assert ask(authority, ROOT, cmd="unblock", card_id="lege", it_bruker="eirik-strand")["ok"]
+    assert not ask(authority, cmd="status")["kort"]["sperret"]
+    assert ask(authority, ROOT, cmd="login", username="ingrid-berg", pin="1234")["ok"]
+    unblocked = [json.loads(line) for line in audit.path.read_text().splitlines() if "card_unblocked" in line]
+    assert unblocked[0]["user"] == "eirik-strand" and unblocked[0]["details"] == {"card": "lege"}
