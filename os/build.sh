@@ -47,7 +47,7 @@ lb config \
   --bootappend-live "boot=live components quiet splash $HARDENING \
 live-config.noautologin live-config.noroot \
 live-config.username=bruker live-config.hostname=medicus \
-live-config.locales=nb_NO.UTF-8 live-config.keyboard-layouts=no live-config.timezone=Europe/Oslo"
+live-config.locales=nb_NO.UTF-8 live-config.keyboard-layouts=no,no live-config.keyboard-variants=,smi live-config.keyboard-options=grp:alt_shift_toggle live-config.timezone=Europe/Oslo"
 
 # Our files: package list, hooks, desktop settings, firewall. Files on a Windows
 # drive look world-writable, so reset permissions to sane values while copying.

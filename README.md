@@ -30,7 +30,9 @@ public body**, never for private PCs or phones.
   open-source Arc theme, Papirus icons and Noto fonts. Nothing is taken from Microsoft or Windows.
 - **Desktop:** XFCE with one bottom panel and a **Start** button. The Start menu's favorites are the
   patient record, the journal assistant, the Kalkulator, and the simulated citizen portal and disclosure workflow.
-- **Norwegian by default:** language `nb_NO`, Norwegian keyboard, Oslo time zone.
+- **Norwegian by default:** language `nb_NO`, Norwegian keyboard, Oslo time zone. **Northern Sámi**
+  (davvisámegiella: á č đ ŋ š ŧ ž) is the second keyboard layout: Alt+Shift switches, and the taskbar
+  shows which one is on (*nor* / *sme*).
 
 ### Logging in
 

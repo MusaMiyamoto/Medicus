@@ -24,6 +24,7 @@
         <value type="int" value="9"/>
         <value type="int" value="2"/>
         <value type="int" value="3"/>
+        <value type="int" value="10"/>
         <value type="int" value="4"/>
         <value type="int" value="5"/>
         <value type="int" value="6"/>
@@ -81,6 +82,12 @@
     <property name="plugin-3" type="string" value="separator">
       <property name="expand" type="bool" value="true"/>
       <property name="style" type="uint" value="0"/>
+    </property>
+    <!-- Keyboard layout: Norwegian or Northern Sámi (Alt+Shift), shown as its language code. -->
+    <property name="plugin-10" type="string" value="xkb">
+      <property name="display-type" type="uint" value="1"/>
+      <property name="display-name" type="uint" value="1"/>
+      <property name="group-policy" type="uint" value="0"/>
     </property>
     <property name="plugin-4" type="string" value="systray">
       <property name="square-icons" type="bool" value="true"/>
