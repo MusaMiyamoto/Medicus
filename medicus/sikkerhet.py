@@ -145,3 +145,20 @@ def emergency_reports(late: list[dict] | None) -> dict:
     who = ", ".join(f"{r['navn']} ({r['startet'].replace('T', ' ')})" for r in late[:5])
     return {"navn": "Nødtilgangsrapporter", "status": FAIL,
             "forklaring": f"{len(late)} rapport(er) mangler etter fristen: {who}. Gi beskjed til personvernombudet."}
+
+
+def workplace(site_id: str, site_name: str, cert_site: str | None) -> dict:
+    """Is the workplace in arbeidssted.toml the one the hospital's CA signed into the machine certificate?"""
+    from tilgang.arbeidssted import CONFIRMED, MISMATCH, confirmation
+    name = "Arbeidssted"
+    state = confirmation(site_id, cert_site)
+    if state == CONFIRMED:
+        return {"navn": name, "status": OK, "forklaring": f"{site_name}. Bekreftet av maskinsertifikatet."}
+    if state == MISMATCH:
+        signed = f"«{cert_site}»" if cert_site else "et sertifikat som ikke kan leses"
+        return {"navn": name, "status": FAIL,
+                "forklaring": f"PC-en sier «{site_id}», men maskinsertifikatet sier {signed}. Pasientjournaler er "
+                              "stengt til dette er rettet. Sjekk /etc/medicus/arbeidssted.toml og sertifikatet."}
+    return {"navn": name, "status": INFO,
+            "forklaring": f"{site_name}. Ikke bekreftet ennå: maskinsertifikatet mangler eller er fra før "
+                          "arbeidsstedet ble signert inn (lag et nytt med «medicus-wlan foresporsel»)."}

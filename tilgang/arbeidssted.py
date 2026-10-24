@@ -14,6 +14,8 @@ position she holds at St. Olavs on a PC in Trondheim.
 """
 
 import json
+import re
+import subprocess
 import tomllib
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -69,6 +71,43 @@ def load(path: Path = CONFIG) -> Arbeidssted:
     except ValueError:
         subnets = ()
     return Arbeidssted(site.id, site.navn, subnets or NO_NETWORK, tap, profile)
+
+
+# The machine certificate (see wlan/). Its OU is the workplace id, signed by the hospital's CA when IT
+# issued the certificate, so the workplace can't be changed by editing arbeidssted.toml alone. The same
+# certificate logs the PC on to the clinical network (802.1X), so a home-made replacement gets the PC
+# thrown off the network.
+CERTIFICATE = Path("/etc/medicus/maskinsertifikat.crt")
+CONFIRMED, UNCONFIRMED, MISMATCH = "bekreftet", "ubekreftet", "feil"
+_cert_cache: dict = {}
+
+
+def certificate_site(cert: Path = CERTIFICATE, run=subprocess.run) -> str | None:
+    """The workplace id in the machine certificate (OU). None: no certificate, or one without an OU.
+    "": a certificate that can't be read, which counts as not matching."""
+    try:
+        info = cert.stat()
+    except FileNotFoundError:
+        return None
+    key = (str(cert), info.st_mtime_ns, info.st_size)
+    if key not in _cert_cache:
+        out = run(["openssl", "x509", "-in", str(cert), "-noout", "-subject", "-nameopt", "RFC2253"],
+                  capture_output=True, text=True, check=False)
+        value = "" if out.returncode != 0 else None
+        subject = out.stdout.strip().removeprefix("subject=")
+        for part in re.split(r"(?<!\\),", subject) if out.returncode == 0 else ():
+            name, _, data = part.strip().partition("=")
+            if name.upper() == "OU":
+                value = data
+        _cert_cache.clear()
+        _cert_cache[key] = value
+    return _cert_cache[key]
+
+
+def confirmation(site_id: str, cert_site: str | None) -> str:
+    if cert_site is None:
+        return UNCONFIRMED
+    return CONFIRMED if cert_site == site_id else MISMATCH
 
 
 def load_sim_sites(path: Path = SIM_SITES) -> list[Arbeidssted]:

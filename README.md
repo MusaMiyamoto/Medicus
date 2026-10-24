@@ -87,6 +87,8 @@ login screen. Demo cards (PIN `1234` for all of them):
 `/etc/medicus/arbeidssted.toml` (for example Oslo universitetssykehus, Ullevål). The same card
 shows the person's position (*stilling*) at that workplace, so a doctor who logs in at St. Olavs
 in Trondheim or at Aker is shown there. In the demo, pick the workplace on the login screen.
+On real PCs the workplace is also **signed into the machine certificate** by the hospital's CA; if the
+file and the certificate disagree, patient records stay closed until IT fixes it.
 
 ### Health network, Helsenorge and authorities
 

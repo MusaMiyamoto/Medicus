@@ -29,7 +29,7 @@ from datetime import datetime, timedelta
 from medicus.audit import AuditLog
 
 from . import EMERGENCY_MINUTES, EMERGENCY_USER, HOLD_MINUTES, IT_ROLE, SITUATIONS, nett
-from .arbeidssted import UNKNOWN, Arbeidssted, load_sim_sites, position
+from .arbeidssted import MISMATCH, UNKNOWN, Arbeidssted, certificate_site, confirmation, load_sim_sites, position
 from .arbeidssted import load as load_site
 from .cards import CardError, SimulatedReader
 from .nodrapport import Reports
@@ -42,7 +42,8 @@ class Authority:
 
     def __init__(self, reader: SimulatedReader, audit: AuditLog, trusted_service_uids: set[int],
                  simulated: bool = True, clock=time.time, site: Arbeidssted = UNKNOWN,
-                 sim_sites: list[Arbeidssted] = (), reports: Reports | None = None, network=nett.read):
+                 sim_sites: list[Arbeidssted] = (), reports: Reports | None = None, network=nett.read,
+                 signed_site=lambda: None):
         self.reader = reader
         self.audit = audit
         self.trusted = trusted_service_uids
@@ -53,7 +54,19 @@ class Authority:
         self.session: dict | None = None
         self.reports = reports or Reports(None, clock)
         self.network = network
+        self.signed_site = signed_site  # the workplace in the machine certificate (arbeidssted.certificate_site)
         self.lock = threading.Lock()
+
+    def _site_confirmation(self) -> str:
+        return confirmation(self.site.id, self.signed_site())
+
+    def _require_signed_site(self, card, action):
+        """The workplace in arbeidssted.toml must be the one IT's CA signed into the machine certificate.
+        Otherwise notes and access logs would name the wrong hospital."""
+        if self._site_confirmation() == MISMATCH:
+            self.audit.record(card.hpr, f"{action}_refused_site", {"user": card.username, "site": self.site.id})
+            raise PermissionError("Arbeidsstedet på denne PC-en stemmer ikke med maskinsertifikatet, så "
+                                  "pasientjournaler er stengt. Nødtilgang virker fortsatt. Kontakt IT.")
 
     def _on_clinical_network(self) -> bool:
         """Read by authd itself, never taken from the caller."""
@@ -127,7 +140,7 @@ class Authority:
                 public["holdt_sekunder_igjen"] = max(0, int(session["holdt_til"] - self.clock()))
             public["rapporter"] = self.reports.missing(session["hpr"])
         reply = {"kort": card.public() if card else None, "okt": public, "simulert": self.simulated,
-                 "arbeidssted": self.site.public()}
+                 "arbeidssted": {**self.site.public(), "bekreftet": self._site_confirmation()}}
         if card:
             reply["kort"]["stilling"] = position(card.stillinger, card.rolle, self.site)
             reply["kort"]["sperret"] = self.reader.is_blocked(card.card_id)
@@ -183,6 +196,7 @@ class Authority:
         # Patient records only on the clinical network. IT mode has no patient data, and IT must be
         # able to log in to repair the network, so it is allowed elsewhere but marked.
         if mode == "normal":
+            self._require_signed_site(card, "login")
             self._require_clinical_network(card, "login")
         current = self._session()
         if not (current and current["username"] == card.username and current["modus"] == mode):
@@ -216,6 +230,7 @@ class Authority:
             self.audit.record(card.hpr, "unlock_failed", {"user": card.username})
             raise CardError(f"Feil PIN. {self.reader.tries_left()} forsøk igjen.")
         if session["modus"] == "normal":
+            self._require_signed_site(card, "unlock")
             self._require_clinical_network(card, "unlock")  # a laptop carried off the ward stays locked
         if session.get("holdt_til"):
             self._release(card)
@@ -240,6 +255,7 @@ class Authority:
         if (session["modus"] != "normal" or limit <= 0 or self.reader.is_blocked(card.card_id)
                 or self.clock() - session.get("pin_tid", 0) > limit * 60):
             raise PermissionError("Skriv PIN-koden din.")
+        self._require_signed_site(card, "unlock")
         self._require_clinical_network(card, "unlock")
         self._release(card, pin=False)
 
@@ -388,6 +404,7 @@ def main():
         simulated=True,
         site=load_site(),
         sim_sites=load_sim_sites(),
+        signed_site=certificate_site,
     )
     serve(authority, os.getenv("MEDICUS_AUTH_SOCKET", SOCKET))
 

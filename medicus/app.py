@@ -28,6 +28,7 @@ from helsenett import config as integration
 from helsenett import fnr as fnrlib
 from helsenett.client import HelsenettError, get_client
 import utstyr
+from tilgang import arbeidssted
 from tilgang.client import AuthError
 from tilgang.client import call as auth_call
 
@@ -379,6 +380,11 @@ def security_page():
     return FileResponse(STATIC / "sikkerhet.html")
 
 
+def workplace_check() -> dict:
+    site = arbeidssted.load()
+    return sikkerhet.workplace(site.id, site.navn, arbeidssted.certificate_site())
+
+
 @app.get("/api/sikkerhet")
 def security_status(_session: dict = Depends(it_session)):
     try:
@@ -387,7 +393,8 @@ def security_status(_session: dict = Depends(it_session)):
         late = None
     devices = sikkerhet.medical_devices(utstyr.connected(), utstyr.load())
     return sikkerhet.checks() + [sikkerhet.emergency_reports(late), devices, sikkerhet.machine_certificate(),
-                                 sikkerhet.response_time(list(response_times)), revisjon.status_check()]
+                                 sikkerhet.response_time(list(response_times)), revisjon.status_check(),
+                                 workplace_check()]
 
 
 # --- Emergency access ------------------------------------------------------

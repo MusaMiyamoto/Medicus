@@ -256,6 +256,20 @@ Sikkerhetssenter warns 30 days before the certificate runs out. Needs TPM 2.0 sw
 BIOS/UEFI and a RADIUS server set up for EAP-TLS. **Test on real hardware first:** the TPM path
 (tpm2-pkcs11 → NetworkManager → wpa_supplicant) can't be tried in a VM without a virtual TPM.
 
+**The workplace is signed into the certificate.** `foresporsel` puts the PC's workplace id from
+`/etc/medicus/arbeidssted.toml` into the request as `OU` (for example `CN=pc-0042, OU=ous-ulleval`).
+Sign it only if the PC really belongs there. At every login, `medicus-authd` compares the two:
+
+| Certificate says | Result |
+|---|---|
+| The same workplace as the file | Sikkerhetssenter: *Bekreftet av maskinsertifikatet* |
+| Nothing (no certificate, or one from before this) | Allowed; Sikkerhetssenter shows *Ikke bekreftet ennå* |
+| Another workplace, or can't be read | **Patient records closed** (`login_refused_site`). Emergency access and IT mode still work |
+
+So moving a PC to another hospital takes a new certificate from IT, not only a changed file. Notes
+and Helsenorge access logs name the workplace, and this keeps that name honest. A home-made
+certificate doesn't help an intruder either: the network's RADIUS server only accepts the hospital's CA.
+
 ### Network ports and the clinical VLAN
 
 The same TPM certificate also works on the network cable:

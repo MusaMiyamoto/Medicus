@@ -22,6 +22,8 @@ from pathlib import Path
 
 import wlan
 from medicus.audit import AuditLog
+from tilgang.arbeidssted import UNKNOWN
+from tilgang.arbeidssted import load as load_site
 
 COMMAND = "/usr/local/bin/medicus-wlan"
 AUDIT = Path("/var/lib/medicus-wlan/audit.jsonl")
@@ -91,10 +93,16 @@ def make_request(args):
     name = args.navn or socket.getfqdn()
     if not wlan.DOMAIN.match(name.lower()) and not name.isalnum():
         raise ValueError("Ugyldig maskinnavn.")
+    site = load_site()
+    if site.id == UNKNOWN.id:
+        raise ValueError("Sett arbeidssted i /etc/medicus/arbeidssted.toml først. Det signeres inn i sertifikatet.")
+    if not wlan.SITE_ID.fullmatch(site.id):
+        raise ValueError("Arbeidssted-id kan bare ha små bokstaver, tall og bindestrek (for eksempel ous-ulleval).")
     key = f"{wlan.KEY_URI}?pin-value={PIN.read_text().strip()}"
+    # OU = the workplace: the CA signs only if this PC really belongs there, and authd checks it at login.
     run("openssl", "req", "-new", "-provider", "pkcs11", "-provider", "default", "-key", key,
-        "-subj", f"/CN={name}", "-out", str(CSR))
-    log("tpm_csr_created", {"name": name})
+        "-subj", f"/CN={name}/OU={site.id}", "-out", str(CSR))
+    log("tpm_csr_created", {"name": name, "site": site.id})
     print(f"Forespørselen er i {CSR}. Gi den til den som driver virksomhetens CA, og installer svaret med\n"
           f"  sudo medicus-wlan sertifikat maskin.crt ca.crt\n")
     print(CSR.read_text())

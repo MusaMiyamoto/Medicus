@@ -97,3 +97,12 @@ def test_prefetch_never_fails_the_login(monkeypatch):
             raise OSError("connection refused")
     monkeypatch.setattr(forhent.urllib.request, "build_opener", lambda *a: Down())
     assert forhent.main() == 0
+
+
+def test_workplace_check_says_whether_the_certificate_confirms_it():
+    from medicus.sikkerhet import workplace
+    assert workplace("ous-ulleval", "OUS Ullevål", "ous-ulleval")["status"] == "ok"
+    wrong = workplace("ous-ulleval", "OUS Ullevål", "stolav")
+    assert wrong["status"] == "feil" and "stolav" in wrong["forklaring"]
+    assert workplace("ous-ulleval", "OUS Ullevål", "")["status"] == "feil"
+    assert workplace("ous-ulleval", "OUS Ullevål", None)["status"] == "info"

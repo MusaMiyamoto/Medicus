@@ -27,6 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 TPM_DEVICE = Path("/dev/tpmrm0")
+SITE_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")  # goes into the certificate request as OU
 FOLDER = Path("/etc/medicus/tpm")          # root only: the TPM token store and its PIN
 CERT = Path("/etc/medicus/maskinsertifikat.crt")  # public, so the Sikkerhetssenter can read the expiry date
 CA = Path("/etc/medicus/wlan-ca.crt")

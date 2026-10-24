@@ -59,7 +59,7 @@ def test_status_without_card(setup):
     authority, *_ = setup
     reply = ask(authority, cmd="status")
     assert (reply["kort"], reply["okt"], reply["simulert"]) == (None, None, True)
-    assert reply["arbeidssted"] == ULLEVAL.public()
+    assert reply["arbeidssted"] == {**ULLEVAL.public(), "bekreftet": "ubekreftet"}  # no machine certificate
 
 
 def test_normal_login_with_card_and_pin(setup):
@@ -510,3 +510,67 @@ def test_guard_taps_only_for_the_held_logins_own_card():
     not_held = {k: v for k, v in held.items() if k != "holdt_sekunder_igjen"}
     assert not should_tap({"okt": not_held, "kort": card, "arbeidssted": site})  # card left in: PIN needed
     assert not should_tap({"okt": None, "kort": card, "arbeidssted": site})
+
+
+# --- The workplace signed into the machine certificate ----------------------------
+
+def make_cert(tmp_path, subject):
+    import subprocess
+    cert = tmp_path / "maskin.crt"
+    subprocess.run(["openssl", "req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:P-256", "-nodes",
+                    "-keyout", str(tmp_path / "k.pem"), "-out", str(cert), "-days", "1", "-subj", subject],
+                   check=True, capture_output=True)
+    return cert
+
+
+def test_workplace_is_read_from_the_certificate(tmp_path):
+    from tilgang.arbeidssted import certificate_site
+    assert certificate_site(tmp_path / "finnes-ikke.crt") is None
+    assert certificate_site(make_cert(tmp_path, "/CN=pc-0042/OU=ous-ulleval/O=Oslo universitetssykehus")) == "ous-ulleval"
+    (tmp_path / "sub").mkdir()
+    assert certificate_site(make_cert(tmp_path / "sub", "/CN=pc-0042")) is None  # an older certificate: no OU
+    broken = tmp_path / "broken.crt"
+    broken.write_text("not a certificate")
+    assert certificate_site(broken) == ""  # unreadable counts as not matching
+
+
+def test_certificate_is_read_once_until_it_changes(tmp_path):
+    from types import SimpleNamespace
+
+    from tilgang.arbeidssted import certificate_site
+    cert = tmp_path / "c.crt"
+    cert.write_text("x")
+    calls = []
+
+    def run(cmd, **_):
+        calls.append(cmd)
+        return SimpleNamespace(returncode=0, stdout="subject=CN=pc,OU=stolav\n")
+    assert certificate_site(cert, run) == certificate_site(cert, run) == "stolav"
+    assert len(calls) == 1
+    cert.write_text("changed")
+    certificate_site(cert, run)
+    assert len(calls) == 2
+
+
+def test_a_workplace_that_does_not_match_the_certificate_closes_records_but_not_emergency(setup, monkeypatch):
+    import tilgang.authd
+    authority, _clock, audit, _ = setup
+    monkeypatch.setattr(tilgang.authd, "_uid_of", lambda name: 1001)
+    authority.signed_site = lambda: "stolav"  # the file says Ullevål, the CA signed St. Olavs
+    assert ask(authority, cmd="status")["arbeidssted"]["bekreftet"] == "feil"
+    ask(authority, cmd="insert", card_id="lege")
+    reply = ask(authority, ROOT, cmd="login", username="ingrid-berg", pin="1234")
+    assert not reply["ok"] and "maskinsertifikatet" in reply["error"]
+    assert "login_refused_site" in audit.path.read_text()
+    assert ask(authority, ROOT, cmd="emergency", situasjon="Hjertestans")["ok"]
+    authority.session = None
+    ask(authority, cmd="remove")
+    login(authority, "it", "eirik-strand", "4401")  # IT can still log in to fix it
+    authority.signed_site = lambda: "ous-ulleval"
+    assert ask(authority, cmd="status")["arbeidssted"]["bekreftet"] == "bekreftet"
+    ask(authority, cmd="remove")
+    login(authority)
+    authority.signed_site = lambda: ""  # the certificate became unreadable while logged in
+    ask(authority, cmd="remove")
+    ask(authority, cmd="insert", card_id="lege")
+    assert not ask(authority, 1001, cmd="unlock", username="ingrid-berg", pin="1234")["ok"]
