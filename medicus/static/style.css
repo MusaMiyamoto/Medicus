@@ -1,4 +1,9 @@
 /* Medicus green. --topbar stays dark green in both themes. */
+
+/* `hidden` must win over any display rule below (.recording-bar, .patient-chosen … are flex),
+   or a hidden recording bar or empty patient box shows. */
+[hidden] { display: none !important; }
+
 :root {
   --bg: #f2f6f3;
   --card: #ffffff;
