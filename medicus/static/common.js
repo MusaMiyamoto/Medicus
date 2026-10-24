@@ -92,6 +92,9 @@ function demoBanner() {
   const bar = document.createElement("div");
   bar.className = "banner warn";
   bar.innerHTML = `<b>Nettdemo</b> – bare syntetiske data. <a href="/demo">Tilbake til demoen / bytt kort</a>`;
+  if (location.pathname === "/sikkerhet") {
+    bar.innerHTML += "<br>Sikkerhetssenteret viser serveren nettdemoen kjører på, ikke en Medicus-PC. Det er derfor mye her er rødt.";
+  }
   document.querySelector("main").prepend(bar);
 }
 

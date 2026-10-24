@@ -22,6 +22,7 @@ from .fhir import make_fhir_router
 from .post import make_router
 
 STATIC = Path(__file__).parent / "static"
+I18N = Path(__file__).parent.parent.parent / "medicus" / "static" / "i18n.js"
 
 CATEGORIES = ["Kritisk informasjon", "Legemidler", "Kontakter og notater"]
 
@@ -119,6 +120,12 @@ def critical(p: dict) -> dict:
 def create_app(state_path: Path) -> FastAPI:
     store = Store(state_path)
     app = FastAPI(title="Helsenett-simulator", docs_url=None, redoc_url=None)
+
+    @app.get("/static/i18n.js")
+    def english():
+        # The same Norwegian/English switch as the Medicus pages (before the mount, so it wins).
+        return FileResponse(I18N, media_type="text/javascript")
+
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     app.include_router(make_router(store, state_path.parent / f"{state_path.stem}-vedlegg"))
     app.include_router(make_fhir_router(store, now))

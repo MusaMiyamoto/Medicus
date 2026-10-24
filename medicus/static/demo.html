@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Prøv Medicus</title>
   <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/i18n.js"></script>
   <style>
     .demo-intro { background: var(--warn-bg); color: var(--warn-text); border-radius: 12px; padding: 14px 18px; margin: 16px 0; }
     .demo-intro p { margin: 4px 0; }
@@ -38,8 +39,8 @@
     <div class="demo-intro">
       <p><b>Dette er en nettdemo av Medicus, med bare oppdiktede (syntetiske) pasienter og personer.</b>
         Ikke skriv inn ekte pasientopplysninger.</p>
-      <p class="hint">This is a web demo of Medicus with synthetic data only. In the real Medicus OS you log in with a
-        health-personnel card at the login screen; here you pick a demo card instead. Every demo card has PIN <b>1234</b>.</p>
+      <p class="hint">I Medicus OS logger du inn med helsepersonellkortet på innloggingsskjermen. Her velger du et
+        demokort i stedet. Alle demokortene har PIN-kode <b>1234</b>. In English: the button at the top right.</p>
     </div>
 
     <section class="card" id="login" hidden>
@@ -86,6 +87,7 @@
         hjemmemappen ved utlogging, journalassistentens opptak (ingen tale- eller språkmodell her: eksempelsamtalen
         blir et ferdig eksempelnotat) og Kalkulatoren. Sikkerhetssenteret viser her serveren demoen kjører på,
         ikke en Medicus-PC.</p>
+      <p class="muted">Pasientjournaler, notater og eksempelsamtalen er på norsk: det er klinisk innhold, som i en norsk journal.</p>
     </section>
   </main>
   <script src="/static/common.js"></script>
