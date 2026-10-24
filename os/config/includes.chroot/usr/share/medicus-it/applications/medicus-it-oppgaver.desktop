@@ -2,9 +2,9 @@
 Type=Application
 Name=Oppgavebehandling
 Name[en]=Task manager
-Comment=Se og stopp programmer som kjører
-Comment[en]=See and stop running programs
-Exec=xfce4-taskmanager
+Comment=Se og stopp programmer som kjører. Bekreftes med PIN på IT-kortet.
+Comment[en]=See and stop running programs. Confirmed with the IT card PIN.
+Exec=medicus-oppgaver
 Icon=utilities-system-monitor
 Terminal=false
 Categories=System;

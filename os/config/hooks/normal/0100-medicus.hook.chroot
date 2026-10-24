@@ -13,7 +13,7 @@ groupadd -f medicus-it   # IT staff: IT mode, admin rights with the IT card
 # --- Python environment for the web services -----------------------------------
 python3 -m venv /opt/medicus/.venv
 /opt/medicus/.venv/bin/pip install --no-cache-dir -r /opt/medicus/requirements.txt
-python3 -m compileall -q /opt/medicus/medicus /opt/medicus/helsenett /opt/medicus/tilgang /opt/medicus/kalkulator /opt/medicus/tekst
+python3 -m compileall -q /opt/medicus/medicus /opt/medicus/helsenett /opt/medicus/tilgang /opt/medicus/kalkulator /opt/medicus/tekst /opt/medicus/oppgaver
 
 # Synthetic X-ray and MR images in every user's "Bilder" folder, for trying image sharing.
 mkdir -p /etc/skel/Bilder
@@ -93,7 +93,7 @@ chmod 755 /usr/share/applications/medicus-*.desktop /usr/share/medicus-it/applic
 
 # --- IT mode: tools only IT staff can start -------------------------------------------
 # Hiding them from the menu is not enough, so the programs themselves belong to medicus-it.
-for tool in /usr/bin/xfce4-terminal /usr/bin/xfce4-taskmanager /usr/bin/xfce4-settings-manager \
+for tool in /usr/bin/xfce4-terminal /usr/local/bin/medicus-oppgaver /usr/bin/xfce4-settings-manager \
             /usr/bin/nm-connection-editor; do
   dpkg-statoverride --update --add root medicus-it 0750 "$tool"
 done

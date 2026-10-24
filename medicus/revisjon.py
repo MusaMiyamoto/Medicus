@@ -23,6 +23,7 @@ LOGS = (
     Path("/var/lib/medicus-utstyr/audit.jsonl"),        # medical USB devices
     Path("/var/lib/medicus-wlan/audit.jsonl"),          # Wi-Fi and machine certificate
     Path("/var/lib/medicus-journalsystem/audit.jsonl"),  # the hospital's record systems
+    Path("/var/lib/medicus-oppgaver/audit.jsonl"),      # programs stopped in the Task Manager
 )
 
 

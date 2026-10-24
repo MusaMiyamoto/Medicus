@@ -72,7 +72,6 @@ cryptsetup
 # IT mode only: these programs belong to the medicus-it group (see the build hook)
 sudo
 xfce4-terminal
-xfce4-taskmanager
 
 # Start-up animation (heartbeat)
 plymouth
